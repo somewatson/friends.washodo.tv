@@ -3,13 +3,13 @@ import axios from 'axios';
 export class MattermostNotifier {
     private webhookUrl = process.env.MATTERMOST_WEBHOOK_URL;
 
-    async sendNotification(streamer: any) {
+    async sendNotification(streamer: any, tier: string = 'Streamer') {
         if (!this.webhookUrl) {
             console.error('Mattermost Webhook URL not configured');
             return;
         }
 
-        const message = `### 🔴 ${streamer.user_name} is LIVE!\n\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})`;
+        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!\n\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})`;
 
         try {
             await axios.post(this.webhookUrl, {

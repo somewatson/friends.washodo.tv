@@ -35,7 +35,7 @@ API_KEY=generate_a_long_random_string_here
 
 # Bot Settings
 # Comma-separated list of Twitch usernames to monitor for notifications
-TRACKED_STREAMERS=streamer1,streamer2,streamer3
+TRACKED_STREAMERS=somewatson,shodesu,puddotv,sedurrr,omegamixed,dropscollectors
 
 # How often to check Twitch (Cron expression: */5 * * * * means every 5 mins)
 CHECK_INTERVAL=*/5 * * * *

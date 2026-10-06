@@ -1,0 +1,128 @@
+
+> twitch-watch@1.0.0 dev
+> nodemon src/index.ts
+
+[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: ts,json[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Check complete.
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Port 3001 is already in use. Retrying in 1 second...
+Check complete.
+API Server running on port 3001
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+/config/workspace/mm-mods/node_modules/ts-node/src/index.ts:859
+    return new TSError(diagnosticText, diagnosticCodes, diagnostics);
+           ^
+TSError: ⨯ Unable to compile TypeScript:
+src/index.ts(16,8): error TS2339: Property 'start' does not exist on type 'ApiServer'.
+
+    at createTSError (/config/workspace/mm-mods/node_modules/ts-node/src/index.ts:859:12)
+    at reportTSError (/config/workspace/mm-mods/node_modules/ts-node/src/index.ts:863:19)
+    at getOutput (/config/workspace/mm-mods/node_modules/ts-node/src/index.ts:1077:36)
+    at Object.compile (/config/workspace/mm-mods/node_modules/ts-node/src/index.ts:1433:41)
+    at Module.m._compile (/config/workspace/mm-mods/node_modules/ts-node/src/index.ts:1617:30)
+    at node:internal/modules/cjs/loader:1940:10
+    at Object.require.extensions.<computed> [as .ts] (/config/workspace/mm-mods/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1530:32)
+    at Module._load (node:internal/modules/cjs/loader:1332:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19) {
+  diagnosticCodes: [ 2339 ]
+}
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Port 3001 is already in use. Retrying in 1 second...
+Check complete.
+API Server running on port 3001
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Check complete.
+Killed
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Check complete.
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Port 3001 is already in use. Retrying in 1 second...
+Check complete.
+API Server running on port 3001
+Killed
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Port 3001 is already in use. Retrying in 1 second...
+Check complete.
+API Server running on port 3001
+Killed
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+◇ injected env (8) from .env
+◇ injected env (0) from .env
+◇ injected env (0) from .env
+Hybrid Bot/API started. Monitoring 12 streamers every */5 * * * *.
+Checking for live streams...
+API Server running on port 3001
+Port 3001 is already in use. Retrying in 1 second...
+Check complete.
+API Server running on port 3001
+Checking for live streams...
+Check complete.
+Killed
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m

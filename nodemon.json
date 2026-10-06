@@ -1,0 +1,8 @@
+{
+  "ignore": [
+    "state.json",
+    "node_modules",
+    "*.log"
+  ],
+  "ext": "ts,json"
+}
