@@ -1,25 +1,24 @@
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import { TwitchClient } from './twitchClient';
-import { MattermostNotifier } from './mattermostNotifier';
+import { WebhookNotifier } from './webhookNotifier';
 import { ApiServer } from './server';
+import { StreamerStateRepository } from './streamerStateRepository';
 
 dotenv.config();
 
 const twitch = new TwitchClient();
-const notifier = new MattermostNotifier();
+const notifier = new WebhookNotifier();
+const stateRepo = new StreamerStateRepository();
 
 // Start the API Server
-const server = new ApiServer();
+const server = new ApiServer(stateRepo);
 server.start();
 
 const washodoMembers = (process.env.WASHODO_MEMBERS || '').split(',');
 const washodoFriends = (process.env.WASHODO_FRIENDS || '').split(',');
 const trackedStreamers = [...washodoMembers, ...washodoFriends].filter(Boolean);
 const checkInterval = process.env.CHECK_INTERVAL || '*/5 * * * *';
-
-// In-memory state to track who was live in the previous check for notifications
-let lastKnownStatus: Record<string, { isLive: boolean }> = {};
 
 // Helper to get current timestamp for logs
 function logWithTimestamp(message: string) {
@@ -33,51 +32,68 @@ async function checkStreams() {
     const liveStreamers = await twitch.getLiveStreamers(trackedStreamers);
     
     const liveUsernames = liveStreamers.map(s => s.user_login.toLowerCase());
-    const currentStatus: Record<string, { isLive: boolean }> = {};
     
     for (const streamer of liveStreamers) {
         const username = streamer.user_login.toLowerCase();
-        const wasLive = lastKnownStatus[username]?.isLive || false;
+        const wasLive = await stateRepo.isKnownLive(username);
         
         const isMember = washodoMembers.includes(username);
         const isFriend = washodoFriends.includes(username);
         const tier = isMember ? 'Washodo Member' : (isFriend ? 'Washodo Friend' : 'Other');
         
         if (!wasLive) {
-            await notifier.sendNotification(streamer, tier);
-            logWithTimestamp(`🔔 Notification sent: ${username} (${tier}) is now live!`);
+            const startTime = await twitch.getStreamStartTime(streamer.user_id);
+            const uptimeText = startTime 
+                ? `Live since ${new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                : 'Just went live!';
+            
+            await notifier.sendNotification({
+                ...streamer,
+                uptime: uptimeText
+            }, tier);
+            
+            logWithTimestamp(`🔔 Notification sent: ${username} (${tier}) is now live! ${uptimeText}`);
+            await stateRepo.setLive(username, startTime || new Date().toISOString());
         }
-        
-        currentStatus[username] = {
-            isLive: true
-        };
     }
 
     // Mark everyone else as offline
     for (const username of trackedStreamers) {
         const lowerUser = username.toLowerCase();
         if (!liveUsernames.includes(lowerUser)) {
-            currentStatus[lowerUser] = {
-                isLive: false
-            };
+            const wasLive = await stateRepo.isKnownLive(lowerUser);
+            if (wasLive) {
+                await stateRepo.setOffline(lowerUser);
+                logWithTimestamp(`💤 ${lowerUser} is now offline.`);
+            }
         }
     }
 
-    lastKnownStatus = currentStatus;
     logWithTimestamp('Check complete.');
 }
 
-logWithTimestamp(`Hybrid Bot/API started. Monitoring ${trackedStreamers.length} streamers every ${checkInterval}.`);
-cron.schedule(checkInterval, checkStreams);
+async function bootstrap() {
+    try {
+        await stateRepo.init();
+        logWithTimestamp(`Hybrid Bot/API started. Monitoring ${trackedStreamers.length} streamers every ${checkInterval}.`);
+        cron.schedule(checkInterval, checkStreams);
+        
+        // Run once immediately on start
+        checkStreams();
+    } catch (error) {
+        console.error('Failed to bootstrap application:', error);
+        process.exit(1);
+    }
+}
 
-// Run once immediately on start
-checkStreams();
+bootstrap();
 
 // Graceful shutdown
 const shutdown = async () => {
     logWithTimestamp('Shutting down gracefully...');
     try {
         await server.stop();
+        await stateRepo.close();
     } catch (err) {
         console.error('Error during server stop:', err);
     }

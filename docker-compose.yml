@@ -3,10 +3,11 @@ services:
     build: .
     container_name: twitch-notifier
     restart: unless-stopped
+    user: "${UID}:${GID}"
     env_file:
       - .env
     volumes:
-      - ./state.json:/app/state.json
+      - ./data:/app/data
     ports:
       - "3001:3001"
 

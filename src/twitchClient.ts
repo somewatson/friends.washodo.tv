@@ -97,5 +97,27 @@ export class TwitchClient {
             console.error('Error fetching live streams:', error.response?.data || error.message);
             return [];
         }
+        async getStreamStartTime(userId: string): Promise<string | null> {
+        const token = await this.getAccessToken();
+        try {
+            const response = await axios.get('https://api.twitch.tv/helix/videos', {
+                params: {
+                    user_id: userId,
+                    type: 'live',
+                },
+                headers: {
+                    'Client-ID': this.clientId || 'dummy-id',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const videos = response.data.data;
+            if (videos && videos.length > 0) {
+                return videos[0].created_at;
+            }
+            return null;
+        } catch (error: any) {
+            console.error(`Error fetching start time for user ${userId}:`, error.response?.data || error.message);
+            return null;
+        }
     }
 }

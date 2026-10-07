@@ -1,7 +1,7 @@
 {
   "name": "twitch-watch",
   "version": "1.0.0",
-  "description": "TwitchWatch: A lightweight Node.js/TypeScript hybrid service that monitors Twitch streamers, notifies a Mattermost channel when they go live, and provides a secure API for external websites.",
+  "description": "TwitchWatch: A lightweight Node.js/TypeScript hybrid service that monitors Twitch streamers, notifies a webhook endpoint when they go live, and provides a secure API for external websites.",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
@@ -19,7 +19,9 @@
     "cors": "^2.8.6",
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
-    "node-cron": "^4.6.0"
+    "node-cron": "^4.6.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -27,6 +29,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.4",
     "@types/node-cron": "^3.0.11",
+    "@types/sqlite3": "^3.1.11",
     "jest": "^30.5.2",
     "nodemon": "^3.1.14",
     "ts-jest": "^29.4.14",

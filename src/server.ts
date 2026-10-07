@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { TwitchClient } from './twitchClient';
+import { WebhookNotifier } from './webhookNotifier';
+import { StreamerStateRepository } from './streamerStateRepository';
 
 dotenv.config();
 
@@ -10,9 +12,12 @@ export class ApiServer {
     private port = process.env.PORT || 3000;
     private apiKey = process.env.API_KEY;
     private twitch = new TwitchClient();
+    private notifier = new WebhookNotifier();
+    private stateRepo: StreamerStateRepository;
     private server: any;
 
-    constructor() {
+    constructor(stateRepo: StreamerStateRepository) {
+        this.stateRepo = stateRepo;
         this.setupMiddleware();
         this.setupRoutes();
     }
@@ -39,6 +44,25 @@ export class ApiServer {
                 res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
             }
         });
+    }
+
+    private formatUptime(startTime: string | null): string {
+        if (!startTime) return 'Unknown';
+        const start = new Date(startTime);
+        const now = new Date();
+        const diffMs = now.getTime() - start.getTime();
+        if (diffMs < 0) return 'Just started';
+
+        const diffHrs = Math.floor(diffMs / 3600000);
+        const diffMins = Math.floor((diffMs % 3600000) / 60000);
+        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+
+        const parts = [];
+        if (diffHrs > 0) parts.push(`${diffHrs}h`);
+        if (diffMins > 0) parts.push(`${diffMins}m`);
+        if (diffHrs === 0 && diffMins === 0) parts.push(`${diffSecs}s`);
+        
+        return parts.join(' ');
     }
 
     private setupRoutes() {
@@ -70,6 +94,12 @@ export class ApiServer {
                         const tagline = user?.description || '';
                         const twitchUrl = `https://twitch.tv/${username}`;
 
+                        let uptimeText = '';
+                        if (isLive) {
+                            const startTime = await this.stateRepo.getLiveSince(lowerUser);
+                            uptimeText = ` (Live for ${this.formatUptime(startTime)})`;
+                        }
+                        
                         return `
                             <a href="${twitchUrl}" target="_blank" class="streamer-card">
                                 ${isLive ? `<img src="${thumbnail}" class="stream-thumbnail" alt="Live stream thumbnail">` : ''}
@@ -83,12 +113,12 @@ export class ApiServer {
                                 </div>
                                 <div class="status-box">
                                     <span class="status-indicator ${isLive ? 'live' : 'offline'}"></span>
-                                    <span class="status-label">${isLive ? 'LIVE' : 'Offline'}</span>
+                                    <span class="status-label">${isLive ? 'LIVE' + uptimeText : 'Offline'}</span>
                                 </div>
                             </a>`;
                     }).join('');
                 };
-
+                
                 const html = `
                     <div class="tier-section">
                         <div class="tier-title">Washodo Members</div>
@@ -99,7 +129,7 @@ export class ApiServer {
                         <div class="streamer-grid">${renderGrid(friends)}</div>
                     </div>
                 `;
-
+                
                 const fs = require('fs');
                 const path = require('path');
                 let template = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
@@ -158,6 +188,22 @@ export class ApiServer {
                 });
             } catch (error) {
                 return res.status(500).json({ error: 'Failed to fetch data from Twitch' });
+            }
+        });
+
+        this.app.post('/api/test-webhook', async (req, res) => {
+            const testStreamer = {
+                user_name: 'Test Bot',
+                user_login: 'testbot',
+                game_name: 'Testing',
+                title: 'This is a test notification from TwitchWatch!'
+            };
+
+            try {
+                await this.notifier.sendNotification(testStreamer, 'System Test');
+                res.json({ message: 'Test notification sent successfully' });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to send test notification', details: error.message });
             }
         });
     }
