@@ -123,11 +123,11 @@ export class ApiServer {
                 const html = `
                     <div class="tier-section">
                         <div class="tier-title">Washodo Members</div>
-                        <div class="streamer-grid">${renderGrid(members)}</div>
+                        <div class="streamer-grid">${await renderGrid(members)}</div>
                     </div>
                     <div class="tier-section">
                         <div class="tier-title">Washodo Friends</div>
-                        <div class="streamer-grid">${renderGrid(friends)}</div>
+                        <div class="streamer-grid">${await renderGrid(friends)}</div>
                     </div>
                 `;
                 
