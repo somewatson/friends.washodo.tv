@@ -19,7 +19,7 @@ describe('StateManager', () => {
     });
 
     it('should load state from file', () => {
-        const mockState = { 'streamer1': true, 'streamer2': false };
+        const mockState = { 'streamer1': { isLive: true, lastLive: null }, 'streamer2': { isLive: false, lastLive: null } };
         (fs.existsSync as jest.Mock).mockReturnValue(true);
         (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockState));
         
@@ -27,7 +27,7 @@ describe('StateManager', () => {
     });
 
     it('should save state to file', () => {
-        const mockState = { 'streamer1': true };
+        const mockState = { 'streamer1': { isLive: true, lastLive: null } };
         stateManager.saveState(mockState);
         
         expect(fs.writeFileSync).toHaveBeenCalledWith(
