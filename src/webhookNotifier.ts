@@ -14,7 +14,7 @@ export class WebhookNotifier {
             : '';
         const uptimeInfo = streamer.uptime ? `\n**${streamer.uptime}**` : '';
         const imageMarkdown = thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : '';
-        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n${imageMarkdown}\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})`;
+        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n${imageMarkdown}\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})\n[View all streamers](https://friends.washodo.tv/)`;
 
         const notifications: Promise<any>[] = [];
 

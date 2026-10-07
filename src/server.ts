@@ -149,6 +149,10 @@ export class ApiServer {
                         <div class="tier-title">Washodo Friends</div>
                         <div class="streamer-grid">${await renderGrid(friends)}</div>
                     </div>
+                    <div class="join-section">
+                        <div class="join-text">Want to be included here?</div>
+                        <a href="https://washodo.tv" target="_blank" class="join-button">Apply to join at washodo.tv</a>
+                    </div>
                 `;
                 
                 const fs = require('fs');
