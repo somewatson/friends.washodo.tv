@@ -43,8 +43,9 @@ async function checkStreams() {
         
         if (!wasLive) {
             const startTime = streamer.started_at;
-            const uptimeText = startTime 
-                ? `Live since ${new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            const uptimeValue = ApiServer.formatUptime(startTime);
+            const uptimeText = uptimeValue !== 'Unknown' 
+                ? `Live for ${uptimeValue}`
                 : 'Live now!';
             
             await notifier.sendNotification({

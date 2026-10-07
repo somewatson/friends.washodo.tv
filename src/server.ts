@@ -65,6 +65,25 @@ export class ApiServer {
         return parts.join(' ');
     }
 
+    public static formatUptime(startTime: string | null): string {
+        if (!startTime) return 'Unknown';
+        const start = new Date(startTime);
+        const now = new Date();
+        const diffMs = now.getTime() - start.getTime();
+        if (diffMs < 0) return 'Just started';
+
+        const diffHrs = Math.floor(diffMs / 3600000);
+        const diffMins = Math.floor((diffMs % 3600000) / 60000);
+        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+
+        const parts = [];
+        if (diffHrs > 0) parts.push(`${diffHrs}h`);
+        if (diffMins > 0) parts.push(`${diffMins}m`);
+        if (diffHrs === 0 && diffMins === 0) parts.push(`${diffSecs}s`);
+        
+        return parts.join(' ');
+    }
+
     private setupRoutes() {
         this.app.get('/', async (req, res) => {
             const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
