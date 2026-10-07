@@ -42,7 +42,7 @@ async function checkStreams() {
         const tier = isMember ? 'Washodo Member' : (isFriend ? 'Washodo Friend' : 'Other');
         
         if (!wasLive) {
-            const startTime = await twitch.getStreamStartTime(streamer.user_id);
+            const startTime = streamer.started_at;
             const uptimeText = startTime 
                 ? `Live since ${new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                 : 'Live now!';
