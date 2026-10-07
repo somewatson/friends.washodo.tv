@@ -45,7 +45,7 @@ async function checkStreams() {
             const startTime = await twitch.getStreamStartTime(streamer.user_id);
             const uptimeText = startTime 
                 ? `Live since ${new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                : 'Just went live!';
+                : 'Live now!';
             
             await notifier.sendNotification({
                 ...streamer,
