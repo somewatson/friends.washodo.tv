@@ -151,7 +151,42 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
+        .site-footer {
+            margin-top: 60px;
+            padding: 30px 20px;
+            border-top: 1px solid #333;
+            width: 100%;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 0.875rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .footer-credits {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            align-items: center;
+        }
+        .footer-link {
+            color: #a970ff;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .footer-link:hover {
+            color: #c49cff;
+            text-decoration: underline;
+        }
+        .footer-system {
+            font-size: 0.75rem;
+            color: #6b7280;
+            opacity: 0.8;
+        }
         @keyframes pulse {
+
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
@@ -163,5 +198,15 @@
     <div class="container">
         <!-- CONTENT_PLACEHOLDER -->
     </div>
+    <footer class="site-footer">
+        <div class="footer-system">Real-time data provided by Twitch API</div>
+        <div class="footer-credits">
+            <span>© 2026 Crafted by <a href="https://somewatson.com" target="_blank" class="footer-link">Some Watson</a></span>
+            <span>•</span>
+            <span>Helping build the <a href="https://washodo.tv" target="_blank" class="footer-link">Washodo</a> community</span>
+            <span>•</span>
+            <a href="https://github.com/SomeWatson/friends.washodo.tv" target="_blank" class="footer-link">Source Code</a>
+        </div>
+    </footer>
 </body>
 </html>
