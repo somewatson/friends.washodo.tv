@@ -1,7 +1,7 @@
 FROM node:alpine
 
 # Install build dependencies for native modules (like better-sqlite3)
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 py3-setuptools make g++
 
 WORKDIR /app
 
