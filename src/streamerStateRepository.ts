@@ -20,13 +20,13 @@ export class StreamerStateRepository {
     async isKnownLive(username: string): Promise<boolean> {
         if (!this.db) throw new Error('Database not initialized');
         const row = this.db.prepare('SELECT is_live FROM streamer_status WHERE username = ?').get(username.toLowerCase());
-        return row ? row.is_live === 1 : false;
+        return row ? Boolean(row.is_live) : false;
     }
 
     async getLiveSince(username: string): Promise<string | null> {
         if (!this.db) throw new Error('Database not initialized');
         const row = this.db.prepare('SELECT live_since FROM streamer_status WHERE username = ?').get(username.toLowerCase());
-        return row ? row.live_since : null;
+        return row ? (row.live_since as string) : null;
     }
 
     async setLive(username: string, startTime: string) {
