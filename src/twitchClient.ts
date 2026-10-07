@@ -97,7 +97,9 @@ export class TwitchClient {
             console.error('Error fetching live streams:', error.response?.data || error.message);
             return [];
         }
-        async getStreamStartTime(userId: string): Promise<string | null> {
+    }
+
+    async getStreamStartTime(userId: string): Promise<string | null> {
         const token = await this.getAccessToken();
         try {
             const response = await axios.get('https://api.twitch.tv/helix/videos', {

@@ -80,9 +80,9 @@ export class ApiServer {
                     userMap[u.login.toLowerCase()] = u;
                 });
 
-                const renderGrid = (list: string[]) => {
+                const renderGrid = async (list: string[]) => {
                     if (list.length === 0) return '<p>No streamers in this tier.</p>';
-                    return list.map(username => {
+                    const gridItems = await Promise.all(list.map(async (username) => {
                         const lowerUser = username.toLowerCase();
                         const stream = liveList.find(s => s.user_login.toLowerCase() === lowerUser);
                         const user = userMap[lowerUser];
@@ -116,7 +116,8 @@ export class ApiServer {
                                     <span class="status-label">${isLive ? 'LIVE' + uptimeText : 'Offline'}</span>
                                 </div>
                             </a>`;
-                    }).join('');
+                    }));
+                    return gridItems.join('');
                 };
                 
                 const html = `
