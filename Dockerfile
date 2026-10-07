@@ -1,5 +1,8 @@
 FROM node:22-bookworm
 
+# Force native modules to build from source to avoid GLIBC version mismatches
+ENV npm_config_build_from_source=true
+
 # Install build tools for native modules
 RUN apt-get update && apt-get install -y \
     python3 \
