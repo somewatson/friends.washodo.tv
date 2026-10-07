@@ -4,6 +4,7 @@ FROM node:20-bullseye AS builder
 # Install build tools for native modules
 RUN apt-get update && apt-get install -y \
     python3 \
+    python3-setuptools \
     make \
     g++ \
     && rm -rf /var/lib/apt/lists/*
