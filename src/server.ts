@@ -93,11 +93,12 @@ export class ApiServer {
                         const title = stream?.title || '';
                         const tagline = user?.description || '';
                         const twitchUrl = `https://twitch.tv/${username}`;
-
+                        
                         let uptimeText = '';
                         if (isLive) {
-                            const startTime = await this.stateRepo.getLiveSince(lowerUser);
-                            uptimeText = ` (Live for ${this.formatUptime(startTime)})`;
+                            // Prioritize actual Twitch stream start time if available, otherwise fallback to DB
+                            const actualStartTime = stream?.started_at || await this.stateRepo.getLiveSince(lowerUser);
+                            uptimeText = ` (Live for ${this.formatUptime(actualStartTime)})`;
                         }
                         
                         return `
