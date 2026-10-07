@@ -9,8 +9,12 @@ export class WebhookNotifier {
             return;
         }
 
+        const thumbnail = streamer.thumbnail_url 
+            ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
+            : '';
         const uptimeInfo = streamer.uptime ? `\n**${streamer.uptime}**` : '';
-        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})`;
+        const imageMarkdown = thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : '';
+        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n${imageMarkdown}\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})`;
 
         const notifications: Promise<any>[] = [];
 
