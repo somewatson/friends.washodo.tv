@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:20-bullseye AS builder
+FROM node:20-bookworm AS builder
 
 # Install build tools for native modules
 RUN apt-get update && apt-get install -y \
