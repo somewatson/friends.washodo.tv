@@ -1,7 +1,6 @@
-# Stage 1: Build
-FROM node:20-bookworm AS builder
+FROM node:20-bookworm
 
-# Install build tools for native modules
+# Install build tools for native modules (better-sqlite3)
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-setuptools \
@@ -16,18 +15,5 @@ RUN npm install
 
 COPY . .
 RUN npm run build
-
-# Stage 2: Runtime
-FROM node:20-bookworm-slim
-
-WORKDIR /app
-
-# Copy only the necessary files from the builder stage
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-
-# The app needs the .env file if provided
-COPY .env* ./
 
 CMD ["npm", "start"]
