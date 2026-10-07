@@ -34,6 +34,25 @@ export class TwitchClient {
         }
     }
 
+    async getUsers(usernames: string[]): Promise<any[]> {
+        const token = await this.getAccessToken();
+        try {
+            const response = await axios.get('https://api.twitch.tv/helix/users', {
+                params: {
+                    login: usernames,
+                },
+                headers: {
+                    'Client-ID': this.clientId || 'dummy-id',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            return response.data.data;
+        } catch (error: any) {
+            console.error('Error fetching Twitch users:', error.response?.data || error.message);
+            return [];
+        }
+    }
+
     async getLiveStreamers(usernames: string[]): Promise<any[]> {
         const token = await this.getAccessToken();
         try {

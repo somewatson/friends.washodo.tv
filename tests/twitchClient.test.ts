@@ -44,15 +44,25 @@ describe('TwitchClient', () => {
 
     it('should fetch live streamers', async () => {
         mockedAxios.post.mockResolvedValueOnce({ data: { access_token: 'test_token' } });
-        mockedAxios.get.mockResolvedValueOnce({
-            data: {
-                data: [{ user_login: 'streamer1', user_name: 'Streamer One' }]
-            }
-        });
+        mockedAxios.get
+            .mockResolvedValueOnce({
+                data: {
+                    data: [{ user_login: 'streamer1', user_id: '123', user_name: 'Streamer One' }]
+                }
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    data: [{ id: '123', login: 'streamer1', display_name: 'Streamer One', profile_image_url: 'http://pic.png' }]
+                }
+            });
         
         const live = await twitchClient.getLiveStreamers(['streamer1']);
         
-        expect(live).toEqual([{ user_login: 'streamer1', user_name: 'Streamer One' }]);
+        expect(live[0]).toMatchObject({ 
+            user_login: 'streamer1', 
+            displayName: 'Streamer One',
+            profile_image_url: 'http://pic.png'
+        });
         expect(mockedAxios.get).toHaveBeenCalledWith(
             'https://api.twitch.tv/helix/streams',
             expect.objectContaining({

@@ -49,18 +49,25 @@ export class ApiServer {
             
             try {
                 const liveList = await this.twitch.getLiveStreamers(allStreamers);
-                const liveUsernames = liveList.map(s => s.user_login.toLowerCase());
+                const userList = await this.twitch.getUsers(allStreamers);
                 
+                const userMap: Record<string, any> = {};
+                userList.forEach(u => {
+                    userMap[u.login.toLowerCase()] = u;
+                });
+
                 const renderGrid = (list: string[]) => {
                     if (list.length === 0) return '<p>No streamers in this tier.</p>';
                     return list.map(username => {
                         const lowerUser = username.toLowerCase();
                         const stream = liveList.find(s => s.user_login.toLowerCase() === lowerUser);
+                        const user = userMap[lowerUser];
                         const isLive = !!stream;
                         
-                        const profilePic = stream?.profile_image_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`;
+                        const profilePic = user?.profile_image_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`;
                         const thumbnail = stream?.thumbnail_url ? stream.thumbnail_url.replace('{width}', '400').replace('{height}', '225') : '';
                         const title = stream?.title || '';
+                        const tagline = user?.description || '';
                         const twitchUrl = `https://twitch.tv/${username}`;
 
                         return `
@@ -72,6 +79,7 @@ export class ApiServer {
                                         <span class="username">${username}</span>
                                     </div>
                                     ${isLive ? `<span class="stream-title">${title}</span>` : ''}
+                                    ${tagline ? `<div class="user-tagline">${tagline}</div>` : ''}
                                 </div>
                                 <div class="status-box">
                                     <span class="status-indicator ${isLive ? 'live' : 'offline'}"></span>
