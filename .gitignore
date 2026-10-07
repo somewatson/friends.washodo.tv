@@ -11,6 +11,8 @@ dist/
 
 # State files
 state.json
+*.sqlite
+
 
 # Logs
 npm-debug.log*
@@ -20,3 +22,10 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Build artifacts
+*.d.ts
+*.d.ts.map
+*.js
+*.js.map
+
