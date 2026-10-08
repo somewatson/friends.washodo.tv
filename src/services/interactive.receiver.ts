@@ -146,7 +146,7 @@ export class InteractiveReceiver {
     const allStreamers = [...new Set([...members, ...friends, ...others])];
 
     if (allStreamers.length === 0) {
-      await this.sendResponse(channelId, 'No streamers are currently being tracked.', serverConfig);
+      await this.sendResponse(channelId, 'No streamers are currently being tracked.', serverConfig, rootId, false);
       return;
     }
 
