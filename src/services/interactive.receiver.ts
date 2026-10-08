@@ -132,28 +132,37 @@ export class InteractiveReceiver {
   }
 
   private async handleListStreamers(channelId: string, serverConfig: ServerConfig): Promise<void> {
-    const trackedStreamers = [
-      ...(process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean),
-      ...(process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean),
-      ...(process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean),
-    ];
-    const uniqueStreamers = [...new Set(trackedStreamers)];
+    const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
+    const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+    const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
 
-    if (uniqueStreamers.length === 0) {
+    const allStreamers = [...new Set([...members, ...friends, ...others])];
+
+    if (allStreamers.length === 0) {
       await this.sendResponse(channelId, 'No streamers are currently being tracked.', serverConfig);
       return;
     }
 
     try {
-      const liveStreams = await this.twitchClient.getStreamStatus(uniqueStreamers);
+      const liveStreams = await this.twitchClient.getStreamStatus(allStreamers);
       const liveUsernames = liveStreams.map((s: any) => s.user_login.toLowerCase());
       
       let response = '👥 **Tracked Streamers**\n';
-      uniqueStreamers.forEach(user => {
-        const isLive = liveUsernames.includes(user.toLowerCase());
-        const status = isLive ? '🔴 Live' : '⚪ Offline';
-        response += `- ${user}: ${status}\n`;
-      });
+      
+      const formatGroup = (title: string, list: string[]) => {
+        if (list.length === 0) return '';
+        let groupText = `\n**${title}**\n`;
+        list.forEach(user => {
+          const isLive = liveUsernames.includes(user.toLowerCase());
+          const status = isLive ? '🔴 Live' : '⚪ Offline';
+          groupText += `- ${user}: ${status}\n`;
+        });
+        return groupText;
+      };
+
+      response += formatGroup('Members', members);
+      response += formatGroup('Friends', friends);
+      response += formatGroup('Other', others);
 
       await this.sendResponse(channelId, response.trim(), serverConfig);
     } catch (error) {
