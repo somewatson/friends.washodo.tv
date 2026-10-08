@@ -18,9 +18,14 @@ In the **Bot** tab, scroll down to **Privileged Gateway Intents**.
 1. Go to the **OAuth2** $\rightarrow$ **URL Generator** tab.
 2. Select the `bot` scope.
 3. Select the following permissions:
-    - `Send Messages`
-    - `Embed Links`
+    - [x] **View Channel**
+    - [x] **Send Messages**
+    - [x] **Read Message History**
+    - [x] **Embed Links** (Required for rich embeds and thumbnails)
+    - [x] **Manage Messages** (Required for Announcement/News channels)
 4. Copy the generated URL, paste it into your browser, and invite the bot to your server.
+
+**Note:** If the bot is already in your server, you must manually update these permissions in the **Server Settings $\rightarrow$ Roles** or **Channel Settings $\rightarrow$ Permissions** tabs. If using a News/Announcement channel, the `Manage Messages` permission is often critical.
 
 ## 4. Get the Channel ID
 1. In Discord, go to **User Settings** $\rightarrow$ **Advanced**.

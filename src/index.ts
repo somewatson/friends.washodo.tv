@@ -73,7 +73,7 @@ async function bootstrap() {
 
     // Initialize Notifiers
     const mattermostNotifier = new MattermostNotifier(stateRepo);
-    const discordNotifier = new DiscordNotifier(stateRepo);
+    const discordNotifier = new DiscordNotifier(stateRepo, twitchClient);
     await discordNotifier.start();
 
     const stateManager = new StateManager();

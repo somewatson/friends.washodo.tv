@@ -39,6 +39,10 @@ export class MattermostNotifier {
     const statusText = isRecurring ? 'is STILL LIVE!' : 'is now LIVE!';
     const prefix = isRecurring ? '🔔 *Reminder:* ' : '';
 
+    const thumbnail = streamer.thumbnail_url 
+      ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
+      : '';
+
     const requests = this.servers.map(async (server) => {
       try {
         // 1. Check if we should notify this specific channel
@@ -51,9 +55,11 @@ export class MattermostNotifier {
 
         if (!shouldNotify) return;
 
+        const message = `${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`;
+
         await axios.post(`${server.serverUrl}/api/v4/posts`, {
           channel_id: server.channelId,
-          message: `${prefix}🔴 **${streamer.user_name}** ${statusText}\nTitle: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`,
+          message: message,
         }, {
           headers: { 'Authorization': `Bearer ${server.botToken}` }
         });
