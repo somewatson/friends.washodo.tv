@@ -10,10 +10,17 @@ dotenv.config();
 async function runCheck() {
   console.log(`[${new Date().toISOString()}] Checking streamers...`);
 
+  const trackedStreamers = [
+    ...(process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean),
+    ...(process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean),
+    ...(process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean),
+  ];
+  const uniqueStreamers = [...new Set(trackedStreamers)];
+
   const config = {
     clientId: process.env.TWITCH_CLIENT_ID || '',
     clientSecret: process.env.TWITCH_CLIENT_SECRET || '',
-    trackedStreamers: (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean),
+    trackedStreamers: uniqueStreamers,
     interval: process.env.CHECK_INTERVAL || '*/5 * * * *',
   };
 
@@ -41,8 +48,6 @@ async function runCheck() {
 
       await stateManager.setLive(username, currentlyLive);
     }
-
-    await stateManager.load();
   } catch (error) {
     console.error('Error during check cycle:', error);
   }

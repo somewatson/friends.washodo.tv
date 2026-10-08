@@ -22,7 +22,7 @@ This allows Mattermost to "ping" your server when a specific word is used.
 3. **Name**: `Twitch Bot Receiver`
 4. **Description**: `Handles interactive commands for the Twitch Notifier`.
 5. **Channel**: Select the public channel(s) you want the bot to monitor.
-6. **Trigger Words**: Enter the trigger word (e.g., `!bot` or the bot's username).
+6. **Trigger Words**: Enter the trigger word (e.g., `!bot` or the bot's username). If adding multiple trigger words, enter them one per line.
 7. **Content Type**: Select `application/x-www-form-urlencoded`.
 8. **Callback URLs**: 
     - Check your bot's startup logs. You will see a line: `🚀 Mattermost Outgoing Webhook ready at: <URL>`.

@@ -71,22 +71,47 @@ export class InteractiveReceiver {
   }
 
   private async handleCommand(text: string, channelId: string, serverConfig: ServerConfig): Promise<void> {
-    let trimmedText = text.trim();
+    const trimmedText = text.trim();
     if (!trimmedText) return;
 
-    // Mattermost outgoing webhooks include the trigger word in the text.
-    // If the first word starts with '!' but isn't one of our known commands, 
-    // we treat it as a trigger word and look at the next word.
-    const knownCommands = ['!help', '!status', '!streamers', '!check', '!schedule'];
     const parts = trimmedText.split(/\s+/);
+    const lowerParts = parts.map(p => p.toLowerCase());
+
+    // 1. Define recognized command keywords (without prefix)
+    const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule'];
     
-    if (parts[0] && !knownCommands.includes(parts[0].toLowerCase()) && parts[0].startsWith('!')) {
-      // Shift the parts to ignore the trigger word (e.g., "!wardbot !help" -> ["!help"])
-      parts.shift();
+    // 2. Verify if the bot was actually triggered/mentioned (starts with ! or @)
+    const hasTrigger = parts.some(p => p.startsWith('!') || p.startsWith('@'));
+    if (!hasTrigger) return;
+
+    // 3. Find the first word that matches a known command (with or without !)
+    let commandIndex = -1;
+    let matchedKeyword = '';
+
+    for (let i = 0; i < lowerParts.length; i++) {
+      const word = lowerParts[i];
+      if (!word) continue;
+      const cleanWord = word.startsWith('!') ? word.slice(1) : word;
+      
+      if (commandKeywords.includes(cleanWord)) {
+        commandIndex = i;
+        matchedKeyword = cleanWord;
+        break;
+      }
     }
 
-    const command = parts[0] ? parts[0].toLowerCase() : '';
-    const args = parts.slice(1);
+    if (commandIndex === -1) {
+      // No recognized command found, but bot was mentioned.
+      // Only reply if the first word was a trigger to avoid spamming.
+      if (parts[0]?.startsWith('!') || parts[0]?.startsWith('@')) {
+        await this.sendResponse(channelId, `I heard you mention me, but I don't recognize a command. Try \`!help\`.`, serverConfig);
+      }
+      return;
+    }
+
+    // 4. Determine the final command string and arguments
+    const command = `!${matchedKeyword}`;
+    const args = parts.slice(commandIndex + 1);
 
     if (command === '!help') {
       await this.sendResponse(channelId, '🤖 **Bot Help Menu**\n- `!status`: Check current monitoring status\n- `!streamers`: Show all tracked streamers and their status\n- `!check <username>`: Check a specific streamer\n- `!schedule`: View the current stream schedule\n- `!help`: Show this menu', serverConfig);
@@ -103,24 +128,28 @@ export class InteractiveReceiver {
         return;
       }
       await this.handleCheckStreamer(args[0] || '', channelId, serverConfig);
-    } else {
-      await this.sendResponse(channelId, `I heard you say "${text}", but I don't know that command. Try \`!help\`.`, serverConfig);
     }
   }
 
   private async handleListStreamers(channelId: string, serverConfig: ServerConfig): Promise<void> {
-    const trackedStreamers = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
-    if (trackedStreamers.length === 0) {
+    const trackedStreamers = [
+      ...(process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean),
+      ...(process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean),
+      ...(process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean),
+    ];
+    const uniqueStreamers = [...new Set(trackedStreamers)];
+
+    if (uniqueStreamers.length === 0) {
       await this.sendResponse(channelId, 'No streamers are currently being tracked.', serverConfig);
       return;
     }
 
     try {
-      const liveStreams = await this.twitchClient.getStreamStatus(trackedStreamers);
+      const liveStreams = await this.twitchClient.getStreamStatus(uniqueStreamers);
       const liveUsernames = liveStreams.map((s: any) => s.user_login.toLowerCase());
       
       let response = '👥 **Tracked Streamers**\n';
-      trackedStreamers.forEach(user => {
+      uniqueStreamers.forEach(user => {
         const isLive = liveUsernames.includes(user.toLowerCase());
         const status = isLive ? '🔴 Live' : '⚪ Offline';
         response += `- ${user}: ${status}\n`;
