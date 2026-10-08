@@ -45,7 +45,7 @@ async function runCheck() {
         const now = new Date();
         const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
         
-        const isRecurring = previouslyLive && lastNotification;
+        const isRecurring = !!(previouslyLive && lastNotification);
         const shouldNotify = !previouslyLive || (lastNotification && new Date(lastNotification) < threeHoursAgo);
 
         if (shouldNotify) {
