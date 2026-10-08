@@ -77,7 +77,7 @@ export class InteractiveReceiver {
     // Truth-confirming logic: Check for "true" and "?" (case-insensitive)
     const lowerText = trimmedText.toLowerCase();
     if (lowerText.includes('true') && lowerText.includes('?')) {
-      await this.sendResponse(channelId, 'Of course, that sounds about right!', serverConfig, rootId);
+      await this.sendResponse(channelId, 'Of course, that sounds about right!', serverConfig, rootId, false);
       return;
     }
 
@@ -111,7 +111,7 @@ export class InteractiveReceiver {
       // No recognized command found, but bot was mentioned.
       // Only reply if the first word was a trigger to avoid spamming.
       if (parts[0]?.startsWith('!') || parts[0]?.startsWith('@')) {
-        await this.sendResponse(channelId, `I heard you mention me, but I don't recognize a command. Try \`!help\`.`, serverConfig, rootId);
+        await this.sendResponse(channelId, `I heard you mention me, but I don't recognize a command. Try \`!help\`.`, serverConfig, rootId, false);
       }
       return;
     }
@@ -121,17 +121,17 @@ export class InteractiveReceiver {
     const args = parts.slice(commandIndex + 1);
 
     if (command === '!help') {
-      await this.sendResponse(channelId, '🤖 **Bot Help Menu**\n- `!status`: Check current monitoring status\n- `!streamers`: Show all tracked streamers and their status\n- `!check <username>`: Check a specific streamer\n- `!schedule`: View the current stream schedule\n- `!help`: Show this menu', serverConfig, rootId);
+      await this.sendResponse(channelId, '🤖 **Bot Help Menu**\n- `!status`: Check current monitoring status\n- `!streamers`: Show all tracked streamers and their status\n- `!check <username>`: Check a specific streamer\n- `!schedule`: View the current stream schedule\n- `!help`: Show this menu', serverConfig, rootId, true);
     } else if (command === '!status') {
-      await this.sendResponse(channelId, '✅ Bot is active and monitoring streamers!', serverConfig, rootId);
+      await this.sendResponse(channelId, '✅ Bot is active and monitoring streamers!', serverConfig, rootId, true);
     } else if (command === '!schedule') {
       const schedule = process.env.BOT_SCHEDULE_TEXT || 'No schedule configured.';
-      await this.sendResponse(channelId, `📅 **Current Schedule**\n${schedule}`, serverConfig, rootId);
+      await this.sendResponse(channelId, `📅 **Current Schedule**\n${schedule}`, serverConfig, rootId, false);
     } else if (command === '!streamers') {
       await this.handleListStreamers(channelId, serverConfig, rootId);
     } else if (command === '!check') {
       if (args.length === 0) {
-        await this.sendResponse(channelId, '❌ Please provide a username. Usage: `!check <username>`', serverConfig, rootId);
+        await this.sendResponse(channelId, '❌ Please provide a username. Usage: `!check <username>`', serverConfig, rootId, false);
         return;
       }
       await this.handleCheckStreamer(args[0] || '', channelId, serverConfig, rootId);
@@ -171,10 +171,10 @@ export class InteractiveReceiver {
       response += formatGroup('Friends', friends);
       response += formatGroup('Other', others);
 
-      await this.sendResponse(channelId, response.trim(), serverConfig, rootId);
+      await this.sendResponse(channelId, response.trim(), serverConfig, rootId, true);
     } catch (error) {
       console.error('[Receiver] Error listing streamers:', error);
-      await this.sendResponse(channelId, '❌ Error fetching streamer statuses.', serverConfig, rootId);
+      await this.sendResponse(channelId, '❌ Error fetching streamer statuses.', serverConfig, rootId, false);
     }
   }
 
@@ -184,20 +184,22 @@ export class InteractiveReceiver {
       const stream = liveStreams[0];
 
       if (stream) {
-        await this.sendResponse(channelId, `🔴 **${stream.user_name}** is currently LIVE!\nTitle: ${stream.title}\nLink: https://twitch.tv/${stream.user_login}`, serverConfig, rootId);
+        await this.sendResponse(channelId, `🔴 **${stream.user_name}** is currently LIVE!\nTitle: ${stream.title}\nLink: https://twitch.tv/${stream.user_login}`, serverConfig, rootId, false);
       } else {
-        await this.sendResponse(channelId, `⚪ **${username}** is currently offline.`, serverConfig, rootId);
+        await this.sendResponse(channelId, `⚪ **${username}** is currently offline.`, serverConfig, rootId, false);
       }
     } catch (error) {
       console.error('[Receiver] Error checking streamer:', error);
-      await this.sendResponse(channelId, `❌ Error checking status for ${username}.`, serverConfig, rootId);
+      await this.sendResponse(channelId, `❌ Error checking status for ${username}.`, serverConfig, rootId, false);
     }
   }
 
-  private async sendResponse(channelId: string, message: string, serverConfig: ServerConfig, rootId?: string): Promise<void> {
-    const websiteUrl = 'https://friends.washodo.tv';
-    const promotionalMessage = `\n\n🌐 Check out the status page: ${websiteUrl}`;
-    const finalMessage = message + promotionalMessage;
+  private async sendResponse(channelId: string, message: string, serverConfig: ServerConfig, rootId?: string, includePromo: boolean = true): Promise<void> {
+    let finalMessage = message;
+    if (includePromo) {
+      const websiteUrl = 'https://friends.washodo.tv';
+      finalMessage += `\n\n🌐 Check out the status page: ${websiteUrl}`;
+    }
 
     try {
       await axios.post(`${serverConfig.serverUrl}/api/v4/posts`, {
