@@ -190,11 +190,15 @@ export class DiscordNotifier {
 
         const notifications = this.configs.map(async (config) => {
             try {
+                const cooldown = isRecurring 
+                    ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
+                    : 0;
+
                 const shouldNotify = await this.stateRepo.shouldNotify(
                     streamer.user_login, 
                     'discord', 
                     config.channelId, 
-                    isRecurring ? 60 : 0
+                    cooldown
                 );
 
                 if (!shouldNotify) return;

@@ -46,11 +46,15 @@ export class MattermostNotifier {
     const requests = this.servers.map(async (server) => {
       try {
         // 1. Check if we should notify this specific channel
+        const cooldown = isRecurring 
+          ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
+          : 0;
+
         const shouldNotify = await this.stateRepo.shouldNotify(
           streamer.user_login, 
           'mattermost', 
           server.channelId, 
-          isRecurring ? 60 : 0
+          cooldown
         );
 
         if (!shouldNotify) return;
