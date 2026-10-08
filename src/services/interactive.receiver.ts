@@ -71,9 +71,20 @@ export class InteractiveReceiver {
   }
 
   private async handleCommand(text: string, channelId: string, serverConfig: ServerConfig): Promise<void> {
-    const trimmedText = text.trim();
+    let trimmedText = text.trim();
     if (!trimmedText) return;
+
+    // Mattermost outgoing webhooks include the trigger word in the text.
+    // If the first word starts with '!' but isn't one of our known commands, 
+    // we treat it as a trigger word and look at the next word.
+    const knownCommands = ['!help', '!status', '!streamers', '!check', '!schedule'];
     const parts = trimmedText.split(/\s+/);
+    
+    if (parts[0] && !knownCommands.includes(parts[0].toLowerCase()) && parts[0].startsWith('!')) {
+      // Shift the parts to ignore the trigger word (e.g., "!wardbot !help" -> ["!help"])
+      parts.shift();
+    }
+
     const command = parts[0] ? parts[0].toLowerCase() : '';
     const args = parts.slice(1);
 
