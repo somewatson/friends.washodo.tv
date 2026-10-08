@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import { TwitchClient } from './twitchClient';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
-import { SvgGenerator } from './svgGenerator';
 import axios from 'axios';
 
 dotenv.config();
@@ -298,17 +297,23 @@ export class ApiServer {
                     const thumbnailUrl = await this.stateRepo.getLastThumbnailUrl(username);
                     if (thumbnailUrl) {
                         // Replace Twitch's placeholders with actual dimensions
-                        const redirectUrl = thumbnailUrl.replace('{width}', '400').replace('{height}', '225');
-                        return res.redirect(302, redirectUrl);
+                        const targetUrl = thumbnailUrl.replace('{width}', '400').replace('{height}', '225');
+                        
+                        try {
+                            const response = await axios.get(targetUrl, { responseType: 'arraybuffer' });
+                            res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+                            return res.send(response.data);
+                        } catch (error) {
+                            console.error(`Error proxying thumbnail for ${username}:`, error);
+                            // Fallback to redirect if proxy fails
+                            return res.redirect(302, targetUrl);
+                        }
                     }
                 }
                 
-                // Offline state: Generate and return SVG
-                const profileImageUrl = await this.stateRepo.getProfileImageUrl(username);
-                const svg = await SvgGenerator.generateOfflineOverlay(profileImageUrl, username);
-                
-                res.setHeader('Content-Type', 'image/svg+xml');
-                res.send(svg);
+                // Offline state: For now, we are disabling the SVG generator and returning a 404 or placeholder
+                // as thumbnails are removed from notifications.
+                res.status(404).send('Thumbnail not available');
             } catch (error) {
                 console.error(`Error serving thumbnail for ${username}:`, error);
                 res.status(500).send('Internal Server Error');
