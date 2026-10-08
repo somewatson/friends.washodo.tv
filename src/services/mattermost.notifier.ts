@@ -9,8 +9,10 @@ interface ServerConfig {
 
 export class MattermostNotifier {
   private servers: ServerConfig[] = [];
+  private stateRepo: any;
 
-  constructor() {
+  constructor(stateRepo: any) {
+    this.stateRepo = stateRepo;
     this.initializeServers();
   }
 
@@ -39,12 +41,25 @@ export class MattermostNotifier {
 
     const requests = this.servers.map(async (server) => {
       try {
+        // 1. Check if we should notify this specific channel
+        const shouldNotify = await this.stateRepo.shouldNotify(
+          streamer.user_login, 
+          'mattermost', 
+          server.channelId, 
+          isRecurring ? 60 : 0
+        );
+
+        if (!shouldNotify) return;
+
         await axios.post(`${server.serverUrl}/api/v4/posts`, {
           channel_id: server.channelId,
           message: `${prefix}🔴 **${streamer.user_name}** ${statusText}\nTitle: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`,
         }, {
           headers: { 'Authorization': `Bearer ${server.botToken}` }
         });
+
+        // 2. Confirm delivery in DB
+        await this.stateRepo.recordNotification(streamer.user_login, 'mattermost', server.channelId);
       } catch (error: any) {
         console.error(`[MattermostNotifier] Failed to notify ${server.serverUrl}:`, error.response?.data || error.message);
       }

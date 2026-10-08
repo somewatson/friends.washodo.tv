@@ -17,6 +17,16 @@ export class StreamerStateRepository {
             )
         `);
 
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS notification_log (
+                username TEXT,
+                platform TEXT,
+                target_id TEXT,
+                sent_at TEXT,
+                PRIMARY KEY (username, platform, target_id)
+            )
+        `);
+
         // Migration: Ensure necessary columns exist for existing databases
         const columns = this.db.prepare('PRAGMA table_info(streamer_status)').all() as any[];
         const columnNames = columns.map(col => col.name);
@@ -76,5 +86,27 @@ export class StreamerStateRepository {
             this.db.close();
             this.db = null;
         }
+    }
+
+    async shouldNotify(username: string, platform: string, targetId: string, intervalMinutes: number): Promise<boolean> {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = this.db.prepare(
+            'SELECT sent_at FROM notification_log WHERE username = ? AND platform = ? AND target_id = ?'
+        ).get(username.toLowerCase(), platform, targetId) as { sent_at: string } | undefined;
+
+        if (!row) return true;
+
+        const sentAt = new Date(row.sent_at).getTime();
+        const now = Date.now();
+        const diffMinutes = (now - sentAt) / (1000 * 60);
+
+        return diffMinutes >= intervalMinutes;
+    }
+
+    async recordNotification(username: string, platform: string, targetId: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO notification_log (username, platform, target_id, sent_at) VALUES (?, ?, ?, ?) ON CONFLICT(username, platform, target_id) DO UPDATE SET sent_at = ?'
+        ).run(username.toLowerCase(), platform, targetId, new Date().toISOString(), new Date().toISOString());
     }
 }
