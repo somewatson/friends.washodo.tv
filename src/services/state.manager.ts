@@ -25,7 +25,8 @@ export class StateManager {
       CREATE TABLE IF NOT EXISTS streamer_state (
         username TEXT PRIMARY KEY,
         is_live INTEGER DEFAULT 0,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_notification_at DATETIME
       )
     `);
   }
@@ -46,8 +47,15 @@ export class StateManager {
     );
   }
 
-  async getAllTracked(): Promise<string[]> {
-    const rows = await this.all('SELECT username FROM streamer_state');
-    return rows.map((row: any) => row.username);
+  async getLastNotificationTime(username: string): Promise<string | null> {
+    const row = await this.get('SELECT last_notification_at FROM streamer_state WHERE username = ?', [username]);
+    return row ? row.last_notification_at : null;
+  }
+
+  async setLastNotificationTime(username: string, time: string | null): Promise<void> {
+    await this.run(
+      'UPDATE streamer_state SET last_notification_at = ? WHERE username = ?',
+      [time, username]
+    );
   }
 }

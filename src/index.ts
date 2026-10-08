@@ -40,12 +40,23 @@ async function runCheck() {
       const currentlyLive = liveUsernames.includes(username);
       const previouslyLive = await stateManager.isLive(username);
 
-      if (currentlyLive && !previouslyLive) {
-        console.log(`Streamer ${username} went live! Notifying...`);
-        const streamData = liveStreams.find((s: any) => s.user_login === username);
-        await notifier.notify(streamData);
+      if (currentlyLive) {
+        const lastNotification = await stateManager.getLastNotificationTime(username);
+        const now = new Date();
+        const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+        
+        const isRecurring = previouslyLive && lastNotification;
+        const shouldNotify = !previouslyLive || (lastNotification && new Date(lastNotification) < threeHoursAgo);
+
+        if (shouldNotify) {
+          console.log(`Streamer ${username} is live${isRecurring ? ' (recurring notification)' : ' (initial notification)'}! Notifying...`);
+          const streamData = liveStreams.find((s: any) => s.user_login === username);
+          await notifier.notify(streamData, isRecurring);
+          await stateManager.setLastNotificationTime(username, now.toISOString());
+        }
       } else if (!currentlyLive && previouslyLive) {
         console.log(`Streamer ${username} went offline.`);
+        await stateManager.setLastNotificationTime(username, null);
       }
 
       await stateManager.setLive(username, currentlyLive);

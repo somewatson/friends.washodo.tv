@@ -28,17 +28,20 @@ export class MattermostNotifier {
     }).filter((s): s is ServerConfig => s !== null);
   }
 
-  async notify(streamer: any): Promise<void> {
+  async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
     if (this.servers.length === 0) {
       console.warn('[MattermostNotifier] No servers configured in MATTERMOST_BOTS');
       return;
     }
 
+    const statusText = isRecurring ? 'is STILL LIVE!' : 'is now LIVE!';
+    const prefix = isRecurring ? '🔔 *Reminder:* ' : '';
+
     const requests = this.servers.map(async (server) => {
       try {
         await axios.post(`${server.serverUrl}/api/v4/posts`, {
           channel_id: server.channelId,
-          message: `🔴 **${streamer.user_name}** is now LIVE!\nTitle: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`,
+          message: `${prefix}🔴 **${streamer.user_name}** ${statusText}\nTitle: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`,
         }, {
           headers: { 'Authorization': `Bearer ${server.botToken}` }
         });
