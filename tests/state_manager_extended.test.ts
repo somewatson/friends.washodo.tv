@@ -9,6 +9,10 @@ describe('StateManager Extended', () => {
     const TEST_USER_TIME = 'test_user_time_verification';
 
     beforeAll(async () => {
+        const dataDir = path.join(process.cwd(), 'data');
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+        }
         stateManager = new StateManager();
         await stateManager.load();
     });
