@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { TwitchClient } from './twitchClient';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
+import { BotAccountRepository } from './repositories/botAccountRepository';
 import axios from 'axios';
 
 dotenv.config();
@@ -15,10 +16,12 @@ export class ApiServer {
     private twitch = new TwitchClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
+    private botRepo: BotAccountRepository;
     private server: any;
 
-    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any) {
+    constructor(stateRepo: StreamerStateRepository, botRepo: BotAccountRepository, interactiveReceiver?: any) {
         this.stateRepo = stateRepo;
+        this.botRepo = botRepo;
         this.setupMiddleware();
         this.setupRoutes(interactiveReceiver?.getApp());
     }
@@ -29,11 +32,9 @@ export class ApiServer {
         }));
         this.app.use(express.json());
         
-        // API Key Authentication Middleware
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
-            // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path.startsWith('/auth/') || req.path === '/api/bot/status') {
                 return next();
             }
             
@@ -43,10 +44,6 @@ export class ApiServer {
                 res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
             }
         });
-
-        // Move static middleware AFTER the root route handler in setupRoutes
-        // We'll actually remove it from here and put it at the end of setupRoutes 
-        // or just after the dynamic routes.
     }
 
     private formatUptime(startTime: string | null): string {
@@ -91,6 +88,72 @@ export class ApiServer {
         if (interactiveApp) {
             this.app.use(interactiveApp);
         }
+
+        this.app.get('/auth/twitch', (req, res) => {
+            const clientId = process.env.TWITCH_CLIENT_ID;
+            const redirectUri = encodeURIComponent('https://friends.washodo.tv/auth/callback');
+            const scope = encodeURIComponent('chat:edit chat:read');
+            const state = Math.random().toString(36).substring(7);
+            
+            const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}`;
+            res.redirect(authUrl);
+        });
+
+        this.app.get('/auth/callback', async (req, res) => {
+            const { code } = req.query;
+
+            if (!code) {
+                return res.redirect('/?auth=error');
+            }
+
+            try {
+                const response = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+                    params: {
+                        client_id: process.env.TWITCH_CLIENT_ID,
+                        client_secret: process.env.TWITCH_CLIENT_SECRET,
+                        code,
+                        grant_type: 'authorization_code',
+                        redirect_uri: 'https://friends.washodo.tv/auth/callback'
+                    }
+                });
+
+                const { access_token, refresh_token, expires_in } = response.data;
+                
+                const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
+                    headers: {
+                        'Client-ID': process.env.TWITCH_CLIENT_ID,
+                        'Authorization': `Bearer ${access_token}`
+                    }
+                });
+
+                const username = userResponse.data.data[0].login;
+                const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString();
+
+                await this.botRepo.saveAccount({
+                    username,
+                    accessToken: access_token,
+                    refreshToken: refresh_token,
+                    expiresAt
+                });
+
+                res.redirect('/?auth=success');
+            } catch (error) {
+                console.error('OAuth callback error:', error);
+                res.redirect('/?auth=error');
+            }
+        });
+
+        this.app.get('/api/bot/status', async (req, res) => {
+            try {
+                const account = await this.botRepo.getActiveAccount();
+                res.json({
+                    connected: !!account,
+                    username: account ? account.username : null
+                });
+            } catch (error) {
+                res.status(500).json({ error: 'Failed to fetch bot status' });
+            }
+        });
 
         this.app.get('/streamer/:username', async (req, res) => {
             const username = req.params.username.toLowerCase();
@@ -155,8 +218,6 @@ export class ApiServer {
         });
 
         this.app.get('/', async (req, res) => {
-
-
             const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
             const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
             const allStreamers = [...members, ...friends];
@@ -186,7 +247,6 @@ export class ApiServer {
                         
                         let uptimeText = '';
                         if (isLive) {
-                            // Prioritize actual Twitch stream start time if available, otherwise fallback to DB
                             const actualStartTime = stream?.started_at || await this.stateRepo.getLiveSince(lowerUser);
                             uptimeText = ` (Live for ${this.formatUptime(actualStartTime)})`;
                         }
@@ -201,13 +261,13 @@ export class ApiServer {
                                     </div>
                                     ${isLive ? `<span class="stream-title">${title}</span>` : ''}
                                     ${tagline ? `<div class="user-tagline">${tagline}</div>` : ''}
-                                </div>
-                                <div class="status-box">
-                                    <span class="status-indicator ${isLive ? 'live' : 'offline'}"></span>
-                                    <span class="status-label">${isLive ? 'LIVE' + uptimeText : 'Offline'}</span>
-                                </div>
-                            </a>`;
-                    }));
+                                    <div class="status-box">
+                                        <span class="status-indicator ${isLive ? 'live' : 'offline'}"></span>
+                                        <span class="status-label">${isLive ? 'LIVE' + uptimeText : 'Offline'}</span>
+                                    </div>
+                                </a>`;
+                        });
+                    }
                     return gridItems.join('');
                 };
                 
@@ -222,6 +282,9 @@ export class ApiServer {
                     </div>
                     <div class="join-section">
                         <div class="join-text">Want to be included here?</div>
+                        <div class="bot-auth-container" style="display: flex; gap: 10px; justify-content: center; align-items: center; margin-bottom: 20px;">
+                            <a href="/auth/twitch" class="join-button" id="bot-connect-btn">Connect Twitch Bot</a>
+                        </div>
                         <a href="https://washodo.tv" target="_blank" class="join-button">Apply to join at washodo.tv</a>
                     </div>
                 `;
@@ -234,7 +297,7 @@ export class ApiServer {
                 res.send(template);
             } catch (error) {
                 console.error('Error rendering status page:', error);
-                res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1><p style="color:white; background:#333; padding:20px;">Failed to fetch streamer status.</p>');
+                res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1><p style="color:white; background:#333; padding:20px>Failed to fetch streamer status.</p>');
             }
         });
 
@@ -252,13 +315,13 @@ export class ApiServer {
             
             try {
                 const liveList = await this.twitch.getLiveStreamers(allStreamers);
-                const liveUsernames = liveList.map(s => s.user_login.toLowerCase());
+                const liveListUsernames = liveList.map(s => s.user_login.toLowerCase());
                 const result: Record<string, any> = {};
-
+ 
                 for (const username of allStreamers) {
                     const lowerUser = username.toLowerCase();
-                    const isLive = liveUsernames.includes(lowerUser);
-
+                    const isLive = liveListUsernames.includes(lowerUser);
+ 
                     result[lowerUser] = {
                         isLive: isLive,
                         lastLive: 'Unknown'
@@ -280,6 +343,7 @@ export class ApiServer {
                 res.json({
                     username,
                     isLive: isLive,
+                    _isLive: isLive,
                     lastLive: 'Unknown'
                 });
             } catch (error) {
@@ -296,7 +360,6 @@ export class ApiServer {
                 if (isLive) {
                     const thumbnailUrl = await this.stateRepo.getLastThumbnailUrl(username);
                     if (thumbnailUrl) {
-                        // Replace Twitch's placeholders with actual dimensions
                         const targetUrl = thumbnailUrl.replace('{width}', '400').replace('{height}', '225');
                         
                         try {
@@ -305,14 +368,11 @@ export class ApiServer {
                             return res.send(response.data);
                         } catch (error) {
                             console.error(`Error proxying thumbnail for ${username}:`, error);
-                            // Fallback to redirect if proxy fails
                             return res.redirect(302, targetUrl);
                         }
                     }
                 }
                 
-                // Offline state: For now, we are disabling the SVG generator and returning a 404 or placeholder
-                // as thumbnails are removed from notifications.
                 res.status(404).send('Thumbnail not available');
             } catch (error) {
                 console.error(`Error serving thumbnail for ${username}:`, error);
@@ -325,14 +385,15 @@ export class ApiServer {
                 user_name: 'Test Bot',
                 user_login: 'testbot',
                 game_name: 'Testing',
-                title: 'This is a test notification from TwitchWatch!'
+                title: 'This is a test notification from Twitch la la la'
             };
         
             try {
                 await this.notifier.sendNotification(testStreamer, 'System Test');
+                res.send('Test notification sent successfully');
                 res.json({ message: 'Test notification sent successfully' });
             } catch (error: any) {
-                res.status(500).json({ error: 'Failed to send test notification', details: error.message });
+                res.status(500).json({ error: 'Failed to send notification', details: error.message });
             }
         });
 
@@ -363,9 +424,8 @@ export class ApiServer {
                     console.log('Server close timed out, forcing resolve.');
                     resolve();
                 }, 2000);
-
                 this.server.close(() => {
-                    console.log('API Server closed.');
+                    console.log('Server closed.');
                     clearTimeout(timer);
                     resolve();
                 });

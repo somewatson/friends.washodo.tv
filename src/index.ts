@@ -1,11 +1,14 @@
 import cron from 'node-cron';
-import { TwitchClient } from './clients/twitch.client';
+import { TwitchClient } from './twitchClient';
 import { MattermostNotifier } from './services/mattermost.notifier';
 import { DiscordNotifier } from './services/discord.notifier';
 import { StateManager } from './services/state.manager';
 import { InteractiveReceiver } from './services/interactive.receiver';
 import { StreamerStateRepository } from './streamerStateRepository';
 import { ApiServer } from './server';
+import { BotAccountRepository } from './repositories/botAccountRepository';
+import { TwitchTokenService } from './services/twitchTokenService';
+import { TwitchChatBot } from './services/twitchChatBot';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -65,6 +68,13 @@ async function bootstrap() {
     const stateRepo = new StreamerStateRepository();
     await stateRepo.init();
 
+    // Initialize Bot Account Repository
+    const botRepo = new BotAccountRepository();
+    await botRepo.init();
+
+    // Initialize Token Service
+    const tokenService = new TwitchTokenService(botRepo);
+
     // Initialize TwitchClient for use in both polling and interactive receiver
     const twitchClient = new TwitchClient({ 
       clientId: process.env.TWITCH_CLIENT_ID || '', 
@@ -82,8 +92,12 @@ async function bootstrap() {
     const receiver = new InteractiveReceiver(mattermostNotifier as any, twitchClient);
 
     // Start the API Server for the website and integrate the receiver's routes
-    const apiServer = new ApiServer(stateRepo, receiver);
+    const apiServer = new ApiServer(stateRepo, botRepo, receiver);
     apiServer.start();
+
+    // Start the Twitch Chat Bot
+    const twitchBot = new TwitchChatBot(tokenService, stateRepo, twitchClient);
+    await twitchBot.start();
 
     // Set up the cron job with the initialized services
     const intervalStr = process.env.CHECK_INTERVAL || '*/5 * * * *';
