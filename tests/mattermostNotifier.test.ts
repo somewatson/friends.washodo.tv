@@ -28,7 +28,7 @@ describe('MattermostNotifier', () => {
         expect(mockedAxios.post).toHaveBeenCalledWith(
             'http://test-webhook.com',
             expect.objectContaining({
-                text: expect.stringContaining('Streamer One is LIVE!')
+                text: expect.stringContaining('Streamer One [Streamer] is LIVE!')
             })
         );
     });
