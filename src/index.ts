@@ -69,22 +69,31 @@ async function runCheck() {
 const interval = process.env.CHECK_INTERVAL || '*/5 * * * *';
 cron.schedule(interval, runCheck);
 
-// Initialize TwitchClient for use in both polling and interactive receiver
-const twitchClient = new TwitchClient({ 
-  clientId: process.env.TWITCH_CLIENT_ID || '', 
-  clientSecret: process.env.TWITCH_CLIENT_SECRET || '' 
-});
+async function bootstrap() {
+  try {
+    // Initialize TwitchClient for use in both polling and interactive receiver
+    const twitchClient = new TwitchClient({ 
+      clientId: process.env.TWITCH_CLIENT_ID || '', 
+      clientSecret: process.env.TWITCH_CLIENT_SECRET || '' 
+    });
 
-const notifier = new MattermostNotifier();
-const receiver = new InteractiveReceiver(notifier as any, twitchClient);
+    const notifier = new MattermostNotifier();
+    const receiver = new InteractiveReceiver(notifier as any, twitchClient);
 
-// Start the API Server for the website and integrate the receiver's routes
-const stateRepo = new StreamerStateRepository();
-await stateRepo.init();
-const apiServer = new ApiServer(stateRepo, receiver);
-apiServer.start();
+    // Start the API Server for the website and integrate the receiver's routes
+    const stateRepo = new StreamerStateRepository();
+    await stateRepo.init();
+    const apiServer = new ApiServer(stateRepo, receiver);
+    apiServer.start();
 
-// Run immediately on start
-runCheck();
+    // Run immediately on start
+    await runCheck();
 
-console.log(`Twitch Notifier started. Polling every ${interval}`);
+    console.log(`Twitch Notifier started. Polling every ${interval}`);
+  } catch (error) {
+    console.error('Failed to bootstrap application:', error);
+    process.exit(1);
+  }
+}
+
+bootstrap();
