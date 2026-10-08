@@ -66,10 +66,10 @@ export class DiscordNotifier {
         if (!text) return;
 
         const parts = text.split(/\s+/);
-        const lowerParts = parts.map(p => p.toLowerCase());
+        const lowerParts = parts.map((p: string) => p.toLowerCase());
 
         const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule'];
-        const hasTrigger = parts.some(p => p.startsWith('!') || p.startsWith('@'));
+        const hasTrigger = parts.some((p: string) => p.startsWith('!') || p.startsWith('@'));
         if (!hasTrigger) return;
 
         let commandIndex = -1;
