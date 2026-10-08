@@ -211,6 +211,33 @@
             font-weight: 700;
             transition: transform 0.2s ease, background-color 0.2s ease;
             box-shadow: 0 4px 15px rgba(169, 112, 255, 0.3);
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+        .join-button:disabled {
+            background-color: #444;
+            box-shadow: none;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .toast-success { background-color: #22c55e; }
+        .toast-error { background-color: #ef4444; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
         .detail-header {
             display: flex;
@@ -325,6 +352,48 @@
         </div>
     </footer>
     <script>
+        async function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
+
+        async function updateBotButton() {
+            const btn = document.getElementById('bot-connect-btn');
+            if (!btn) return;
+
+            try {
+                const res = await fetch('/api/bot/status');
+                const data = await res.json();
+
+                if (data.connected) {
+                    btn.textContent = `Bot Connected: ${data.username}`;
+                    btn.style.backgroundColor = '#22c55e';
+                    btn.onclick = (e) => {
+                        e.preventDefault();
+                        alert(`Bot ${data.username} is connected and active!`);
+                    };
+                    btn.removeAttribute('href');
+                }
+            } catch (e) {
+                console.error('Failed to update bot button', e);
+            }
+        }
+
+        // Handle URL parameters for auth feedback
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('auth') === 'success') {
+            showToast('Twitch Bot connected successfully!');
+            updateBotButton();
+        } else if (params.get('auth') === 'error') {
+            showToast('Failed to connect Twitch Bot. Please try again.', 'error');
+        }
+
+        // Initial update
+        updateBotButton();
+
         document.addEventListener('click', function(e) {
             const target = e.target.closest('a');
             if (!target) return;

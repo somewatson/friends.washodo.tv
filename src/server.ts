@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { TwitchClient } from './twitchClient';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
+import { BotAccountRepository } from './repositories/botAccountRepository';
 import axios from 'axios';
 
 dotenv.config();
@@ -15,10 +16,12 @@ export class ApiServer {
     private twitch = new TwitchClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
+    private botRepo: BotAccountRepository;
     private server: any;
 
-    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any) {
+    constructor(stateRepo: StreamerStateRepository, botRepo: BotAccountRepository, interactiveReceiver?: any) {
         this.stateRepo = stateRepo;
+        this.botRepo = botRepo;
         this.setupMiddleware();
         this.setupRoutes(interactiveReceiver?.getApp());
     }
@@ -33,7 +36,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path.startsWith('/auth/twitch') || req.path.startsWith('/auth/callback') || req.path === '/api/bot/status') {
                 return next();
             }
             
@@ -224,6 +227,10 @@ export class ApiServer {
                         <div class="join-text">Want to be included here?</div>
                         <a href="https://washodo.tv" target="_blank" class="join-button">Apply to join at washodo.tv</a>
                     </div>
+                    <div class="bot-section" style="margin-top: 30px; text-align: center; padding: 30px; background: rgba(169, 112, 255, 0.05); border-radius: 24px; border: 1px solid #333;">
+                        <div class="join-text" style="font-size: 1.1rem; margin-bottom: 20px;">Twitch Bot Integration</div>
+                        <a href="/auth/twitch" id="bot-connect-btn" class="join-button">Connect Twitch Bot</a>
+                    </div>
                 `;
                 
                 const fs = require('fs');
@@ -317,6 +324,92 @@ export class ApiServer {
             } catch (error) {
                 console.error(`Error serving thumbnail for ${username}:`, error);
                 res.status(500).send('Internal Server Error');
+            }
+        });
+
+        // Bot Auth Routes
+        this.app.get('/auth/twitch', (req, res) => {
+            const clientId = process.env.TWITCH_CLIENT_ID;
+            const redirectUri = 'https://friends.washodo.tv/auth/callback';
+            const scopes = 'chat:edit chat:read';
+            
+            if (!clientId) {
+                return res.status(500).send('Twitch Client ID not configured on server');
+            }
+
+            const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}`;
+            res.redirect(authUrl);
+        });
+
+        this.app.get('/auth/callback', async (req, res) => {
+            const code = req.query.code as string;
+            const error = req.query.error as string;
+
+            if (error) {
+                console.error('Twitch auth error:', error);
+                return res.redirect('/?auth=error');
+            }
+
+            if (!code) {
+                return res.redirect('/?auth=error');
+            }
+
+            try {
+                const clientId = process.env.TWITCH_CLIENT_ID;
+                const clientSecret = process.env.TWITCH_CLIENT_SECRET;
+                const redirectUri = 'https://friends.washodo.tv/auth/callback';
+
+                if (!clientId || !clientSecret) {
+                    throw new Error('Missing Twitch credentials');
+                }
+
+                const response = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+                    params: {
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        code: code,
+                        grant_type: 'authorization_code',
+                        redirect_uri: redirectUri,
+                    },
+                });
+
+                const { access_token, refresh_token, expires_in } = response.data;
+                
+                // Fetch user info to get the username
+                const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
+                    headers: {
+                        'Client-ID': clientId,
+                        'Authorization': `Bearer ${access_token}`,
+                    },
+                });
+                const username = userResponse.data.data[0].login;
+
+                const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString();
+
+                await this.botRepo.saveAccount({
+                    username,
+                    accessToken: access_token,
+                    refreshToken: refresh_token,
+                    expiresAt
+                });
+
+                res.redirect('/?auth=success');
+            } catch (error: any) {
+                console.error('Error handling Twitch callback:', error.response?.data || error.message);
+                res.redirect('/?auth=error');
+            }
+        });
+
+        this.app.get('/api/bot/status', async (req, res) => {
+            try {
+                const account = await this.botRepo.getAccount();
+                if (account) {
+                    res.json({ connected: true, username: account.username });
+                } else {
+                    res.json({ connected: false });
+                }
+            } catch (error) {
+                res.status(500).json({ error: 'Failed to check bot status' });
             }
         });
 

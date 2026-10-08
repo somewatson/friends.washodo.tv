@@ -21,7 +21,8 @@
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
     "node-cron": "^4.6.0",
-    "sqlite3": "^6.0.1"
+    "sqlite3": "^6.0.1",
+    "tmi.js": "^1.8.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -31,6 +32,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/sqlite3": "^3.1.11",
     "@types/supertest": "^7.2.1",
+    "@types/tmi.js": "^1.8.6",
     "jest": "^30.5.2",
     "nodemon": "^3.1.14",
     "supertest": "^7.3.1",
