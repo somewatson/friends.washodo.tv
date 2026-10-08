@@ -34,7 +34,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
                 return next();
             }
             
