@@ -39,9 +39,12 @@ export class MattermostNotifier {
 
     const requests = this.servers.map(async (server) => {
       try {
+        const baseUrl = process.env.BASE_URL || 'https://friends.washodo.tv';
+        const thumbnail = `${baseUrl}/api/thumbnail/${streamer.user_login}`;
+        
         await axios.post(`${server.serverUrl}/api/v4/posts`, {
           channel_id: server.channelId,
-          message: `${prefix}🔴 **${streamer.user_name}** ${statusText}\nTitle: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`,
+          message: `${prefix}🔴 **${streamer.user_name}** ${statusText}\n![Stream Thumbnail](${thumbnail})\nTitle: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`,
         }, {
           headers: { 'Authorization': `Bearer ${server.botToken}` }
         });
