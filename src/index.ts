@@ -80,6 +80,7 @@ const receiver = new InteractiveReceiver(notifier as any, twitchClient);
 
 // Start the API Server for the website and integrate the receiver's routes
 const stateRepo = new StreamerStateRepository();
+await stateRepo.init();
 const apiServer = new ApiServer(stateRepo, receiver);
 apiServer.start();
 
