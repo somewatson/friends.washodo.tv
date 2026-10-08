@@ -29,7 +29,7 @@ async function runCheck() {
 
     for (const username of config.trackedStreamers) {
       const currentlyLive = liveUsernames.includes(username);
-      const previouslyLive = stateManager.isLive(username);
+      const previouslyLive = await stateManager.isLive(username);
 
       if (currentlyLive && !previouslyLive) {
         console.log(`Streamer ${username} went live! Notifying...`);
@@ -39,10 +39,10 @@ async function runCheck() {
         console.log(`Streamer ${username} went offline.`);
       }
 
-      stateManager.setLive(username, currentlyLive);
+      await stateManager.setLive(username, currentlyLive);
     }
 
-    await stateManager.save();
+    await stateManager.load();
   } catch (error) {
     console.error('Error during check cycle:', error);
   }

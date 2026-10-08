@@ -1,33 +1,53 @@
-import fs from 'fs/promises';
+import sqlite3 from 'sqlite3';
 import path from 'path';
+import { promisify } from 'util';
 
-const STATE_FILE = path.join(process.cwd(), 'state.json');
+const DB_PATH = path.join(process.cwd(), 'data', 'streamers.db');
 
 export class StateManager {
-  private state: Record<string, boolean> = {};
+  private db: sqlite3.Database;
+  private run: any;
+  private get: any;
+  private all: any;
+
+  constructor() {
+    this.db = new sqlite3.Database(DB_PATH);
+    
+    // Promisify database methods for async/await usage
+    this.run = promisify(this.db.run).bind(this.db);
+    this.get = promisify(this.db.get).bind(this.db);
+    this.all = promisify(this.db.all).bind(this.db);
+  }
 
   async load(): Promise<void> {
-    try {
-      const data = await fs.readFile(STATE_FILE, 'utf-8');
-      this.state = JSON.parse(data);
-    } catch (error) {
-      this.state = {};
-    }
+    // Ensure the state table exists
+    await this.run(`
+      CREATE TABLE IF NOT EXISTS streamer_state (
+        username TEXT PRIMARY KEY,
+        is_live INTEGER DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
   }
 
   async save(): Promise<void> {
-    await fs.writeFile(STATE_FILE, JSON.stringify(this.state, null, 2));
+    // No longer needs a bulk save since we write to DB in real-time
   }
 
-  isLive(username: string): boolean {
-    return !!this.state[username];
+  async isLive(username: string): Promise<boolean> {
+    const row = await this.get('SELECT is_live FROM streamer_state WHERE username = ?', [username]);
+    return row ? !!row.is_live : false;
   }
 
-  setLive(username: string, status: boolean): void {
-    this.state[username] = status;
+  async setLive(username: string, status: boolean): Promise<void> {
+    await this.run(
+      'INSERT INTO streamer_state (username, is_live, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(username) DO UPDATE SET is_live = excluded.is_live, updated_at = excluded.updated_at',
+      [username, status ? 1 : 0]
+    );
   }
 
-  getAllTracked(): string[] {
-    return Object.keys(this.state);
+  async getAllTracked(): Promise<string[]> {
+    const rows = await this.all('SELECT username FROM streamer_state');
+    return rows.map((row: any) => row.username);
   }
 }

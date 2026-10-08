@@ -45,3 +45,6 @@ The "creator-card" from `washodo.tv` is the primary reference:
 - **The Link Style**: `text-decoration: none` on cards, but `underline decoration-sky-400` on specific text links.
 ## 6. Project Management & Documentation
 - **Project Plans:** All technical and feature plans are located in the repository under the `/goals` folder. These files should be updated as the implementation progresses.
+- **Persistence Guidelines:** 
+    - **No JSON state files:** Never use `state.json` or similar loose JSON files for persistence.
+    - **SQLite Only:** All application state, configurations, and persistent data must be stored in the SQLite database (`data/streamers.db`). This ensures atomic writes, better crash recovery, and avoids file system permission issues in containerized environments.
