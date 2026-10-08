@@ -301,7 +301,7 @@ export class ApiServer {
                         
                         try {
                             const response = await axios.get(targetUrl, { responseType: 'arraybuffer' });
-                            res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+                            res.setHeader('Content-Type', String(response.headers['content-type'] || 'image/jpeg'));
                             return res.send(response.data);
                         } catch (error) {
                             console.error(`Error proxying thumbnail for ${username}:`, error);
