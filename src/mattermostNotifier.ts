@@ -9,7 +9,7 @@ export class MattermostNotifier {
             return;
         }
 
-        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!\n\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})`;
+        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!\n\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})\n\n[Check all streamer statuses](https://friends.washodo.tv)`;
 
         try {
             await axios.post(this.webhookUrl, {

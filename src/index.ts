@@ -3,6 +3,8 @@ import { TwitchClient } from './clients/twitch.client';
 import { MattermostNotifier } from './services/mattermost.notifier';
 import { StateManager } from './services/state.manager';
 import { InteractiveReceiver } from './services/interactive.receiver';
+import { StreamerStateRepository } from './streamerStateRepository';
+import { ApiServer } from './server';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -64,7 +66,11 @@ const twitchClient = new TwitchClient({
 
 const notifier = new MattermostNotifier();
 const receiver = new InteractiveReceiver(notifier as any, twitchClient);
-receiver.listen(process.env.PORT ? parseInt(process.env.PORT) : 3000);
+
+// Start the API Server for the website and integrate the receiver's routes
+const stateRepo = new StreamerStateRepository();
+const apiServer = new ApiServer(stateRepo, receiver);
+apiServer.start();
 
 // Run immediately on start
 runCheck();

@@ -18,10 +18,10 @@ export class ApiServer {
     private stateRepo: StreamerStateRepository;
     private server: any;
 
-    constructor(stateRepo: StreamerStateRepository) {
+    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any) {
         this.stateRepo = stateRepo;
         this.setupMiddleware();
-        this.setupRoutes();
+        this.setupRoutes(interactiveReceiver?.getApp());
     }
 
     private setupMiddleware() {
@@ -29,14 +29,12 @@ export class ApiServer {
             origin: ['https://www.washodo.tv', 'http://localhost:3000']
         }));
         this.app.use(express.json());
-        // Removed express.static('public') because it serves index.html as a static file,
-        // which takes precedence over our root route handler.
         
         // API Key Authentication Middleware
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
+            if (req.path === '/' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
                 return next();
             }
             
@@ -46,6 +44,10 @@ export class ApiServer {
                 res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
             }
         });
+
+        // Move static middleware AFTER the root route handler in setupRoutes
+        // We'll actually remove it from here and put it at the end of setupRoutes 
+        // or just after the dynamic routes.
     }
 
     private formatUptime(startTime: string | null): string {
@@ -86,8 +88,76 @@ export class ApiServer {
         return parts.join(' ');
     }
 
-    private setupRoutes() {
+    private setupRoutes(interactiveApp?: express.Application) {
+        if (interactiveApp) {
+            this.app.use(interactiveApp);
+        }
+
+        this.app.get('/streamer/:username', async (req, res) => {
+            const username = req.params.username.toLowerCase();
+            const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
+            const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+            const allStreamers = [...members, ...friends].map(u => u.toLowerCase());
+
+            if (!allStreamers.includes(username)) {
+                return res.status(404).send('<h1 style="color:white; background:#333; padding:20px;">Streamer Not Found</h1><p style="color:white; background:#333; padding:20px;">The requested streamer is not part of the Washodo community list.</p>');
+            }
+
+            try {
+                const liveList = await this.twitch.getLiveStreamers([username]);
+                const userList = await this.twitch.getUsers([username]);
+                const stream = liveList[0];
+                const user = userList[0];
+                const isLive = !!stream;
+
+                const profilePic = user?.profile_image_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`;
+                const thumbnail = stream?.thumbnail_url ? stream.thumbnail_url.replace('{width}', '800').replace('{height}', '450') : '';
+                const title = stream?.title || 'Offline';
+                const tagline = user?.description || '';
+                const twitchUrl = `https://twitch.tv/${username}`;
+
+                let uptimeText = '';
+                if (isLive) {
+                    const actualStartTime = stream?.started_at || await this.stateRepo.getLiveSince(username);
+                    uptimeText = ` (Live for ${this.formatUptime(actualStartTime)})`;
+                }
+
+                const html = `
+                    <div class="streamer-detail">
+                        <div class="detail-header">
+                            <img src="${profilePic}" class="detail-profile-pic" alt="${username}'s avatar">
+                            <div class="detail-user-info">
+                                <div class="detail-username">${username}</div>
+                                <div class="detail-status-label ${isLive ? 'live' : 'offline'}">${isLive ? 'LIVE' + uptimeText : 'Offline'}</div>
+                            </div>
+                        </div>
+                        ${isLive ? `<img src="${thumbnail}" class="detail-thumbnail" alt="Live stream thumbnail">` : '<div class="detail-offline-placeholder">Streamer is currently offline</div>'}
+                        <div class="detail-body">
+                            <div class="detail-title">${title}</div>
+                            ${tagline ? `<div class="detail-tagline">${tagline}</div>` : ''}
+                            <a href="${twitchUrl}" target="_blank" class="detail-watch-button">Watch on Twitch</a>
+                        </div>
+                        <div class="detail-footer">
+                            <a href="/" class="detail-back-link">← Back to all streamers</a>
+                        </div>
+                    </div>
+                `;
+
+                const fs = require('fs');
+                const path = require('path');
+                let template = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+                template = template.replace('<!-- CONTENT_PLACEHOLDER -->', html);
+
+                res.send(template);
+            } catch (error) {
+                console.error(`Error rendering status page for ${username}:`, error);
+                res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1>');
+            }
+        });
+
         this.app.get('/', async (req, res) => {
+
+
             const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
             const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
             const allStreamers = [...members, ...friends];
@@ -245,14 +315,14 @@ export class ApiServer {
             }
         });
 
-        this.app.post('/api/test-webhook', async (req, res) => {
+        this.app.get('/api/test-webhook', async (req, res) => {
             const testStreamer = {
                 user_name: 'Test Bot',
                 user_login: 'testbot',
                 game_name: 'Testing',
                 title: 'This is a test notification from TwitchWatch!'
             };
-
+        
             try {
                 await this.notifier.sendNotification(testStreamer, 'System Test');
                 res.json({ message: 'Test notification sent successfully' });
@@ -260,6 +330,8 @@ export class ApiServer {
                 res.status(500).json({ error: 'Failed to send test notification', details: error.message });
             }
         });
+
+        this.app.use(express.static('public'));
     }
 
     public start() {
