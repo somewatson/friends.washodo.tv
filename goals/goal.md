@@ -38,3 +38,11 @@
   - Modify the response logic to include `root_id` in the API request to Mattermost, ensuring replies stay within threads.
   - Implement a check for messages containing both "true" and "?" to trigger the response: "Of course, that sounds about right!".
   - Verify thread-aware replying and the "truth" response in Mattermost.
+
+## 6. Maintain Node.js Runtime Compatibility
+- **Objective**: Ensure the environment supports the required Node.js built-in modules.
+- **Tasks**:
+  - Use Node.js v22+ in the `Dockerfile` to support the native `node:sqlite` module.
+  - Verify that the production image is updated to `node:22-alpine`.
+  - **Crucial**: If the runtime version is downgraded, `node:sqlite` must be replaced with a compatible library like `better-sqlite3` or `sqlite3`.
+

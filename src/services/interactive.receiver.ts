@@ -195,11 +195,15 @@ export class InteractiveReceiver {
   }
 
   private async sendResponse(channelId: string, message: string, serverConfig: ServerConfig, rootId?: string): Promise<void> {
+    const websiteUrl = 'https://friends.washodo.tv';
+    const promotionalMessage = `\\n\\n🌐 Check out the status page: ${websiteUrl}`;
+    const finalMessage = message + promotionalMessage;
+
     try {
       await axios.post(`${serverConfig.serverUrl}/api/v4/posts`, {
         channel_id: channelId,
         root_id: rootId,
-        message: message,
+        message: finalMessage,
       }, {
         headers: { 'Authorization': `Bearer ${serverConfig.botToken}` }
       });
