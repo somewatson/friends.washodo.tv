@@ -31,6 +31,17 @@
     "nodemon": "^3.1.14",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
-  }
+    "typescript": "^5.9.3"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/somewatson/friends.washodo.tv.git"
+  },
+  "bugs": {
+    "url": "https://github.com/somewatson/friends.washodo.tv/issues"
+  },
+  "homepage": "https://github.com/somewatson/friends.washodo.tv#readme"
 }

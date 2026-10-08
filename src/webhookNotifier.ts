@@ -3,18 +3,19 @@ import axios from 'axios';
 export class WebhookNotifier {
     private webhookUrls = process.env.WEBHOOK_URLS?.split(',').filter(Boolean) || [];
 
-    async sendNotification(streamer: any, tier: string = 'Streamer') {
+    async sendNotification(streamer: any, tier: string = 'Streamer', cachedThumbnail: string = '') {
         if (this.webhookUrls.length === 0 && !process.env.MATTERMOST_BOTS) {
             console.error('No notification endpoints configured (webhooks or bots)');
             return;
         }
-
-        const thumbnail = streamer.thumbnail_url 
-            ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
-            : '';
+        
+        const username = streamer.user_login;
+        const baseUrl = process.env.BASE_URL || 'https://friends.washodo.tv';
+        const thumbnail = `${baseUrl}/api/thumbnail/${username}`;
+        
         const uptimeInfo = streamer.uptime ? `\n**${streamer.uptime}**` : '';
-        const imageMarkdown = thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : '';
-        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n${imageMarkdown}\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})\n[View all streamers](https://friends.washodo.tv/)`;
+        const imageMarkdown = `![Stream Thumbnail](${thumbnail})\n`;
+        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n${imageMarkdown}\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})\n[View all streamers](${baseUrl}/)`;
 
         const notifications: Promise<any>[] = [];
 

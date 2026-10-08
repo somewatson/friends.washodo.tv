@@ -1,113 +1,67 @@
 import cron from 'node-cron';
+import { TwitchClient } from './clients/twitch.client';
+import { MattermostNotifier } from './services/mattermost.notifier';
+import { StateManager } from './services/state.manager';
+import { InteractiveReceiver } from './services/interactive.receiver';
 import dotenv from 'dotenv';
-import { TwitchClient } from './twitchClient';
-import { WebhookNotifier } from './webhookNotifier';
-import { ApiServer } from './server';
-import { StreamerStateRepository } from './streamerStateRepository';
 
 dotenv.config();
 
-const twitch = new TwitchClient();
-const notifier = new WebhookNotifier();
-const stateRepo = new StreamerStateRepository();
+async function runCheck() {
+  console.log(`[${new Date().toISOString()}] Checking streamers...`);
 
-// Start the API Server
-const server = new ApiServer(stateRepo);
-server.start();
+  const config = {
+    clientId: process.env.TWITCH_CLIENT_ID || '',
+    clientSecret: process.env.TWITCH_CLIENT_SECRET || '',
+    trackedStreamers: (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean),
+    interval: process.env.CHECK_INTERVAL || '*/5 * * * *',
+  };
 
-const washodoMembers = (process.env.WASHODO_MEMBERS || '').split(',');
-const washodoFriends = (process.env.WASHODO_FRIENDS || '').split(',');
-const trackedStreamers = [...washodoMembers, ...washodoFriends].filter(Boolean);
-const checkInterval = process.env.CHECK_INTERVAL || '*/5 * * * *';
+  const twitchClient = new TwitchClient({ clientId: config.clientId, clientSecret: config.clientSecret });
+  const notifier = new MattermostNotifier();
+  const stateManager = new StateManager();
 
-// Helper to get current timestamp for logs
-function logWithTimestamp(message: string) {
-    const now = new Date();
-    const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
-    console.log(`[${timestamp}] ${message}`);
+  await stateManager.load();
+
+  try {
+    const liveStreams = await twitchClient.getStreamStatus(config.trackedStreamers);
+    const liveUsernames = liveStreams.map((s: any) => s.user_login);
+
+    for (const username of config.trackedStreamers) {
+      const currentlyLive = liveUsernames.includes(username);
+      const previouslyLive = stateManager.isLive(username);
+
+      if (currentlyLive && !previouslyLive) {
+        console.log(`Streamer ${username} went live! Notifying...`);
+        const streamData = liveStreams.find((s: any) => s.user_login === username);
+        await notifier.notify(streamData);
+      } else if (!currentlyLive && previouslyLive) {
+        console.log(`Streamer ${username} went offline.`);
+      }
+
+      stateManager.setLive(username, currentlyLive);
+    }
+
+    await stateManager.save();
+  } catch (error) {
+    console.error('Error during check cycle:', error);
+  }
 }
 
-async function checkStreams() {
-    logWithTimestamp('Checking for live streams...');
-    const liveStreamers = await twitch.getLiveStreamers(trackedStreamers);
-    
-    const liveUsernames = liveStreamers.map(s => s.user_login.toLowerCase());
-    
-    for (const streamer of liveStreamers) {
-        const username = streamer.user_login.toLowerCase();
-        const wasLive = await stateRepo.isKnownLive(username);
-        
-        const isMember = washodoMembers.includes(username);
-        const isFriend = washodoFriends.includes(username);
-        const tier = isMember ? 'Washodo Member' : (isFriend ? 'Washodo Friend' : 'Other');
-        
-        if (!wasLive) {
-            const startTime = streamer.started_at;
-            const uptimeValue = ApiServer.formatUptime(startTime);
-            const uptimeText = uptimeValue !== 'Unknown' 
-                ? `Live for ${uptimeValue}`
-                : 'Live now!';
-            
-            await notifier.sendNotification({
-                ...streamer,
-                uptime: uptimeText
-            }, tier);
-            
-            logWithTimestamp(`🔔 Notification sent: ${username} (${tier}) is now live! ${uptimeText}`);
-            await stateRepo.setLive(username, startTime || new Date().toISOString());
-        }
-    }
+const interval = process.env.CHECK_INTERVAL || '*/5 * * * *';
+cron.schedule(interval, runCheck);
 
-    // Mark everyone else as offline
-    for (const username of trackedStreamers) {
-        const lowerUser = username.toLowerCase();
-        if (!liveUsernames.includes(lowerUser)) {
-            const wasLive = await stateRepo.isKnownLive(lowerUser);
-            if (wasLive) {
-                await stateRepo.setOffline(lowerUser);
-                logWithTimestamp(`💤 ${lowerUser} is now offline.`);
-            }
-        }
-    }
-
-    logWithTimestamp('Check complete.');
-}
-
-async function bootstrap() {
-    try {
-        await stateRepo.init();
-        logWithTimestamp(`Hybrid Bot/API started. Monitoring ${trackedStreamers.length} streamers every ${checkInterval}.`);
-        cron.schedule(checkInterval, checkStreams);
-        
-        // Run once immediately on start
-        checkStreams();
-    } catch (error) {
-        console.error('Failed to bootstrap application:', error);
-        process.exit(1);
-    }
-}
-
-bootstrap();
-
-// Graceful shutdown
-const shutdown = async () => {
-    logWithTimestamp('Shutting down gracefully...');
-    try {
-        await server.stop();
-        await stateRepo.close();
-    } catch (err) {
-        console.error('Error during server stop:', err);
-    }
-    logWithTimestamp('Exiting process.');
-    process.exit(0);
-};
-
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+// Initialize TwitchClient for use in both polling and interactive receiver
+const twitchClient = new TwitchClient({ 
+  clientId: process.env.TWITCH_CLIENT_ID || '', 
+  clientSecret: process.env.TWITCH_CLIENT_SECRET || '' 
 });
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception thrown:', err);
-    shutdown();
-});
+
+const notifier = new MattermostNotifier();
+const receiver = new InteractiveReceiver(notifier as any, twitchClient);
+receiver.listen(process.env.PORT ? parseInt(process.env.PORT) : 3000);
+
+// Run immediately on start
+runCheck();
+
+console.log(`Twitch Notifier started. Polling every ${interval}`);

@@ -11,8 +11,11 @@ export class StreamerStateRepository {
             CREATE TABLE IF NOT EXISTS streamer_status (
                 username TEXT PRIMARY KEY,
                 is_live INTEGER DEFAULT 0,
-                live_since TEXT
+                live_since TEXT,
+                last_thumbnail_url TEXT,
+                profile_image_url TEXT
             )
+
         `);
         console.log(`Database initialized at ${this.dbPath}`);
     }
@@ -29,11 +32,23 @@ export class StreamerStateRepository {
         return row ? (row.live_since as string) : null;
     }
 
-    async setLive(username: string, startTime: string) {
+    async getLastThumbnailUrl(username: string): Promise<string | null> {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = this.db.prepare('SELECT last_thumbnail_url FROM streamer_status WHERE username = ?').get(username.toLowerCase());
+        return row ? (row.last_thumbnail_url as string) : null;
+    }
+
+    async getProfileImageUrl(username: string): Promise<string | null> {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = this.db.prepare('SELECT profile_image_url FROM streamer_status WHERE username = ?').get(username.toLowerCase());
+        return row ? (row.profile_image_url as string) : null;
+    }
+
+    async setLive(username: string, startTime: string, thumbnailUrl: string | null = null, profileImageUrl: string | null = null) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare(
-            'INSERT INTO streamer_status (username, is_live, live_since) VALUES (?, 1, ?) ON CONFLICT(username) DO UPDATE SET is_live = 1, live_since = ?'
-        ).run(username.toLowerCase(), startTime, startTime);
+            'INSERT INTO streamer_status (username, is_live, live_since, last_thumbnail_url, profile_image_url) VALUES (?, 1, ?, ?, ?) ON CONFLICT(username) DO UPDATE SET is_live = 1, live_since = ?, last_thumbnail_url = ?, profile_image_url = ?'
+        ).run(username.toLowerCase(), startTime, thumbnailUrl, profileImageUrl, startTime, thumbnailUrl, profileImageUrl);
     }
 
     async setOffline(username: string) {

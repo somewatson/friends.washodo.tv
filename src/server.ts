@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { TwitchClient } from './twitchClient';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
+import { SvgGenerator } from './svgGenerator';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -34,7 +36,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path.startsWith('/api/status/') || req.path === '/api/streamers') {
+            if (req.path === '/' || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
                 return next();
             }
             
@@ -213,6 +215,33 @@ export class ApiServer {
                 });
             } catch (error) {
                 return res.status(500).json({ error: 'Failed to fetch data from Twitch' });
+            }
+        });
+
+        this.app.get('/api/thumbnail/:username', async (req, res) => {
+            const username = req.params.username.toLowerCase();
+            
+            try {
+                const isLive = await this.stateRepo.isKnownLive(username);
+                
+                if (isLive) {
+                    const thumbnailUrl = await this.stateRepo.getLastThumbnailUrl(username);
+                    if (thumbnailUrl) {
+                        // Replace Twitch's placeholders with actual dimensions
+                        const redirectUrl = thumbnailUrl.replace('{width}', '400').replace('{height}', '225');
+                        return res.redirect(302, redirectUrl);
+                    }
+                }
+                
+                // Offline state: Generate and return SVG
+                const profileImageUrl = await this.stateRepo.getProfileImageUrl(username);
+                const svg = await SvgGenerator.generateOfflineOverlay(profileImageUrl, username);
+                
+                res.setHeader('Content-Type', 'image/svg+xml');
+                res.send(svg);
+            } catch (error) {
+                console.error(`Error serving thumbnail for ${username}:`, error);
+                res.status(500).send('Internal Server Error');
             }
         });
 

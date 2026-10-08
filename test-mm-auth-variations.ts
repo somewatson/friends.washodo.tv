@@ -1,0 +1,47 @@
+import dotenv from 'dotenv';
+import axios from 'axios';
+
+dotenv.config();
+
+async function testBotAuthVariations() {
+    console.log('🔍 Testing Mattermost Bot Auth Variations...');
+    
+    const botConfigs = process.env.MATTERMOST_BOTS?.split(',').filter(Boolean) || [];
+    if (botConfigs.length === 0) {
+        console.error('❌ No MATTERMOST_BOTS configured');
+        return;
+    }
+
+    for (const config of botConfigs) {
+        const [token, url, channelId] = config.split('|');
+        if (!token || !url) {
+            console.error('❌ Missing token or url in config');
+            continue;
+        }
+        const baseUrl = url.replace(/\/$/, '');
+        console.log(`\nTesting Bot on ${baseUrl}...`);
+
+        // Variation 1: Standard Bearer Token (Current Implementation)
+        try {
+            await axios.get(`${baseUrl}/api/v4/users/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            console.log('✅ Variation 1 (Bearer Header) SUCCESS');
+            return; 
+        } catch (e: any) {
+            console.log(`❌ Variation 1 failed: ${e.response?.status} ${e.response?.data?.id || ''}`);
+        }
+
+        // Variation 2: Token as Query Parameter (Rare/Legacy)
+        try {
+            await axios.get(`${baseUrl}/api/v4/users/me?token=${token}`);
+            console.log('✅ Variation 2 (Query Param) SUCCESS');
+            return;
+        } catch (e: any) {
+            console.log(`❌ Variation 2 failed: ${e.response?.status} ${e.response?.data?.id || ''}`);
+        }
+    }
+    console.log('\n🚨 All auth variations failed. This confirms the token itself is invalid/expired on the server.');
+}
+
+testBotAuthVariations();

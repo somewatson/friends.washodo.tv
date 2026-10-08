@@ -1,11 +1,11 @@
-# Project Plan: Mattermost Twitch Live Notifier
+# Project Plan: Twitch Live Notifier
 
 ## 1. Overview
-The goal is to create a background service (Bot/Mod) that monitors specific Twitch streamers and posts a notification to a Mattermost channel the moment they go live.
+The goal is to create a background service (Bot/Mod) that monitors specific Twitch streamers and posts a notification to a webhook endpoint the moment they go live.
 
 ### Architecture Decision
 - **Type:** Standalone Bot (Mod).
-- **Reasoning:** Easier deployment on ARM, language agnostic, no risk to Mattermost server stability, and simpler update cycle.
+- **Reasoning:** Easier deployment on ARM, language agnostic, no risk to webhook server stability, and simpler update cycle.
 - **Language/Framework:** Node.js with TypeScript.
 - **Monitoring Method:** Polling (initial phase) for ease of setup and ARM compatibility.
 
@@ -20,22 +20,22 @@ The goal is to create a background service (Bot/Mod) that monitors specific Twit
 - **Deployment:** Docker (ARM64 compatible)
 
 ### Key Components
-1. **Twitch Client:** Handles OAuth2 authentication and queries the Twitch `streams` API.
+1. **Twitch Client:** Handles OAuth2 authentication (including token refresh), queries the Twitch `streams` API, and manages API rate limits.
 2. **State Manager:** A simple local store (JSON file or lightweight DB) to track the "last known status" of streamers to prevent duplicate notifications.
-3. **Mattermost Notifier:** Sends formatted messages via Mattermost Incoming Webhooks.
+3. **Webhook Notifier:** Sends formatted messages (using rich attachments/links where supported) via Incoming Webhooks.
 4. **Scheduler:** Triggers the check cycle every 2–5 minutes.
 
 ## 3. Implementation Roadmap
 
 ### Phase 1: Infrastructure & Setup
 - [ ] Create Twitch Developer Application (get `Client ID` and `Client Secret`).
-- [ ] Configure Mattermost Incoming Webhook for the target channel.
+- [ ] Configure Incoming Webhook for the target channel.
 - [ ] Initialize Node.js project with TypeScript and necessary dependencies.
 - [ ] Set up `.env` for secret management.
 
 ### Phase 2: Core Development
 - [ ] **Twitch API Integration:** Implement token fetching and "Live Status" check.
-- [ ] **Notification Engine:** Implement the Mattermost Webhook POST request with formatted markdown.
+- [ ] **Notification Engine:** Implement the Webhook POST request with formatted markdown.
 - [ ] **State Tracking:** Implement logic to detect the transition from `offline` $\rightarrow$ `online`.
 - [ ] **Polling Loop:** Implement the cron job to automate checks.
 
@@ -48,11 +48,11 @@ The goal is to create a background service (Bot/Mod) that monitors specific Twit
 The following variables will be required in the `.env` file:
 - `TWITCH_CLIENT_ID`: From Twitch Dev Portal.
 - `TWITCH_CLIENT_SECRET`: From Twitch Dev Portal.
-- `MATTERMOST_WEBHOOK_URL`: From Mattermost Integration settings.
+- `WEBHOOK_URLS`: Comma-separated list of webhook URLs.
 - `TRACKED_STREAMERS`: Comma-separated list of Twitch usernames.
 - `CHECK_INTERVAL`: Frequency of checks (e.g., `*/5 * * * *` for every 5 mins).
 
 ## 5. Future Enhancements
 - **EventSub Migration:** Move from polling to Webhooks for real-time notifications (requires public IP/Reverse Proxy).
-- **Dynamic User List:** Allow adding/removing streamers via Mattermost slash commands.
+- **Dynamic User List:** Allow adding/removing streamers via webhook triggers or API.
 - **Customizable Alerts:** Allow different channels for different streamers.

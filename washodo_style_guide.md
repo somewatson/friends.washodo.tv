@@ -43,4 +43,5 @@ The "creator-card" from `washodo.tv` is the primary reference:
 ## 5. Elements to Incorporate
 - **The "Live" Badge**: A small, high-contrast badge with a pulsating red indicator.
 - **The Link Style**: `text-decoration: none` on cards, but `underline decoration-sky-400` on specific text links.
-- **Thumbnail Aspect Ratio**: 16:9 ratio for stream previews.
+## 6. Project Management & Documentation
+- **Project Plans:** All technical and feature plans are located in the repository under the `/goals` folder. These files should be updated as the implementation progresses.
