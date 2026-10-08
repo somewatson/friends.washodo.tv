@@ -29,6 +29,20 @@ export class StateManager {
         last_notification_at DATETIME
       )
     `);
+
+    // Migration: Ensure last_notification_at column exists for existing databases
+    try {
+      const columns = await this.all('PRAGMA table_info(streamer_state)');
+      const hasNotificationColumn = columns.some((col: any) => col.name === 'last_notification_at');
+      
+      if (!hasNotificationColumn) {
+        console.log('[StateManager] Migrating database: Adding last_notification_at column...');
+        await this.run('ALTER TABLE streamer_state ADD COLUMN last_notification_at DATETIME');
+        console.log('[StateManager] Migration successful.');
+      }
+    } catch (error) {
+      console.error('[StateManager] Migration failed:', error);
+    }
   }
 
   async save(): Promise<void> {
