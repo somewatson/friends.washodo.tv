@@ -15,8 +15,21 @@ export class StreamerStateRepository {
                 last_thumbnail_url TEXT,
                 profile_image_url TEXT
             )
-
         `);
+
+        // Migration: Ensure necessary columns exist for existing databases
+        const columns = this.db.prepare('PRAGMA table_info(streamer_status)').all() as any[];
+        const columnNames = columns.map(col => col.name);
+
+        if (!columnNames.includes('last_thumbnail_url')) {
+            console.log('[StreamerStateRepository] Migrating: Adding last_thumbnail_url column...');
+            this.db.exec('ALTER TABLE streamer_status ADD COLUMN last_thumbnail_url TEXT');
+        }
+        if (!columnNames.includes('profile_image_url')) {
+            console.log('[StreamerStateRepository] Migrating: Adding profile_image_url column...');
+            this.db.exec('ALTER TABLE streamer_status ADD COLUMN profile_image_url TEXT');
+        }
+
         console.log(`Database initialized at ${this.dbPath}`);
     }
 
