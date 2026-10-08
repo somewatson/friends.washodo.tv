@@ -196,7 +196,7 @@ export class InteractiveReceiver {
 
   private async sendResponse(channelId: string, message: string, serverConfig: ServerConfig, rootId?: string): Promise<void> {
     const websiteUrl = 'https://friends.washodo.tv';
-    const promotionalMessage = `\\n\\n🌐 Check out the status page: ${websiteUrl}`;
+    const promotionalMessage = `\n\n🌐 Check out the status page: ${websiteUrl}`;
     const finalMessage = message + promotionalMessage;
 
     try {
