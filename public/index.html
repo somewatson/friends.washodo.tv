@@ -324,5 +324,32 @@
             <a href="https://github.com/SomeWatson/friends.washodo.tv" target="_blank" class="footer-link">Source Code</a>
         </div>
     </footer>
+    <script>
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('a');
+            if (!target) return;
+
+            // Track Streamer Card clicks (Main Grid)
+            if (target.classList.contains('streamer-card')) {
+                const username = target.getAttribute('href').split('/').pop();
+                if (username && window.umami) {
+                    window.umami.track('Streamer Click', { name: username });
+                }
+            } 
+            // Track "Watch on Twitch" clicks (Detail Page)
+            else if (target.classList.contains('detail-watch-button')) {
+                const username = window.location.pathname.split('/').pop();
+                if (username && window.umami) {
+                    window.umami.track('Watch Click', { name: username });
+                }
+            }
+            // Track Join Button clicks
+            else if (target.classList.contains('join-button')) {
+                if (window.umami) {
+                    window.umami.track('Join Click');
+                }
+            }
+        });
+    </script>
 </body>
 </html>
