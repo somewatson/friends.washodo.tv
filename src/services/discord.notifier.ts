@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import axios from 'axios';
+import { withRetry, LogThrottler } from '../utils/resilience';
 
 interface DiscordConfig {
     token: string;
@@ -188,7 +189,8 @@ export class DiscordNotifier {
             ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
             : '';
 
-        const notifications = this.configs.map(async (config) => {
+        // Process configs sequentially to avoid unbounded concurrency
+        for (const config of this.configs) {
             try {
                 const cooldown = isRecurring 
                     ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
@@ -201,30 +203,45 @@ export class DiscordNotifier {
                     cooldown
                 );
 
-                if (!shouldNotify) return;
+                if (!shouldNotify) continue;
 
                 const client = this.clients.get(config.token);
-                if (!client) return;
+                if (!client) continue;
 
-                const channel = await client.channels.fetch(config.channelId);
-                if (!channel || !channel.isTextBased()) return;
+                // Discord.js internal API calls don't take a simple 'timeout' option 
+                // in the same way axios does, but we wrap it in withRetry to handle
+                // failures and implement a manual timeout using Promise.race if needed.
+                // For now, we focus on the retry and isolation logic.
+                await withRetry(
+                    async () => {
+                        const channel = await client.channels.fetch(config.channelId);
+                        if (!channel || !channel.isTextBased()) {
+                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
+                        }
 
-                const embed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle(`${streamer.user_name} ${statusText}`)
-                    .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}`)
-                    .setThumbnail(thumbnail || null)
-                    .setTimestamp();
+                        const embed = new EmbedBuilder()
+                            .setColor(0xFF0000)
+                            .setTitle(`${streamer.user_name} ${statusText}`)
+                            .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}`)
+                            .setThumbnail(thumbnail || null)
+                            .setTimestamp();
 
-                await (channel as any).send({ embeds: [embed] });
+                        await (channel as any).send({ embeds: [embed] });
+                    },
+                    3,
+                    1000,
+                    (err, attempt) => console.log(`[DiscordNotifier] Retry ${attempt} for ${config.channelId} due to: ${err.message}`)
+                );
+
                 await this.stateRepo.recordNotification(streamer.user_login, 'discord', config.channelId);
                 
             } catch (error) {
-                console.error(`[DiscordNotifier] Failed to notify channel ${config.channelId}:`, error);
+                const logKey = `discord_error_${config.channelId}`;
+                if (LogThrottler.shouldLog(logKey)) {
+                    console.error(`[DiscordNotifier] Persistent failure for ${config.channelId}:`, error);
+                }
             }
-        });
-
-        await Promise.all(notifications);
+        }
     }
 
     async stop(): Promise<void> {

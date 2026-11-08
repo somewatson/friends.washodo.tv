@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { withRetry, LogThrottler } from '../utils/resilience';
 
 interface ServerConfig {
   webhookToken: string;
@@ -43,9 +44,9 @@ export class MattermostNotifier {
       ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
       : '';
 
-    const requests = this.servers.map(async (server) => {
+    // Process servers sequentially to avoid unbounded concurrency and DB pressure
+    for (const server of this.servers) {
       try {
-        // 1. Check if we should notify this specific channel
         const cooldown = isRecurring 
           ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
           : 0;
@@ -57,24 +58,30 @@ export class MattermostNotifier {
           cooldown
         );
 
-        if (!shouldNotify) return;
+        if (!shouldNotify) continue;
 
         const message = `${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`;
 
-        await axios.post(`${server.serverUrl}/api/v4/posts`, {
-          channel_id: server.channelId,
-          message: message,
-        }, {
-          headers: { 'Authorization': `Bearer ${server.botToken}` }
-        });
+        await withRetry(
+          () => axios.post(`${server.serverUrl}/api/v4/posts`, {
+            channel_id: server.channelId,
+            message: message,
+          }, {
+            headers: { 'Authorization': `Bearer ${server.botToken}` },
+            timeout: 10000 // 10s timeout
+          }),
+          3,
+          1000,
+          (err, attempt) => console.log(`[MattermostNotifier] Retry ${attempt} for ${server.serverUrl} due to: ${err.message}`)
+        );
 
-        // 2. Confirm delivery in DB
         await this.stateRepo.recordNotification(streamer.user_login, 'mattermost', server.channelId);
       } catch (error: any) {
-        console.error(`[MattermostNotifier] Failed to notify ${server.serverUrl}:`, error.response?.data || error.message);
+        const logKey = `mattermost_error_${server.serverUrl}`;
+        if (LogThrottler.shouldLog(logKey)) {
+          console.error(`[MattermostNotifier] Persistent failure for ${server.serverUrl}:`, error.response?.data || error.message);
+        }
       }
-    });
-
-    await Promise.all(requests);
+    }
   }
 }

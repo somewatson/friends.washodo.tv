@@ -39,7 +39,8 @@ async function runCheck(
         // Both notifiers now handle their own "shouldNotify" check using the DB log
         const isRecurring = !!previouslyLive;
         
-        await Promise.all([
+        // Use Promise.allSettled to ensure isolation: one notifier failing doesn't stop the other
+        await Promise.allSettled([
           mattermostNotifier.notify(streamData, isRecurring),
           discordNotifier.notify(streamData, isRecurring)
         ]);
