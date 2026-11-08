@@ -33,7 +33,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
                 return next();
             }
             
@@ -88,6 +88,7 @@ export class ApiServer {
     }
 
     private setupRoutes(interactiveApp?: express.Application) {
+        const path = require('path');
         if (interactiveApp) {
             this.app.use(interactiveApp);
         }
@@ -238,6 +239,20 @@ export class ApiServer {
             }
         });
 
+        this.app.get('/api/discord/invite', (req, res) => {
+            const clientId = process.env.DISCORD_CLIENT_ID;
+            if (!clientId) {
+                return res.status(500).json({ error: 'Discord Client ID not configured in environment' });
+            }
+
+            const scopes = ['bot', 'applications.commands'].join('%20');
+            const permissions = 0x400 | 0x800 | 0x1000000000 | 0x10000 | 0x4000; // VIEW_CHANNEL | SEND_MESSAGES | SEND_MESSAGES_IN_THREADS | READ_MESSAGE_HISTORY | EMBED_LINKS
+            
+            const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scopes}`;
+            
+            res.json({ url: inviteUrl });
+        });
+
         this.app.get('/api/streamers', (req, res) => {
             res.json({
                 members: (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean),
@@ -285,6 +300,11 @@ export class ApiServer {
             } catch (error) {
                 return res.status(500).json({ error: 'Failed to fetch data from Twitch' });
             }
+        });
+
+        // Add a simple redirect from /discord-setup to the HTML file for convenience
+        this.app.get('/discord-setup', (req, res) => {
+            res.sendFile(path.join(__dirname, '../public/discord-setup.html'));
         });
 
         this.app.get('/api/thumbnail/:username', async (req, res) => {

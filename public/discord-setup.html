@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Authorization | Washodo Ward</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #f3f4f6;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 { 
+            color: #a970ff; 
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+        }
+        .card {
+            background-color: #1e1e1e;
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 40px;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .step-list {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 40px;
+        }
+        .step-item {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        .step-number {
+            background-color: #a970ff;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+            font-size: 0.9rem;
+        }
+        .permissions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.95rem;
+        }
+        .permissions-table th, .permissions-table td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #333;
+        }
+        .permissions-table th {
+            color: #9ca3af;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+        .permission-name {
+            color: #fff;
+            font-weight: 600;
+        }
+        .privacy-box {
+            background-color: rgba(169, 112, 255, 0.05);
+            border: 1px solid rgba(169, 112, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 30px;
+            color: #d1d5db;
+            line-height: 1.6;
+        }
+        .auth-container {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        .auth-button {
+            display: inline-block;
+            background-color: #a970ff;
+            color: #fff;
+            padding: 16px 32px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.2rem;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 4px 15px rgba(169, 112, 255, 0.3);
+            cursor: pointer;
+            border: none;
+        }
+        .auth-button:hover {
+            transform: scale(1.05);
+            background-color: #c49cff;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            color: #9ca3af;
+            text-decoration: none;
+            margin-top: 20px;
+            transition: color 0.2s ease;
+        }
+        .back-link:hover {
+            color: #a970ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Authorize Washodo Ward</h1>
+        
+        <div class="auth-container">
+            <button id="authBtn" class="auth-button">Authorize for My Server</button>
+        </div>
+
+        <div class="card">
+            <div class="section-title">🚀 Setup Guide</div>
+            <ul class="step-list">
+                <li class="step-item">
+                    <div class="step-number">1</div>
+                    <div>Click the <strong>"Authorize for My Server"</strong> button above.</div>
+                </li>
+                <li class="step-item">
+                    <div class="step-number">2</div>
+                    <div>Select the server where you wish to add the bot from the dropdown menu. (You must have <strong>Manage Server</strong> permissions).</div>
+                </li>
+                <li class="step-item">
+                    <div class="step-number">3</div>
+                    <div>Review the requested permissions on the Discord authorization screen.</div>
+                </li>
+                <li class="step-item">
+                    <div class="step-number">4</div>
+                    <div>Click <strong>Authorize</strong> to complete the process.</div>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <div class="section-title">🛡️ Permissions & Privacy</div>
+            <p>We only request the permissions necessary for the bot to function correctly. Here is exactly why we need them:</p>
+            <table class="permissions-table">
+                <thead>
+                    <tr>
+                        <th>Permission</th>
+                        <th>Why we need it</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="permission-name">View Channels</td>
+                        <td>Required to find the channels where you've asked for our help or where notifications should be posted.</td>
+                    </tr>
+                    <tr>
+                        <td class="permission-name">Send Messages</td>
+                        <td>Allows the bot to respond to your commands and post live stream alerts.</td>
+                    </tr>
+                    <tr>
+                        <td class="permission-name">Send Messages in Threads</td>
+                        <td>Essential for the bot to participate in organized discussions and respond within threads.</td>
+                    </tr>
+                    <tr>
+                        <td class="permission-name">Read Message History</td>
+                        <td>Helps the bot understand the context of a conversation when it is mentioned.</td>
+                    </tr>
+                    <tr>
+                        <td class="permission-name">Embed Links</td>
+                        <td>Allows us to send beautifully formatted "Embed" messages with stream thumbnails and links.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="privacy-box">
+                <strong>Privacy Guarantee:</strong> Washodo Ward is designed to be unobtrusive. The bot only processes messages where it is explicitly mentioned by its username/ID or when a slash command is used. It does not scrape private user data or monitor general conversations.
+            </div>
+        </div>
+
+        <a href="/" class="back-link">← Back to Streamer Status</a>
+    </div>
+
+    <script>
+        document.getElementById('authBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('authBtn');
+            btn.disabled = true;
+            btn.innerText = 'Generating Link...';
+            
+            try {
+                const response = await fetch('/api/discord/invite');
+                if (!response.ok) throw new Error('Failed to fetch invite link');
+                const data = await response.json();
+                window.location.href = data.url;
+            } catch (err) {
+                alert('Error generating invite link. Please try again later.');
+                btn.disabled = false;
+                btn.innerText = 'Authorize for My Server';
+            }
+        });
+    </script>
+</body>
+</html>

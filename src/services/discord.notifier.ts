@@ -88,7 +88,11 @@ export class DiscordNotifier {
         }
 
         if (commandIndex === -1) {
-            if (parts[0]?.startsWith('!') || parts[0]?.startsWith('@')) {
+            // Check if the bot was actually mentioned by its User ID
+            const botUser = message.client.user;
+            const isBotMentioned = message.mentions.users.has(botUser.id);
+
+            if (isBotMentioned && (parts[0]?.startsWith('!') || parts[0]?.startsWith('@'))) {
                 await message.reply(`I heard you mention me, but I don't recognize a command. Try \`!help\`.`);
             }
             return;

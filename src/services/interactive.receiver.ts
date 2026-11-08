@@ -87,8 +87,10 @@ export class InteractiveReceiver {
     // 1. Define recognized command keywords (without prefix)
     const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule'];
     
-    // 2. Verify if the bot was actually triggered/mentioned (starts with ! or @)
-    const hasTrigger = parts.some(p => p.startsWith('!') || p.startsWith('@'));
+    // 2. Verify if the bot was actually triggered (starts with !)
+    // Note: Mattermost webhooks don't give us a "mentions" list like Discord, 
+    // so we only trigger on '!' to avoid responding to random @mentions.
+    const hasTrigger = parts.some(p => p.startsWith('!'));
     if (!hasTrigger) return;
 
     // 3. Find the first word that matches a known command (with or without !)
@@ -108,9 +110,8 @@ export class InteractiveReceiver {
     }
 
     if (commandIndex === -1) {
-      // No recognized command found, but bot was mentioned.
-      // Only reply if the first word was a trigger to avoid spamming.
-      if (parts[0]?.startsWith('!') || parts[0]?.startsWith('@')) {
+      // No recognized command found, but triggered with !
+      if (parts[0]?.startsWith('!')) {
         await this.sendResponse(channelId, `I heard you mention me, but I don't recognize a command. Try \`!help\`.`, serverConfig, rootId, false);
       }
       return;
