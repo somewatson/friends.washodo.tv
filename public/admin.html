@@ -106,10 +106,29 @@
         .pill-member { background: #4a3aff; }
         .pill-friend { background: #38bdf8; }
         .pill-streamer { background: #a970ff; }
+
+        /* Notification Toast */
+        #notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateX(200%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 1000;
+        }
+        #notification-toast.show { transform: translateX(0); }
+        .toast-success { background: var(--success-color); }
+        .toast-error { background: var(--danger-color); }
     </style>
 </head>
 <body>
     <div class="container">
+        <div id="notification-toast"></div>
         <h1>⚙️ Washodo Ward Admin</h1>
         
         <div class="tabs">
@@ -209,6 +228,14 @@
             return res.json();
         }
 
+        function notify(message, type = 'success') {
+            const toast = document.getElementById('notification-toast');
+            toast.textContent = message;
+            toast.className = type === 'success' ? 'toast-success' : 'toast-error';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
         function showPanel(id) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -259,7 +286,7 @@
                     `).join('');
                 }
             } catch (e) {
-                alert('Error loading data: ' + e.message);
+                notify('Error loading data: ' + e.message, 'error');
             }
         }
 
@@ -285,27 +312,31 @@
                 bot_token: document.getElementById('discord-token').value,
                 owner_id: document.getElementById('discord-owner').value
             };
-            if (!body.guild_id || !body.channel_id || !body.bot_token) return alert('Guild ID, Channel ID and Bot Token are required');
+            if (!body.guild_id || !body.channel_id || !body.bot_token) {
+                notify('Guild ID, Channel ID and Bot Token are required', 'error');
+                return;
+            }
             await api('/api/admin/discord/manual', 'POST', body);
             document.querySelectorAll('#panel-discord input').forEach(i => i.value = '');
             loadData('discord');
+            notify('Discord integration added successfully!');
         }
 
         async function testDiscord(guildId) {
             try {
                 await api(`/api/admin/discord/test/${guildId}`, 'POST');
-                alert('Test message sent to Discord!');
+                notify('Test message sent to Discord!');
             } catch (e) {
-                alert('Discord test failed: ' + e.message);
+                notify('Discord test failed: ' + e.message, 'error');
             }
         }
-
+        
         async function testMattermost(id) {
             try {
                 await api(`/api/admin/mattermost/test/${id}`, 'POST');
-                alert('Test message sent to Mattermost!');
+                notify('Test message sent to Mattermost!');
             } catch (e) {
-                alert('Mattermost test failed: ' + e.message);
+                notify('Mattermost test failed: ' + e.message, 'error');
             }
         }
 
@@ -347,15 +378,18 @@
 
         async function importDb() {
             const fileInput = document.getElementById('import-file');
-            if (!fileInput.files[0]) return alert('Please select a file');
+            if (!fileInput.files[0]) {
+                notify('Please select a file', 'error');
+                return;
+            }
             
             try {
                 const text = await fileInput.files[0].text();
                 const json = JSON.parse(text);
                 await api('/api/admin/db/import', 'POST', json);
-                alert('Database imported successfully!');
+                notify('Database imported successfully!');
             } catch (e) {
-                alert('Import failed: ' + e.message);
+                notify('Import failed: ' + e.message, 'error');
             }
         }
 
