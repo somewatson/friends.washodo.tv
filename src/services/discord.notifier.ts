@@ -20,10 +20,12 @@ export class DiscordNotifier {
     }
 
     private initializeConfigs(): void {
+        // We will now load configs from the database instead of just .env
+        // For backward compatibility or initial boot, we still check .env
         const discordEnv = process.env.DISCORD_BOTS || '';
         const configStrings = discordEnv.split(',').filter(Boolean);
 
-        this.configs = configStrings.map(str => {
+        const envConfigs = configStrings.map(str => {
             const [token, channelId] = str.split('|');
             if (!token || !channelId) {
                 console.warn(`[DiscordNotifier] Invalid server config found: ${str}`);
@@ -31,9 +33,43 @@ export class DiscordNotifier {
             }
             return { token, channelId };
         }).filter((c): c is DiscordConfig => c !== null);
+
+        this.configs = envConfigs;
     }
 
+    async syncConfigsFromDb(): Promise<void> {
+        const integrations = await this.stateRepo.getDiscordIntegrations();
+        if (integrations.length === 0) return;
+
+        // We need the bot token to actually send messages. 
+        // Since we only have one primary bot token usually, we'll use the one from .env.
+        const primaryToken = process.env.DISCORD_BOT_TOKEN;
+        if (!primaryToken) {
+            console.error('[DiscordNotifier] DISCORD_BOT_TOKEN not found in .env; cannot sync DB integrations');
+            return;
+        }
+
+        // Map DB integrations to the config format
+        const dbConfigs = integrations.map((i: any) => ({
+            token: primaryToken,
+            channelId: i.channel_id
+        }));
+
+        // Combine with env configs (removing duplicates)
+        const allConfigs = [...this.configs, ...dbConfigs];
+        const seenChannels = new Set();
+        this.configs = allConfigs.filter(c => {
+            if (seenChannels.has(c.channelId)) return false;
+            seenChannels.add(c.channelId);
+            return true;
+        });
+
+        console.log(`[DiscordNotifier] Synced ${integrations.length} integrations from DB.`);
+    }
+
+
     async start(): Promise<void> {
+        await this.syncConfigsFromDb();
         const loginPromises = this.configs.map(async (config) => {
             if (this.clients.has(config.token)) return;
 
@@ -69,7 +105,7 @@ export class DiscordNotifier {
         const parts = text.split(/\s+/);
         const lowerParts = parts.map((p: string) => p.toLowerCase());
 
-        const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule'];
+        const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule', 'setup'];
         const hasTrigger = parts.some((p: string) => p.startsWith('!') || p.startsWith('@'));
         if (!hasTrigger) return;
 
@@ -102,7 +138,7 @@ export class DiscordNotifier {
         const args = parts.slice(commandIndex + 1);
 
         if (command === '!help') {
-            await message.reply('🤖 **Bot Help Menu**\n- `!status`: Check current monitoring status\n- `!streamers`: Show all tracked streamers and their status\n- `!check <username>`: Check a specific streamer\n- `!schedule`: View the current stream schedule\n- `!help`: Show this menu');
+            await message.reply('🤖 **Bot Help Menu**\n- `!status`: Check current monitoring status\n- `!streamers`: Show all tracked streamers and their status\n- `!check <username>`: Check a specific streamer\n- `!schedule`: View the current stream schedule\n- `!setup`: Automatically create the announcement channel\n- `!help`: Show this menu');
         } else if (command === '!status') {
             await message.reply('✅ Bot is active and monitoring streamers!');
         } else if (command === '!schedule') {
@@ -116,6 +152,44 @@ export class DiscordNotifier {
                 return;
             }
             await this.handleCheckStreamer(args[0], message);
+        } else if (command === '!setup') {
+            await this.handleSetup(message);
+        }
+    }
+
+    private async handleSetup(message: any): Promise<void> {
+        try {
+            const guild = message.guild;
+            if (!guild) {
+                await message.reply('❌ This command can only be used in a server.');
+                return;
+            }
+
+            await message.reply('⚙️ Setting up the announcement channel...');
+
+            // Create the channel
+            const channel = await guild.channels.create({
+                name: '📯-ward-bot',
+                type: 0, // GuildText
+                topic: 'Official Twitch notifications for the Washodo community.',
+            });
+
+            // Save to DB
+            await this.stateRepo.saveDiscordIntegration(
+                guild.id, 
+                channel.id, 
+                message.author.id
+            );
+
+            // Update current running configs so notifications start immediately
+            await this.syncConfigsFromDb();
+
+            await channel.send(`✅ **Channel created!** I will now post notifications in this channel. \nManaged by: <@${message.author.id}>`);
+            await message.reply(`✅ Success! I've created the channel <#${channel.id}>.`);
+
+        } catch (error) {
+            console.error('[DiscordNotifier] Setup error:', error);
+            await message.reply('❌ Failed to create the announcement channel. Please ensure I have the `Manage Channels` permission.');
         }
     }
 
