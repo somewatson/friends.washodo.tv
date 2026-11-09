@@ -26,6 +26,8 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **Isolation**: Ensure failures in one external service (e.g., Mattermost) do not block or cancel requests to others (e.g., Discord).
 - **Observability & I/O**:
   - **Avoid log storms**: Do not log every single failure in tight loops. Implement throttled, deduplicated, or summarized logging to prevent disk I/O spikes that can trigger filesystem read-only locks.
+- **Notifications**: 
+  - **Environment Tagging**: All outgoing notifications (Discord, Mattermost, etc.) **must** be prefixed with the current environment if it is not `production` (e.g., `[STAGING]`, `[DEV]`). This prevents confusion between test and live notifications.
 - **Entrypoints**:
   - `src/index.ts`: Application bootstrap and cron scheduler.
   - `src/server.ts`: API server for external status checks and admin interface.
@@ -55,5 +57,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Verification**: Use `npm run verify` to check deployment status via the helper script.
 
 ## 🎨 Style & Conventions
+- **File Edits**: Always read the file in its entirety (or the relevant section) immediately before performing any edit to ensure context is current and minimize errors.
 - **UI/UX**: Follow `washodo_style_guide.md` for the status page (Dark Mode, Washodo Purple `#a970ff`, Sky Blue `#38bdf8`).
+- **Notifications**: Do not use browser `alert()` calls to notify users. Use in-page, stylized notification elements (toasts, banners, or status messages) to provide feedback.
 - **Planning**: Technical plans and feature progress are tracked in the `/goals` directory.
