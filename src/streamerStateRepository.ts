@@ -154,17 +154,18 @@ export class StreamerStateRepository {
     }
 
 
+    async removeTrackedEntity(username: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM tracked_entities WHERE username = ?').run(username.toLowerCase());
+    }
+
     async updateStreamerOrder(updates: {username: string, orderIndex: number}[]) {
         if (!this.db) throw new Error('Database not initialized');
         
-        const transaction = this.db.transaction((data: {username: string, orderIndex: number}[]) => {
-            for (const update of data) {
-                this.db.prepare('UPDATE tracked_entities SET order_index = ? WHERE username = ?')
-                    .run(update.orderIndex, update.username.toLowerCase());
-            }
-        });
-        
-        transaction(updates);
+        for (const update of updates) {
+            this.db.prepare('UPDATE tracked_entities SET order_index = ? WHERE username = ?')
+                .run(update.orderIndex, update.username.toLowerCase());
+        }
     }
 
 
