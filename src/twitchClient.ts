@@ -35,6 +35,7 @@ export class TwitchClient {
     }
 
     async getUsers(usernames: string[]): Promise<any[]> {
+        if (!usernames || usernames.length === 0) return [];
         const token = await this.getAccessToken();
         try {
             const response = await axios.get('https://api.twitch.tv/helix/users', {
@@ -54,6 +55,7 @@ export class TwitchClient {
     }
 
     async getLiveStreamers(usernames: string[]): Promise<any[]> {
+        if (!usernames || usernames.length === 0) return [];
         const token = await this.getAccessToken();
         try {
             const response = await axios.get('https://api.twitch.tv/helix/streams', {
@@ -72,6 +74,8 @@ export class TwitchClient {
             // The /streams endpoint provides stream info (title, thumbnail) but NOT user info (profile image).
             // We need to fetch user info for those who are live to get their profile pictures.
             const userIds = streams.map((s: any) => s.user_id);
+            if (userIds.length === 0) return streams;
+
             const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
                 params: {
                     id: userIds,
