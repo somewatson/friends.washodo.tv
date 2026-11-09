@@ -58,6 +58,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 
 ## 🎨 Style & Conventions
 - **File Edits**: Always read the file in its entirety (or the relevant section) immediately before performing any edit to ensure context is current and minimize errors.
+- **Verification**: Always run `npm run build` and verify it succeeds before performing any `git commit`.
 - **UI/UX**: Follow `washodo_style_guide.md` for the status page (Dark Mode, Washodo Purple `#a970ff`, Sky Blue `#38bdf8`).
 - **Destructive Actions**: All destructive actions (e.g., "Remove" or "Delete" buttons) must be preceded by a confirmation dialog to prevent accidental data loss.
 - **Notifications**: Do not use browser `alert()` calls to notify users. Use in-page, stylized notification elements (toasts, banners, or status messages) to provide feedback.
