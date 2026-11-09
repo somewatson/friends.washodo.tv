@@ -356,6 +356,7 @@ export class ApiServer {
                 <html>
                 <head>
                     <title>${title}</title>
+                    <script defer src="https://beancounter.somewatson.com/script.js" data-website-id="cf5643bb-9645-4789-b5fd-a03e9944cf75"></script>
                     <style>
                         body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
                         .card { background: #2d2d2d; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 500px; width: 90%; }
