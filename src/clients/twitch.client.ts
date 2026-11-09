@@ -115,6 +115,7 @@ export class TwitchClient {
       const response = await axios.get('https://api.twitch.tv/helix/search/channels', {
         params: {
           query: query,
+          first: 8,
         },
         headers: {
           'Client-ID': this.config.clientId,
