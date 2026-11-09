@@ -91,10 +91,27 @@ export class DiscordClient {
                 throw new Error('Notification channel not found or is not a text channel');
             }
             
-            await channel.send('Test message from Washodo Ward Admin Panel!');
+            const env = process.env.APP_ENV;
+            const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
+            
+            await channel.send(`${prefix}Test message from Washodo Ward Admin Panel!`);
             return true;
         } catch (error: any) {
             throw new Error(`Discord test failed: ${error.message}`);
+        }
+    }
+
+    public async getGuildDetails(guildId: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
+        try {
+            const guild = await this.client.guilds.fetch(guildId);
+            return {
+                name: guild.name,
+                memberCount: guild.memberCount,
+                icon: guild.iconURL()
+            };
+        } catch (error: any) {
+            console.error(`[Discord Client] Error fetching guild details for ${guildId}:`, error);
+            throw error;
         }
     }
 }

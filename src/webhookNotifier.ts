@@ -5,11 +5,11 @@ export class WebhookNotifier {
     private webhookUrls = process.env.WEBHOOK_URLS?.split(',').filter(Boolean) || [];
     private stateRepo: any;
 
-    async sendMattermostTest(config: any) {
+    async sendMattermostTest(message: string, config: any) {
         try {
             await axios.post(`${config.server_url.replace(/\/$/, '')}/api/v4/posts`, {
                 channel_id: config.channel_id,
-                message: 'Test notification from Washodo Ward Admin Panel!',
+                message: message,
             }, {
                 headers: {
                     'Authorization': `Bearer ${config.bot_token}`,

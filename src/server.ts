@@ -219,7 +219,10 @@ export class ApiServer {
                 const config = await this.stateRepo.getMattermostConfig(parseInt(req.params.id));
                 if (!config) return res.status(404).json({ error: 'Mattermost config not found' });
                 
-                await this.notifier.sendMattermostTest(config);
+                const env = process.env.APP_ENV;
+                const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
+                
+                await this.notifier.sendMattermostTest(`${prefix}Test message from Washodo Ward Admin Panel!`, config);
                 res.json({ success: true });
             } catch (error: any) {
                 res.status(500).json({ error: 'Mattermost test failed', details: error.message });
