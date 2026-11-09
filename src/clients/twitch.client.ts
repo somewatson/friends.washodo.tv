@@ -112,12 +112,12 @@ export class TwitchClient {
     if (!query) return [];
     const token = await this.fetchAccessToken();
     try {
-      // Using the search endpoint instead of users endpoint for partial matches
-      const response = await axios.get('https://api.twitch.tv/helix/search', {
+      // The Helix /search endpoint for users is either deprecated or not behaving as expected (returning 404).
+      // We switch to /helix/users?login=... for a reliable search.
+      // Note: This provides exact matches. Twitch API doesn't provide a simple partial-match user search in Helix.
+      const response = await axios.get('https://api.twitch.tv/helix/users', {
         params: {
-          query: query,
-          type: 'user',
-          first: 20,
+          login: query,
         },
         headers: {
           'Client-ID': this.config.clientId,
