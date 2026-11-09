@@ -81,7 +81,20 @@ export class DiscordClient {
         }
     }
 
-    public getClient() {
-        return this.client;
+    async sendTestMessage(integration: any) {
+        try {
+            const guild = await this.client.guilds.fetch(integration.guild_id);
+            if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
+            
+            const channel = await guild.channels.fetch(integration.channel_id);
+            if (!channel || !(channel instanceof TextChannel)) {
+                throw new Error('Notification channel not found or is not a text channel');
+            }
+            
+            await channel.send('Test message from Washodo Ward Admin Panel!');
+            return true;
+        } catch (error: any) {
+            throw new Error(`Discord test failed: ${error.message}`);
+        }
     }
 }

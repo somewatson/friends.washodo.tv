@@ -5,8 +5,21 @@ export class WebhookNotifier {
     private webhookUrls = process.env.WEBHOOK_URLS?.split(',').filter(Boolean) || [];
     private stateRepo: any;
 
-    constructor(stateRepo: any) {
-        this.stateRepo = stateRepo;
+    async sendMattermostTest(config: any) {
+        try {
+            await axios.post(`${config.server_url.replace(/\/$/, '')}/api/v4/posts`, {
+                channel_id: config.channel_id,
+                message: 'Test notification from Washodo Ward Admin Panel!',
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${config.bot_token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+            return true;
+        } catch (error: any) {
+            throw new Error(`Mattermost test failed: ${error.response?.data || error.message}`);
+        }
     }
 
     async sendNotification(streamer: any, tier: string = 'Streamer', cachedThumbnail: string = '') {
@@ -43,7 +56,7 @@ export class WebhookNotifier {
         // 2. Mattermost Bots (DB Preferred, then Env Fallback)
         const bots = [];
         if (mattermostConfigs && mattermostConfigs.length > 0) {
-            bots.push(...mattermostConfigs.map(cfg => ({
+            bots.push(...mattermostConfigs.map((cfg: any) => ({
                 token: cfg.bot_token,
                 url: cfg.server_url,
                 channelId: cfg.channel_id
