@@ -272,12 +272,36 @@ export class ApiServer {
         this.app.get('/api/discord/callback', async (req, res) => {
             const { code, state, error } = req.query as { code?: string, state?: string, error?: string };
 
+            const layout = (title: string, content: string, isError: boolean = false) => `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${title}</title>
+                    <style>
+                        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                        .card { background: #2d2d2d; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 500px; width: 90%; }
+                        h1 { color: ${isError ? '#ef4444' : '#a970ff'}; margin-bottom: 20px; font-size: 2em; }
+                        p { font-size: 1.1em; line-height: 1.6; color: #ccc; margin-bottom: 30px; }
+                        .btn { display: inline-block; padding: 12px 24px; background: #a970ff; color: white; text-decoration: none; font-weight: bold; border-radius: 8px; transition: opacity 0.2s; }
+                        .btn:hover { opacity: 0.8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h1>${title}</h1>
+                        <p>${content}</p>
+                        <a href="/discord-setup" class="btn">Return to Setup</a>
+                    </div>
+                </body>
+                </html>
+            `;
+
             if (error === 'access_denied') {
-                return res.redirect('/discord-setup?error=access_denied');
+                return res.send(layout('❌ Access Denied', 'You declined the authorization request. The bot cannot be set up without the necessary permissions.'));
             }
 
             if (!code) {
-                return res.status(400).send('Missing code');
+                return res.status(400).send(layout('❌ Setup Error', 'Missing authorization code from Discord. Please try again.'));
             }
 
             try {
@@ -294,27 +318,25 @@ export class ApiServer {
     
                 const accessToken = tokenResponse.data.access_token;
                 
-                // Fetch the guilds the user has access to and can authorize
                 const guildsResponse = await axios.get('https://discord.com/api/users/@me/guilds', {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
                 
                 const guilds = guildsResponse.data;
-                // Find the first guild where the user has MANAGE_GUILD permission (0x20)
                 const authorizedGuild = guilds.find((g: any) => (g.permissions & 0x20) === 0x20);
                 
                 if (!authorizedGuild) {
-                    return res.status(400).send('<h1>❌ Setup Failed</h1><p>You do not have permission to manage any of the servers you authorized the bot for.</p>');
+                    return res.status(400).send(layout('❌ Setup Failed', 'You do not have "Manage Server" permissions for any of the servers you authorized the bot for.'));
                 }
                 
                 const guild_id = authorizedGuild.id;
                 const channelId = await this.discord.createNotificationChannel(guild_id);
                 await this.stateRepo.saveDiscordIntegration(guild_id, channelId);
     
-                res.send('<h1>✅ Setup Complete!</h1><p>The announcement channel has been created or linked. You can now close this window.</p>');
+                res.send(layout('✅ Setup Complete!', 'The announcement channel has been created or linked successfully. You can now close this window or return to the dashboard.'));
             } catch (error: any) {
                 console.error('[Discord OAuth] Setup error:', error.response?.data || error.message);
-                res.status(500).send(`<h1>❌ Setup Failed</h1><p>${error.message}</p>`);
+                res.status(500).send(layout('❌ Setup Failed', `An unexpected error occurred: ${error.message}`));
             }
         });
 
