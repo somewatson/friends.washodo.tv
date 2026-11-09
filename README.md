@@ -71,6 +71,20 @@ npm run build     # Compile TypeScript
 npm start         # Start the service
 ```
 
+### 🗄 Database Migration
+If you are moving from an older version that used `.env` lists for members/friends, you can migrate them into the SQLite database:
+
+**Local:**
+```bash
+npx ts-node scripts/import-env-to-db.ts
+```
+
+**Docker Compose:**
+```bash
+docker compose exec app npx ts-node scripts/import-env-to-db.ts
+```
+*(Ensure your `.env` file is present and the database volume is mounted)*.
+
 ## 🔌 API & Status Page
 
 TwitchWatch provides a status page and a secure API to check if a user is live.

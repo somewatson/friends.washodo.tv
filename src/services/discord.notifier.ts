@@ -200,8 +200,8 @@ export class DiscordNotifier {
             return;
         }
 
-        const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-        const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+        const members = await this.stateRepo.getEntitiesByCategory('member');
+        const friends = await this.stateRepo.getEntitiesByCategory('friend');
         const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
         const allStreamers = [...new Set([...members, ...friends, ...others])];
 

@@ -72,7 +72,7 @@ class TwitchWatchApp {
             const stateManager = new StateManager();
             await stateManager.load();
 
-            const receiver = new InteractiveReceiver(mattermostNotifier as any, twitchClient);
+            const receiver = new InteractiveReceiver(mattermostNotifier as any, twitchClient, stateRepo);
 
             // Start the API Server for the website and integrate the receiver's routes
             const apiServer = new ApiServer(stateRepo, receiver);

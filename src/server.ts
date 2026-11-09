@@ -326,8 +326,8 @@ export class ApiServer {
         this.app.get('/', async (req, res) => {
 
 
-            const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-            const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+            const members = await this.stateRepo.getEntitiesByCategory('member');
+            const friends = await this.stateRepo.getEntitiesByCategory('friend');
             const allStreamers = [...members, ...friends];
             
             try {
@@ -417,16 +417,16 @@ export class ApiServer {
             }
         });
 
-        this.app.get('/api/streamers', (req, res) => {
+        this.app.get('/api/streamers', async (req, res) => {
             res.json({
-                members: (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean),
-                friends: (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean)
+                members: await this.stateRepo.getEntitiesByCategory('member'),
+                friends: await this.stateRepo.getEntitiesByCategory('friend')
             });
         });
 
         this.app.get('/api/status/all', async (req, res) => {
-            const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-            const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+            const members = await this.stateRepo.getEntitiesByCategory('member');
+            const friends = await this.stateRepo.getEntitiesByCategory('friend');
             const allStreamers = [...members, ...friends];
             
             try {

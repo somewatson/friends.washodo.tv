@@ -17,12 +17,14 @@ export class InteractiveReceiver {
   private app: express.Application;
   private notifier: WebhookNotifier;
   private twitchClient: TwitchClient;
+  private stateRepo: any;
   private servers: Map<string, ServerConfig> = new Map();
 
-  constructor(notifier: WebhookNotifier, twitchClient: TwitchClient) {
+  constructor(notifier: WebhookNotifier, twitchClient: TwitchClient, stateRepo: any) {
     this.app = express();
     this.notifier = notifier;
     this.twitchClient = twitchClient;
+    this.stateRepo = stateRepo;
     
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(express.json());
@@ -140,8 +142,13 @@ export class InteractiveReceiver {
   }
 
   private async handleListStreamers(channelId: string, serverConfig: ServerConfig, rootId?: string): Promise<void> {
-    const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-    const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+    if (!this.stateRepo) {
+      await this.sendResponse(channelId, '❌ Database repository not initialized.', serverConfig, rootId, false);
+      return;
+    }
+
+    const members = await this.stateRepo.getEntitiesByCategory('member');
+    const friends = await this.stateRepo.getEntitiesByCategory('friend');
     const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
 
     const allStreamers = [...new Set([...members, ...friends, ...others])];
