@@ -165,9 +165,57 @@ export class StreamerStateRepository {
         ).run(guild_id, channel_id, owner_id || null, bot_token || null);
     }
 
-    async removeDiscordIntegration(guild_id: string) {
+    async importData(data: any) {
         if (!this.db) throw new Error('Database not initialized');
-        this.db.prepare('DELETE FROM discord_integrations WHERE guild_id = ?').run(guild_id);
+
+        const transaction = this.db.transaction(() => {
+            // 1. Import Tracked Entities
+            if (data.tracked_entities && Array.isArray(data.tracked_entities)) {
+                for (const entity of data.tracked_entities) {
+                    this.db.prepare(
+                        'INSERT INTO tracked_entities (username, platform, category, is_active) VALUES (?, ?, ?, ?) ON CONFLICT(username) DO UPDATE SET platform = excluded.platform, category = excluded.category, is_active = excluded.is_active'
+                    ).run(entity.username.toLowerCase(), entity.platform || 'twitch', entity.category, entity.is_active || 1);
+                }
+            }
+
+            // 2. Import Mattermost Configs
+            if (data.mattermost_configs && Array.isArray(data.mattermost_configs)) {
+                for (const config of data.mattermost_configs) {
+                    this.db.prepare(
+                        'INSERT INTO mattermost_configs (id, server_url, webhook_token, bot_token, channel_id, label) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET server_url = excluded.server_url, webhook_token = excluded.webhook_token, bot_token = excluded.bot_token, channel_id = excluded.channel_id, label = excluded.label'
+                    ).run(config.id, config.server_url, config.webhook_token, config.bot_token, config.channel_id, config.label);
+                }
+            }
+
+            // 3. Import Discord Integrations
+            if (data.discord_integrations && Array.isArray(data.discord_integrations)) {
+                for (const integration of data.discord_integrations) {
+                    this.db.prepare(
+                        'INSERT INTO discord_integrations (guild_id, channel_id, owner_id, bot_token) VALUES (?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id, bot_token = excluded.bot_token'
+                    ).run(integration.guild_id, integration.channel_id, integration.owner_id || null, integration.bot_token || null);
+                }
+            }
+
+            // 4. Import Streamer Status
+            if (data.streamer_status && Array.isArray(data.streamer_status)) {
+                for (const status of data.streamer_status) {
+                    this.db.prepare(
+                        'INSERT INTO streamer_status (username, is_live, live_since, last_thumbnail_url, profile_image_url) VALUES (?, ?, ?, ?, ?) ON CONFLICT(username) DO UPDATE SET is_live = excluded.is_live, live_since = excluded.live_since, last_thumbnail_url = excluded.last_thumbnail_url, profile_image_url = excluded.profile_image_url'
+                    ).run(status.username.toLowerCase(), status.is_live || 0, status.live_since, status.last_thumbnail_url, status.profile_image_url);
+                }
+            }
+
+            // 5. Import Notification Log
+            if (data.notification_log && Array.isArray(data.notification_log)) {
+                for (const log of data.notification_log) {
+                    this.db.prepare(
+                        'INSERT INTO notification_log (username, platform, target_id, sent_at) VALUES (?, ?, ?, ?) ON CONFLICT(username, platform, target_id) DO UPDATE SET sent_at = excluded.sent_at'
+                    ).run(log.username.toLowerCase(), log.platform, log.target_id, log.sent_at);
+                }
+            }
+        });
+
+        transaction();
     }
 
     async shouldNotify(username: string, platform: string, targetId: string, intervalMinutes: number): Promise<boolean> {

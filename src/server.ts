@@ -255,10 +255,17 @@ export class ApiServer {
         });
 
         this.app.post('/api/admin/db/import', async (req, res) => {
-            // In a real app, use multer for file uploads. 
-            // For this lightweight bot, we'll expect a JSON body or a simple implementation.
-            // Since we're using a simple HTML form, let's implement a basic JSON import.
-            res.status(501).send('Import requires multer for file uploads. Please use db-portable.ts script for now.');
+            try {
+                const data = req.body;
+                if (!data || typeof data !== 'object') {
+                    return res.status(400).json({ error: 'Invalid JSON body' });
+                }
+                await this.stateRepo.importData(data);
+                res.json({ success: true, message: 'Database import completed successfully' });
+            } catch (error: any) {
+                console.error('[DB Import] Error:', error);
+                res.status(500).json({ error: 'Import failed', details: error.message });
+            }
         });
 
         // Discord OAuth2 Setup Callback
