@@ -37,15 +37,16 @@ export class DiscordClient {
 
         const scopes = ['bot', 'applications.commands'].join('%20');
         
-        // Combine permissions using bitwise OR from discord.js constants
-        const permissions = PermissionFlagsBits.ManageChannels 
-            | PermissionFlagsBits.ViewChannel 
-            | PermissionFlagsBits.SendMessages 
-            | PermissionFlagsBits.EmbedLinks 
-            | PermissionFlagsBits.ReadMessageHistory 
-            | PermissionFlagsBits.SendMessagesInThreads;
+        // Use BigInt to correctly handle 64-bit Discord permissions and avoid 32-bit truncation
+        const permissions = 
+            BigInt(PermissionFlagsBits.ManageChannels) + 
+            BigInt(PermissionFlagsBits.ViewChannel) + 
+            BigInt(PermissionFlagsBits.SendMessages) + 
+            BigInt(PermissionFlagsBits.EmbedLinks) + 
+            BigInt(PermissionFlagsBits.ReadMessageHistory) + 
+            BigInt(PermissionFlagsBits.SendMessagesInThreads);
 
-        return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scopes}&redirect_uri=${encodeURIComponent(baseUrl + '/api/discord/callback')}&response_type=code&state=guild_id_placeholder`;
+        return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions.toString()}&scope=${scopes}&redirect_uri=${encodeURIComponent(baseUrl + '/api/discord/callback')}&response_type=code&state=guild_id_placeholder`;
     }
 
     /**

@@ -231,8 +231,7 @@ export class ApiServer {
         this.app.get('/api/discord/callback', async (req, res) => {
             const { code, state: guild_id, error } = req.query as { code?: string, state?: string, error?: string };
 
-            if (error) {
-                console.log(`[Discord OAuth] User denied authorization: ${error}`);
+            if (error === 'access_denied') {
                 return res.redirect('/discord-setup?error=access_denied');
             }
 

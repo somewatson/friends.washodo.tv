@@ -209,6 +209,17 @@
     </div>
 
     <script>
+        // Check for errors in the URL on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            if (error === 'access_denied') {
+                alert('You denied authorization. The bot cannot be added to your server without your permission.');
+            } else if (error) {
+                alert(`An error occurred during authorization: ${error}`);
+            }
+        });
+
         document.getElementById('authBtn').addEventListener('click', async () => {
             const btn = document.getElementById('authBtn');
             btn.disabled = true;
