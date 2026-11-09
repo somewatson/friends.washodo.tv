@@ -141,6 +141,7 @@
         <h1>Authorize Washodo Ward</h1>
         
         <div class="auth-container">
+            <div id="authError" class="error-message" style="display: none; color: #ef4444; margin-bottom: 15px; font-weight: 600;"></div>
             <button id="authBtn" class="auth-button">Authorize for My Server</button>
         </div>
 
@@ -213,10 +214,16 @@
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
             const error = params.get('error');
-            if (error === 'access_denied') {
-                alert('You denied authorization. The bot cannot be added to your server without your permission.');
-            } else if (error) {
-                alert(`An error occurred during authorization: ${error}`);
+            const errorDiv = document.getElementById('authError');
+            
+            if (errorDiv) {
+                if (error === 'access_denied') {
+                    errorDiv.innerText = 'You denied authorization. The bot cannot be added to your server without your permission.';
+                    errorDiv.style.display = 'block';
+                } else if (error) {
+                    errorDiv.innerText = `An error occurred during authorization: ${error}`;
+                    errorDiv.style.display = 'block';
+                }
             }
         });
 
@@ -234,7 +241,11 @@
                 const data = await response.json();
                 window.location.href = data.url;
             } catch (err) {
-                alert(`Error: ${err.message}`);
+                const errorDiv = document.getElementById('authError');
+                if (errorDiv) {
+                    errorDiv.innerText = `Error: ${err.message}`;
+                    errorDiv.style.display = 'block';
+                }
                 btn.disabled = false;
                 btn.innerText = 'Authorize for My Server';
             }
