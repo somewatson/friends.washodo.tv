@@ -287,27 +287,34 @@
             loadData(id);
         }
 
+        let searchTimeout;
         async function handleUserSearch(query) {
             const resultsDiv = document.getElementById('search-results');
-            if (!query || query.length < 2) {
+            
+            clearTimeout(searchTimeout);
+            
+            if (!query || query.length < 3) {
                 resultsDiv.style.display = 'none';
                 return;
             }
-            try {
-                const users = await api(`/api/admin/twitch/search?q=${encodeURIComponent(query)}`);
-                if (users.length === 0) {
-                    resultsDiv.innerHTML = '<div style="padding: 10px; color: #888;">No users found</div>';
-                } else {
-                    resultsDiv.innerHTML = users.map(u => `
-                        <div class="search-result-item" onclick="selectUser('${u.login}')">
-                            <strong>${u.display_name}</strong> <small>@${u.login}</small>
-                        </div>
-                    `).join('');
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const users = await api(`/api/admin/twitch/search?q=${encodeURIComponent(query)}`);
+                    if (users.length === 0) {
+                        resultsDiv.innerHTML = '<div style="padding: 10px; color: #888;">No users found</div>';
+                    } else {
+                        resultsDiv.innerHTML = users.map(u => `
+                            <div class="search-result-item" onclick="selectUser('${u.broadcaster_login}')">
+                                <strong>${u.display_name}</strong> <small>@${u.broadcaster_login}</small>
+                            </div>
+                        `).join('');
+                    }
+                    resultsDiv.style.display = 'block';
+                } catch (e) {
+                    console.error('Search error:', e);
                 }
-                resultsDiv.style.display = 'block';
-            } catch (e) {
-                console.error('Search error:', e);
-            }
+            }, 300);
         }
 
 

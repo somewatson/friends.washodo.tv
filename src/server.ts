@@ -266,9 +266,28 @@ export class ApiServer {
         this.app.get('/api/admin/twitch/search', async (req, res) => {
             const { q } = req.query;
             if (!q) return res.status(400).json({ error: 'Query parameter q is required' });
+            
+            const query = q as string;
+            if (query.length < 3) {
+                return res.json([]);
+            }
+
             try {
-                const users = await this.twitch.searchUsers(q as string);
-                res.json(users);
+                // 1. Search tracked streamers locally first for partial matches
+                const tracked = await this.stateRepo.searchTrackedStreamers(query);
+                
+                // 2. Search Twitch API for prefix matches
+                const twitchUsers = await this.twitch.searchUsers(query);
+                
+                // Merge results, prioritizing tracked streamers
+                const results = [...tracked];
+                for (const user of twitchUsers) {
+                    if (!results.find(r => r.broadcaster_login.toLowerCase() === user.broadcaster_login.toLowerCase())) {
+                        results.push(user);
+                    }
+                }
+                
+                res.json(results);
             } catch (error: any) {
                 res.status(500).json({ error: 'Twitch search failed', details: error.message });
             }

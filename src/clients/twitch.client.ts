@@ -112,12 +112,9 @@ export class TwitchClient {
     if (!query) return [];
     const token = await this.fetchAccessToken();
     try {
-      // The Helix /search endpoint for users is either deprecated or not behaving as expected (returning 404).
-      // We switch to /helix/users?login=... for a reliable search.
-      // Note: This provides exact matches. Twitch API doesn't provide a simple partial-match user search in Helix.
-      const response = await axios.get('https://api.twitch.tv/helix/users', {
+      const response = await axios.get('https://api.twitch.tv/helix/search/channels', {
         params: {
-          login: query,
+          query: query,
         },
         headers: {
           'Client-ID': this.config.clientId,
@@ -126,7 +123,7 @@ export class TwitchClient {
       });
       return response.data.data;
     } catch (error: any) {
-      console.error('Error searching Twitch users:', error.response?.data || error.message);
+      console.error('Error searching Twitch channels:', error.response?.data || error.message);
       return [];
     }
   }

@@ -164,13 +164,15 @@ export class StreamerStateRepository {
         this.db.prepare('DELETE FROM tracked_entities WHERE username = ?').run(username.toLowerCase());
     }
 
-    async updateStreamerOrder(updates: {username: string, orderIndex: number}[]) {
+    async searchTrackedStreamers(query: string): Promise<any[]> {
         if (!this.db) throw new Error('Database not initialized');
-        
-        for (const update of updates) {
-            this.db.prepare('UPDATE tracked_entities SET order_index = ? WHERE username = ?')
-                .run(update.orderIndex, update.username.toLowerCase());
-        }
+        const rows = this.db.prepare('SELECT username FROM tracked_entities WHERE username LIKE ? AND is_active = 1').all(`%${query.toLowerCase()}%`) as { username: string }[];
+        return rows.map(row => ({
+            broadcaster_login: row.username,
+            display_name: row.username, // we don't have display name in tracked_entities
+            id: '', // we don't have ID in tracked_entities
+            is_live: false // we don't know without calling Twitch
+        }));
     }
 
 
