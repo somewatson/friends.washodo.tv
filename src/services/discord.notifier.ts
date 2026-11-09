@@ -293,10 +293,6 @@ export class DiscordNotifier {
                 const client = this.clients.get(config.token);
                 if (!client) continue;
 
-                // Discord.js internal API calls don't take a simple 'timeout' option 
-                // in the same way axios does, but we wrap it in withRetry to handle
-                // failures and implement a manual timeout using Promise.race if needed.
-                // For now, we focus on the retry and isolation logic.
                 await withRetry(
                     async () => {
                         const channel = await client.channels.fetch(config.channelId);
@@ -320,7 +316,30 @@ export class DiscordNotifier {
 
                 await this.stateRepo.recordNotification(streamer.user_login, 'discord', config.channelId);
                 
-            } catch (error) {
+            } catch (error: any) {
+                // Handle permanent failures (bot kicked or channel deleted)
+                const isPermanentFailure = 
+                    error.message?.includes('not found') || 
+                    error.code === 50001 || // Missing Access
+                    error.code === 10003;   // Unknown Channel
+
+                if (isPermanentFailure) {
+                    console.error(`[DiscordNotifier] Permanent failure detected for channel ${config.channelId}. Marking as inactive.`);
+                    
+                    // We need the guild_id to mark as inactive. 
+                    // In current config we only have channelId.
+                    // We can try to find the guild_id via the client.
+                    const client = this.clients.get(config.token);
+                    if (client) {
+                        const channel = await client.channels.fetch(config.channelId).catch(() => null);
+                        if (channel?.guildId) {
+                            await this.stateRepo.markDiscordIntegrationInactive(channel.guildId);
+                            // Update local configs to stop trying immediately
+                            this.configs = this.configs.filter(c => c.channelId !== config.channelId);
+                        }
+                    }
+                }
+
                 const logKey = `discord_error_${config.channelId}`;
                 if (LogThrottler.shouldLog(logKey)) {
                     console.error(`[DiscordNotifier] Persistent failure for ${config.channelId}:`, error);

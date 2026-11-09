@@ -34,6 +34,7 @@ export class StreamerStateRepository {
                 owner_id TEXT,
                 bot_token TEXT,
                 permissions TEXT,
+                is_active INTEGER DEFAULT 1,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -80,6 +81,10 @@ export class StreamerStateRepository {
         if (!discordColumnNames.includes('bot_token')) {
             console.log('[StreamerStateRepository] Migrating: Adding bot_token column to discord_integrations...');
             this.db.exec('ALTER TABLE discord_integrations ADD COLUMN bot_token TEXT');
+        }
+        if (!discordColumnNames.includes('is_active')) {
+            console.log('[StreamerStateRepository] Migrating: Adding is_active column to discord_integrations...');
+            this.db.exec('ALTER TABLE discord_integrations ADD COLUMN is_active INTEGER DEFAULT 1');
         }
 
         const trackedColumns = this.db.prepare('PRAGMA table_info(tracked_entities)').all() as any[];
@@ -183,12 +188,17 @@ export class StreamerStateRepository {
 
     async getDiscordIntegrations() {
         if (!this.db) throw new Error('Database not initialized');
-        return this.db.prepare('SELECT * FROM discord_integrations').all() as any[];
+        return this.db.prepare('SELECT * FROM discord_integrations WHERE is_active = 1').all() as any[];
     }
 
     async removeDiscordIntegration(guildId: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare('DELETE FROM discord_integrations WHERE guild_id = ?').run(guildId);
+    }
+
+    async markDiscordIntegrationInactive(guildId: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE discord_integrations SET is_active = 0 WHERE guild_id = ?').run(guildId);
     }
 
     async removeMattermostConfig(id: number) {
@@ -211,7 +221,7 @@ export class StreamerStateRepository {
     async saveDiscordIntegration(guild_id: string, channel_id: string, owner_id?: string, bot_token?: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare(
-            'INSERT INTO discord_integrations (guild_id, channel_id, owner_id, bot_token) VALUES (?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id, bot_token = excluded.bot_token'
+            'INSERT INTO discord_integrations (guild_id, channel_id, owner_id, bot_token, is_active) VALUES (?, ?, ?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id, bot_token = excluded.bot_token, is_active = 1'
         ).run(guild_id, channel_id, owner_id || null, bot_token || null);
     }
 
