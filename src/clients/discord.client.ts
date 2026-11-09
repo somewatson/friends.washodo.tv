@@ -1,10 +1,14 @@
 import { Client, GatewayIntentBits, PermissionFlagsBits, ChannelType, TextChannel } from 'discord.js';
 
 export class DiscordClient {
-    private client: Client;
+    public get client(): Client {
+        return this._client;
+    }
+
+    private _client: Client;
 
     constructor() {
-        this.client = new Client({
+        this._client = new Client({
             intents: [
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMessages,
@@ -21,7 +25,7 @@ export class DiscordClient {
         if (!token) {
             throw new Error('DISCORD_BOT_TOKEN not configured in environment');
         }
-        await this.client.login(token);
+        await this._client.login(token);
         console.log('[Discord Client] Logged in successfully');
     }
 
@@ -54,7 +58,7 @@ export class DiscordClient {
      */
     public async createNotificationChannel(guildId: string): Promise<string> {
         try {
-            const guild = await this.client.guilds.fetch(guildId);
+            const guild = await this._client.guilds.fetch(guildId);
             if (!guild) throw new Error(`Guild ${guildId} not found`);
 
             // Check for existing channel with the same name
@@ -83,7 +87,7 @@ export class DiscordClient {
 
     async sendTestMessage(integration: any) {
         try {
-            const guild = await this.client.guilds.fetch(integration.guild_id);
+            const guild = await this._client.guilds.fetch(integration.guild_id);
             if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
             
             const channel = await guild.channels.fetch(integration.channel_id);
@@ -103,7 +107,7 @@ export class DiscordClient {
 
     public async getGuildDetails(guildId: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
         try {
-            const guild = await this.client.guilds.fetch(guildId);
+            const guild = await this._client.guilds.fetch(guildId);
             return {
                 name: guild.name,
                 memberCount: guild.memberCount,
