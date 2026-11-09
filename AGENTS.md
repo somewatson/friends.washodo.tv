@@ -16,6 +16,9 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **CRITICAL**: Use SQLite (`data/streamers.db`) for all persistent state.
   - **Forbidden**: Do not use `state.json` or other loose JSON files for application state.
   - **Portability**: Use `scripts/db-portable.ts` for importing/exporting the database. All dynamic configuration (Mattermost targets, Discord guilds, tracked streamers) must reside in the database, not in `.env`.
+- **Discord Integration**: 
+  - Use the `DiscordClient` wrapper in `src/clients/discord.client.ts`.
+  - All Discord interactions are handled via the `discord.js` library to ensure proper rate limiting, type safety, and 64-bit permission handling.
 - **Network Resilience**: 
   - All HTTP calls **must** have explicit timeouts (default 10s).
   - Use exponential backoff for retries to avoid hammering unreachable servers.
@@ -41,7 +44,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - `DISCORD_BOT_TOKEN`: Primary token for bot operations (creating channels, etc.).
   - `APP_ENV`: The current environment (`production`, `staging`, `development`). Used to prefix notifications in non-prod.
   - `API_KEY`: Used for `X-API-KEY` header authentication on admin and status endpoints.
-  - `BASE_URL`: The public URL of the bot (required for OAuth2 callbacks).
+  - `BASE_URL`: The public URL of the bot (required for OAuth2 callbacks). Must match the Redirect URIs configured in the Discord Developer Portal.
   - `ADMIN_USERNAME`: Username for the Warden admin panel.
   - `ADMIN_PASSWORD`: Password for the Warden admin panel.
   - *Note: Tracked streamers and notification targets have been migrated to the SQLite database.*

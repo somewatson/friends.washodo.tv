@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { TwitchClient } from './twitchClient';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
+import { DiscordClient } from './clients/discord.client';
 import axios from 'axios';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
@@ -17,6 +18,7 @@ export class ApiServer {
     private adminUsername = process.env.ADMIN_USERNAME;
     private adminPassword = process.env.ADMIN_PASSWORD;
     private twitch = new TwitchClient();
+    private discord = new DiscordClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
     private server: any;
@@ -227,8 +229,12 @@ export class ApiServer {
 
         // Discord OAuth2 Setup Callback
         this.app.get('/api/discord/callback', async (req, res) => {
-            const code = req.query.code as string;
-            const guild_id = req.query.state as string; // We'll pass guild_id in state
+            const { code, state: guild_id, error } = req.query as { code?: string, state?: string, error?: string };
+
+            if (error) {
+                console.log(`[Discord OAuth] User denied authorization: ${error}`);
+                return res.redirect('/discord-setup?error=access_denied');
+            }
 
             if (!code || !guild_id) {
                 return res.status(400).send('Missing code or state');
@@ -245,23 +251,10 @@ export class ApiServer {
                     }), 
                     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                 );
-
-                const botToken = process.env.DISCORD_BOT_TOKEN;
-                if (!botToken) throw new Error('DISCORD_BOT_TOKEN not configured');
-
-                const channelResponse = await axios.post(
-                    `https://discord.com/api/v10/guilds/${guild_id}/channels`,
-                    {
-                        name: '📯-ward-bot',
-                        type: 0,
-                        topic: 'Official Twitch notifications for the Washodo community.',
-                    },
-                    { headers: { Authorization: `Bot ${botToken}` } }
-                );
-
-                const channelId = channelResponse.data.id;
+    
+                const channelId = await this.discord.createNotificationChannel(guild_id);
                 await this.stateRepo.saveDiscordIntegration(guild_id, channelId);
-
+    
                 res.send('<h1>✅ Setup Complete!</h1><p>The announcement channel has been created. You can now close this window.</p>');
             } catch (error: any) {
                 console.error('[Discord OAuth] Setup error:', error.response?.data || error.message);
@@ -271,8 +264,8 @@ export class ApiServer {
 
         this.app.get('/streamer/:username', async (req, res) => {
             const username = req.params.username.toLowerCase();
-            const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-            const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+            const members = await this.stateRepo.getEntitiesByCategory('member');
+            const friends = await this.stateRepo.getEntitiesByCategory('friend');
             const allStreamers = [...members, ...friends].map(u => u.toLowerCase());
 
             if (!allStreamers.includes(username)) {
@@ -416,24 +409,13 @@ export class ApiServer {
         });
 
         this.app.get('/api/discord/invite', (req, res) => {
-            console.log('[Discord Setup] Generating invite link...');
-            const clientId = process.env.DISCORD_CLIENT_ID;
-            if (!clientId) {
-                console.error('[Discord Setup] Error: DISCORD_CLIENT_ID is not configured in environment');
-                return res.status(500).json({ error: 'Discord Client ID not configured in environment' });
+            try {
+                const inviteUrl = this.discord.getInviteUrl();
+                res.json({ url: inviteUrl });
+            } catch (error: any) {
+                console.error('[Discord Setup] Error generating invite link:', error.message);
+                res.status(500).json({ error: error.message });
             }
-
-            const scopes = ['bot', 'applications.commands'].join('%20');
-            const permissions = 0x400 | 0x800 | 0x1000000000 | 0x10000 | 0x4000; // VIEW_CHANNEL | SEND_MESSAGES | SEND_MESSAGES_IN_THREADS | READ_MESSAGE_HISTORY | EMBED_LINKS
-            
-            // To support the "Magic Link" auto-setup, we would normally use the OAuth2 flow.
-            // For a simple "Add Bot" link, we'll point to the authorize URL.
-            // To capture the guild_id, we'd need a custom landing page or a bot command.
-            // Since we've implemented /setup and a callback, we'll provide the OAuth2 link here.
-            
-            const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scopes}&redirect_uri=${encodeURIComponent(process.env.BASE_URL + '/api/discord/callback')}&response_type=code&state=guild_id_placeholder`;
-            
-            res.json({ url: inviteUrl });
         });
 
         this.app.get('/api/streamers', (req, res) => {
@@ -542,7 +524,16 @@ export class ApiServer {
         this.app.use(express.static('public'));
     }
 
-    public start() {
+    public async start() {
+        // Initialize Discord Client
+        try {
+            await this.discord.login();
+        } catch (error) {
+            console.error('[Server] Failed to initialize Discord client:', error);
+            // We don't exit here because the server might still be needed for other things, 
+            // but Discord functionality will be broken.
+        }
+
         const portNumber = typeof this.port === 'string' ? parseInt(this.port, 10) : this.port;
         this.server = this.app.listen(portNumber, () => {
             console.log(`API Server running on port ${portNumber}`);

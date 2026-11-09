@@ -117,6 +117,12 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM tracked_entities').all() as any[];
     }
 
+    async getEntitiesByCategory(category: string): Promise<string[]> {
+        if (!this.db) throw new Error('Database not initialized');
+        const rows = this.db.prepare('SELECT username FROM tracked_entities WHERE category = ? AND is_active = 1').all(category) as { username: string }[];
+        return rows.map(row => row.username);
+    }
+
     async addTrackedEntity(username: string, category: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare(
