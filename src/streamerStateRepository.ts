@@ -72,6 +72,14 @@ export class StreamerStateRepository {
             this.db.exec('ALTER TABLE streamer_status ADD COLUMN profile_image_url TEXT');
         }
 
+        const discordColumns = this.db.prepare('PRAGMA table_info(discord_integrations)').all() as any[];
+        const discordColumnNames = discordColumns.map(col => col.name);
+
+        if (!discordColumnNames.includes('bot_token')) {
+            console.log('[StreamerStateRepository] Migrating: Adding bot_token column to discord_integrations...');
+            this.db.exec('ALTER TABLE discord_integrations ADD COLUMN bot_token TEXT');
+        }
+
         console.log(`Database initialized at ${this.dbPath}`);
     }
 
