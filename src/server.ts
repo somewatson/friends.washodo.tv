@@ -221,6 +221,18 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.post('/api/admin/streamers/reorder', async (req, res) => {
+            try {
+                const { order } = req.body;
+                if (!Array.isArray(order)) return res.status(400).json({ error: 'Invalid order format' });
+                
+                await this.stateRepo.updateStreamerOrder(order);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to update order', details: error.message });
+            }
+        });
+
         this.app.get('/api/admin/discord', async (req, res) => {
             try {
                 const integrations = await this.stateRepo.getDiscordIntegrations();

@@ -112,9 +112,12 @@ export class TwitchClient {
     if (!query) return [];
     const token = await this.fetchAccessToken();
     try {
-      const response = await axios.get('https://api.twitch.tv/helix/users', {
+      // Using the search endpoint instead of users endpoint for partial matches
+      const response = await axios.get('https://api.twitch.tv/helix/search', {
         params: {
-          login: query,
+          query: query,
+          type: 'user',
+          first: 20,
         },
         headers: {
           'Client-ID': this.config.clientId,

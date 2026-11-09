@@ -54,9 +54,11 @@ export class StreamerStateRepository {
                 username TEXT PRIMARY KEY,
                 platform TEXT DEFAULT 'twitch',
                 category TEXT,
-                is_active INTEGER DEFAULT 1
+                is_active INTEGER DEFAULT 1,
+                order_index INTEGER DEFAULT 0
             )
         `);
+
 
         // Migration: Ensure necessary columns exist for existing databases
 
@@ -80,7 +82,14 @@ export class StreamerStateRepository {
             this.db.exec('ALTER TABLE discord_integrations ADD COLUMN bot_token TEXT');
         }
 
-        console.log(`Database initialized at ${this.dbPath}`);
+        const trackedColumns = this.db.prepare('PRAGMA table_info(tracked_entities)').all() as any[];
+        const trackedColumnNames = trackedColumns.map(col => col.name);
+
+        if (!trackedColumnNames.includes('order_index')) {
+            console.log('[StreamerStateRepository] Migrating: Adding order_index column to tracked_entities...');
+            this.db.exec('ALTER TABLE tracked_entities ADD COLUMN order_index INTEGER DEFAULT 0');
+        }
+
     }
 
     async isKnownLive(username: string): Promise<boolean> {
@@ -123,26 +132,41 @@ export class StreamerStateRepository {
 
     async getStreamers() {
         if (!this.db) throw new Error('Database not initialized');
-        return this.db.prepare('SELECT * FROM tracked_entities').all() as any[];
+        return this.db.prepare('SELECT * FROM tracked_entities ORDER BY order_index ASC').all() as any[];
     }
 
     async getEntitiesByCategory(category: string): Promise<string[]> {
         if (!this.db) throw new Error('Database not initialized');
-        const rows = this.db.prepare('SELECT username FROM tracked_entities WHERE category = ? AND is_active = 1').all(category) as { username: string }[];
+        const rows = this.db.prepare('SELECT username FROM tracked_entities WHERE category = ? AND is_active = 1 ORDER BY order_index ASC').all(category) as { username: string }[];
         return rows.map(row => row.username);
     }
 
     async addTrackedEntity(username: string, category: string) {
         if (!this.db) throw new Error('Database not initialized');
+        
+        // Set order_index to the current max + 1 for new entries
+        const maxOrderRow = this.db.prepare('SELECT MAX(order_index) as maxOrder FROM tracked_entities').get() as { maxOrder: number } | null;
+        const nextOrder = (maxOrderRow?.maxOrder || 0) + 1;
+
         this.db.prepare(
-            'INSERT INTO tracked_entities (username, category) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET category = excluded.category'
-        ).run(username.toLowerCase(), category);
+            'INSERT INTO tracked_entities (username, category, order_index) VALUES (?, ?, ?) ON CONFLICT(username) DO UPDATE SET category = excluded.category'
+        ).run(username.toLowerCase(), category, nextOrder);
     }
 
-    async removeTrackedEntity(username: string) {
+
+    async updateStreamerOrder(updates: {username: string, orderIndex: number}[]) {
         if (!this.db) throw new Error('Database not initialized');
-        this.db.prepare('DELETE FROM tracked_entities WHERE username = ?').run(username.toLowerCase());
+        
+        const transaction = this.db.transaction((data: {username: string, orderIndex: number}[]) => {
+            for (const update of data) {
+                this.db.prepare('UPDATE tracked_entities SET order_index = ? WHERE username = ?')
+                    .run(update.orderIndex, update.username.toLowerCase());
+            }
+        });
+        
+        transaction(updates);
     }
+
 
     async getMattermostConfigs() {
         if (!this.db) throw new Error('Database not initialized');

@@ -112,6 +112,36 @@
             border-radius: 10px;
             font-size: 0.8em;
         }
+
+        /* Autocomplete Results Styling */
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #444;
+            transition: background 0.2s;
+        }
+        .search-result-item:hover {
+            background: #3a3a3a;
+        }
+        .search-result-item strong {
+            color: #fff;
+        }
+        .search-result-item small {
+            color: #888;
+        }
+
+        /* Draggable Row Styling */
+        .draggable-row {
+            cursor: grab;
+        }
+        .draggable-row:active {
+            cursor: grabbing;
+        }
+        .sortable-ghost {
+            opacity: 0.4;
+            background: var(--accent-color) !important;
+        }
+
         .pill-member { background: #4a3aff; }
         .pill-friend { background: #38bdf8; }
         .pill-streamer { background: #a970ff; }
@@ -220,9 +250,11 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         const API_KEY = '{{API_KEY}}'; // This will be injected by the server
         const BASE_URL = window.location.origin;
+
 
         async function api(path, method = 'GET', body = null) {
             const options = {
@@ -267,9 +299,8 @@
                     resultsDiv.innerHTML = '<div style="padding: 10px; color: #888;">No users found</div>';
                 } else {
                     resultsDiv.innerHTML = users.map(u => `
-                        <div style="padding: 10px; cursor: pointer; border-bottom: 1px solid #444; hover: background: #3a3a3a;" 
-                             onclick="selectUser('${u.login}')">
-                            <strong>${u.display_name}</strong> <small style="color: #888">@${u.login}</small>
+                        <div class="search-result-item" onclick="selectUser('${u.login}')">
+                            <strong>${u.display_name}</strong> <small>@${u.login}</small>
                         </div>
                     `).join('');
                 }
@@ -278,6 +309,7 @@
                 console.error('Search error:', e);
             }
         }
+
 
         function selectUser(login) {
             document.getElementById('streamer-user').value = login;
@@ -290,7 +322,7 @@
                     const data = await api('/api/admin/streamers');
                     const tbody = document.querySelector('#streamers-table tbody');
                     tbody.innerHTML = data.map(s => `
-                        <tr>
+                        <tr class="draggable-row" data-username="${s.username}">
                             <td>
                                 <a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold;">${s.username} ↗</a>
                             </td>
@@ -299,6 +331,25 @@
                             <td><button class="btn-danger" onclick="removeStreamer('${s.username}')">Remove</button></td>
                         </tr>
                     `).join('');
+                    
+                    // Initialize Sortable on the table body
+                    new Sortable(tbody, {
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        onEnd: async function() {
+                            const rows = Array.from(tbody.querySelectorAll('.draggable-row'));
+                            const order = rows.map((row, index) => ({
+                                username: row.getAttribute('data-username'),
+                                orderIndex: index
+                            }));
+                            try {
+                                await api('/api/admin/streamers/reorder', 'POST', { order });
+                                notify('Order saved successfully!');
+                            } catch (e) {
+                                notify('Failed to save order: ' + e.message, 'error');
+                            }
+                        }
+                    });
                 } else if (panel === 'discord') {
                     const data = await api('/api/admin/discord');
                     const tbody = document.querySelector('#discord-table tbody');
@@ -338,6 +389,7 @@
             }
         }
 
+
         async function addStreamer() {
             const username = document.getElementById('streamer-user').value;
             const category = document.getElementById('streamer-cat').value;
@@ -348,10 +400,11 @@
         }
 
         async function removeStreamer(username) {
-            if (!confirm('Remove ' + username + '?')) return;
+            if (!confirm('Are you sure you want to remove ' + username + '? This action cannot be undone.')) return;
             await api('/api/admin/streamers/' + username, 'DELETE');
             loadData('streamers');
         }
+
 
         async function addDiscord() {
             const body = {
@@ -389,10 +442,11 @@
         }
 
         async function removeDiscord(guildId) {
-            if (!confirm('Remove guild ' + guildId + '?')) return;
+            if (!confirm('Are you sure you want to remove guild ' + guildId + '? This action cannot be undone.')) return;
             await api('/api/admin/discord/' + guildId, 'DELETE');
             loadData('discord');
         }
+
 
         async function addMattermost() {
             const config = {
@@ -409,10 +463,11 @@
         }
 
         async function removeMattermost(id) {
-            if (!confirm('Remove this config?')) return;
+            if (!confirm('Are you sure you want to remove this configuration? This action cannot be undone.')) return;
             await api('/api/admin/mattermost/' + id, 'DELETE');
             loadData('mattermost');
         }
+
 
         async function exportDb() {
             const res = await fetch(`${BASE_URL}/api/admin/db/export`);
