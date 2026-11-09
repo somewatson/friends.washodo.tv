@@ -63,6 +63,9 @@ docker-compose up -d
 ```
 *This will build the image, persist the streamer state in a local `./data` volume, and start the service.*
 
+> [!IMPORTANT]
+> **Avoid Double-Messaging**: If you run multiple environments (e.g., Staging and Production), **do not use the same Discord Bot Token** for both. Discord will deliver events to all active connections, causing the bot to respond twice to every command. Create a separate Bot Application in the [Discord Developer Portal](https://discord.com/developers/applications) for each environment.
+
 ### Local Development
 ```bash
 npm install
