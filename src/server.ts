@@ -403,7 +403,23 @@ export class ApiServer {
                 });
                 
                 const guilds = guildsResponse.data;
-                const authorizedGuild = guilds.find((g: any) => (g.permissions & 0x20) === 0x20);
+                
+                // We need to find a guild that the USER has MANAGE_GUILD (0x20) 
+                // AND the BOT is already invited to.
+                let authorizedGuild = null;
+                for (const g of guilds) {
+                    const hasManageGuild = (g.permissions & 0x20) === 0x20;
+                    if (!hasManageGuild) continue;
+                    
+                    try {
+                        await this.discord.client.guilds.fetch(g.id);
+                        authorizedGuild = g;
+                        break;
+                    } catch {
+                        // Bot not in this guild
+                        continue;
+                    }
+                }
                 
                 if (!authorizedGuild) {
                     return res.status(400).send(layout('❌ Setup Failed', 'You do not have "Manage Server" permissions for any of the servers you authorized the bot for.'));
