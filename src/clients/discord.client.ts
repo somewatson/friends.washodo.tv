@@ -35,7 +35,7 @@ export class DiscordClient {
             throw new Error('DISCORD_CLIENT_ID or BASE_URL not configured');
         }
 
-        const scopes = ['bot', 'applications.commands'].join('%20');
+        const scopes = ['bot', 'guilds', 'applications.commands'].join('%20');
         
         // Use BigInt to correctly handle 64-bit Discord permissions and avoid 32-bit truncation
         const permissions = 
@@ -46,7 +46,7 @@ export class DiscordClient {
             BigInt(PermissionFlagsBits.ReadMessageHistory) + 
             BigInt(PermissionFlagsBits.SendMessagesInThreads);
 
-        return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions.toString()}&scope=${scopes}&redirect_uri=${encodeURIComponent(baseUrl + '/api/discord/callback')}&response_type=code&state=guild_id_placeholder`;
+        return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions.toString()}&scope=${scopes}&redirect_uri=${encodeURIComponent(baseUrl + '/api/discord/callback')}&response_type=code&state=${Math.random().toString(36).substring(2, 15)}`;
     }
 
     /**

@@ -270,14 +270,14 @@ export class ApiServer {
 
         // Discord OAuth2 Setup Callback
         this.app.get('/api/discord/callback', async (req, res) => {
-            const { code, state: guild_id, error } = req.query as { code?: string, state?: string, error?: string };
+            const { code, state, error } = req.query as { code?: string, state?: string, error?: string };
 
             if (error === 'access_denied') {
                 return res.redirect('/discord-setup?error=access_denied');
             }
 
-            if (!code || !guild_id) {
-                return res.status(400).send('Missing code or state');
+            if (!code) {
+                return res.status(400).send('Missing code');
             }
 
             try {
@@ -292,6 +292,22 @@ export class ApiServer {
                     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                 );
     
+                const accessToken = tokenResponse.data.access_token;
+                
+                // Fetch the guilds the user has access to and can authorize
+                const guildsResponse = await axios.get('https://discord.com/api/users/@me/guilds', {
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                });
+                
+                const guilds = guildsResponse.data;
+                // Find the first guild where the user has MANAGE_GUILD permission (0x20)
+                const authorizedGuild = guilds.find((g: any) => (g.permissions & 0x20) === 0x20);
+                
+                if (!authorizedGuild) {
+                    return res.status(400).send('<h1>❌ Setup Failed</h1><p>You do not have permission to manage any of the servers you authorized the bot for.</p>');
+                }
+                
+                const guild_id = authorizedGuild.id;
                 const channelId = await this.discord.createNotificationChannel(guild_id);
                 await this.stateRepo.saveDiscordIntegration(guild_id, channelId);
     
