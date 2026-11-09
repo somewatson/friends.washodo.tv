@@ -416,8 +416,10 @@ export class ApiServer {
         });
 
         this.app.get('/api/discord/invite', (req, res) => {
+            console.log('[Discord Setup] Generating invite link...');
             const clientId = process.env.DISCORD_CLIENT_ID;
             if (!clientId) {
+                console.error('[Discord Setup] Error: DISCORD_CLIENT_ID is not configured in environment');
                 return res.status(500).json({ error: 'Discord Client ID not configured in environment' });
             }
 

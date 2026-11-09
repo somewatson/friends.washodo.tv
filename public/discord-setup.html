@@ -215,11 +215,14 @@
             
             try {
                 const response = await fetch('/api/discord/invite');
-                if (!response.ok) throw new Error('Failed to fetch invite link');
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Failed to fetch invite link');
+                }
                 const data = await response.json();
                 window.location.href = data.url;
             } catch (err) {
-                alert('Error generating invite link. Please try again later.');
+                alert(`Error: ${err.message}`);
                 btn.disabled = false;
                 btn.innerText = 'Authorize for My Server';
             }

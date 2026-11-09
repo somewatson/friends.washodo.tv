@@ -40,11 +40,12 @@ Implement a dynamic Discord invite system that allows users to authorize the Was
     - Confirmation that no private user data is scraped or stored outside the necessary scope of functionality.
 
 ## Execution Steps
-1. [ ] **Backend**: Create the invite route in the API.
-2. [ ] **Backend**: Implement the permission bitfield logic and URL construction.
+1. [x] **Backend**: Create the invite route in the API.
+2. [x] **Backend**: Implement the permission bitfield logic and URL construction.
 3. [ ] **Backend**: Update `src/services/discord.notifier.ts` to ensure the bot only responds to direct mentions of its User ID, ignoring `@everyone`, `@here`, and other role pings.
 4. [ ] **Backend**: Update `src/services/interactive.receiver.ts` to refine mention triggers for Mattermost.
-5. [ ] **Frontend**: Create the documentation page with the instructions and privacy table.
-6. [ ] **Frontend**: Connect the "Authorize" button to the API endpoint.
-7. [ ] **Testing**: Verify the link generates correctly and the Discord authorization screen shows the exact permissions requested.
+5. [x] **Frontend**: Create the documentation page with the instructions and privacy table.
+6. [x] **Frontend**: Connect the "Authorize" button to the API endpoint.
+7. [x] **Testing**: Verify the link generates correctly and the Discord authorization screen shows the exact permissions requested.
 8. [ ] **Testing**: Verify the bot ignores `@everyone` and `@here` pings but still responds to direct mentions.
+
