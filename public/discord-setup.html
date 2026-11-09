@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord Authorization | Washodo Ward</title>
+    <script defer src="https://beancounter.somewatson.com/script.js" data-website-id="cf5643bb-9645-4789-b5fd-a03e9944cf75"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
@@ -228,6 +229,9 @@
         });
 
         document.getElementById('authBtn').addEventListener('click', async () => {
+            if (window.umami) {
+                window.umami.track('Discord Auth Start');
+            }
             const btn = document.getElementById('authBtn');
             btn.disabled = true;
             btn.innerText = 'Generating Link...';
