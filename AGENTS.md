@@ -1,4 +1,4 @@
-# Agent Instructions: TwitchWatch
+# Agent Instructions: Washodo Ward
 
 Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly in this repository.
 

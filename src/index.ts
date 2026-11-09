@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-class TwitchWatchApp {
+class WashodoWardApp {
     async runCheck(
         twitchClient: TwitchClient, 
         mattermostNotifier: MattermostNotifier, 
@@ -94,7 +94,7 @@ class TwitchWatchApp {
 }
 
 async function startApp() {
-    const app = new TwitchWatchApp();
+    const app = new WashodoWardApp();
     await app.bootstrap();
 }
 

@@ -107,7 +107,7 @@ export class ApiServer {
                 <!DOCTYPE html>
                 <html>
                 <head>
-                    <title>TwitchWatch Login</title>
+                    <title>Washodo Ward Login</title>
                     <style>
                         body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
                         .login-box { background: #2d2d2d; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; width: 300px; }
@@ -184,6 +184,15 @@ export class ApiServer {
 
         this.app.get('/api/admin/discord', async (req, res) => {
             res.json(await this.stateRepo.getDiscordIntegrations());
+        });
+
+        this.app.post('/api/admin/discord/manual', async (req, res) => {
+            const { guild_id, channel_id, owner_id, bot_token } = req.body;
+            if (!guild_id || !channel_id || !bot_token) {
+                return res.status(400).json({ error: 'Missing required fields: guild_id, channel_id, and bot_token are required.' });
+            }
+            await this.stateRepo.saveDiscordIntegration(guild_id, channel_id, owner_id, bot_token);
+            res.json({ success: true });
         });
 
         this.app.delete('/api/admin/discord/:guildId', async (req, res) => {
@@ -509,7 +518,7 @@ export class ApiServer {
                 user_name: 'Test Bot',
                 user_login: 'testbot',
                 game_name: 'Testing',
-                title: 'This is a test notification from TwitchWatch!'
+                title: 'This is a test notification from Washodo Ward!'
             };
         
             try {

@@ -1,10 +1,10 @@
-# TwitchWatch
+# Washodo Ward
 
-TwitchWatch is a lightweight Node.js/TypeScript hybrid service that monitors Twitch streamers, notifies multiple webhook endpoints or Mattermost Bot accounts when they go live, and provides a secure API for external websites (e.g., www.washodo.tv) to check streamer status and current uptime.
+Washodo Ward is a lightweight Node.js/TypeScript hybrid service that monitors Twitch streamers, notifies multiple webhook endpoints or Mattermost Bot accounts when they go live, and provides a secure API for external websites (e.g., www.washodo.tv) to check streamer status and current uptime.
 
 ## 🚀 Quick Start Guide
 
-To get TwitchWatch running, follow these simple steps:
+To get Washodo Ward running, follow these simple steps:
 
 ### 1. Obtain Twitch API Keys
 1. Go to the [Twitch Developer Console](https://dev.twitch.tv/console).
@@ -57,7 +57,7 @@ PORT=3000
 ## 🛠 Installation & Running
 
 ### Docker Compose (Recommended)
-TwitchWatch is optimized for ARM64 and x86. 
+Washodo Ward is optimized for ARM64 and x86. 
 ```bash
 docker-compose up -d
 ```
@@ -87,7 +87,7 @@ docker compose exec app npx ts-node scripts/import-env-to-db.ts
 
 ## 🔌 API & Status Page
 
-TwitchWatch provides a status page and a secure API to check if a user is live.
+Washodo Ward provides a status page and a secure API to check if a user is live.
 
 **Endpoint:** `GET /api/status/:username`
 **Authentication:** Must include the `X-API-KEY` header.

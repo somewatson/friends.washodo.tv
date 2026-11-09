@@ -29,11 +29,30 @@ export class InteractiveReceiver {
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(express.json());
 
-    this.initializeServers();
+    this.initializeServers().catch(err => console.error(`[Receiver] Initialization failed: ${err}`));
     this.setupRoutes();
   }
 
-  private initializeServers(): void {
+  private async initializeServers(): Promise<void> {
+    // 1. Try loading from Database (Preferred)
+    try {
+      const dbConfigs = await this.stateRepo.getMattermostConfigs();
+      if (dbConfigs && dbConfigs.length > 0) {
+        dbConfigs.forEach((cfg: any) => {
+          this.servers.set(cfg.webhook_token, { 
+            webhookToken: cfg.webhook_token, 
+            serverUrl: cfg.server_url, 
+            botToken: cfg.bot_token 
+          });
+          console.log(`[Receiver] Configured server from DB: ${cfg.server_url}`);
+        });
+        return;
+      }
+    } catch (err) {
+      console.error(`[Receiver] Error loading configs from DB: ${err}`);
+    }
+
+    // 2. Fallback to Environment Variable
     const botsEnv = process.env.MATTERMOST_BOTS || '';
     const serverStrings = botsEnv.split(',').filter(Boolean);
     
@@ -41,9 +60,9 @@ export class InteractiveReceiver {
       const [webhookToken, serverUrl, botToken] = str.split('|');
       if (webhookToken && serverUrl && botToken) {
         this.servers.set(webhookToken, { webhookToken, serverUrl, botToken });
-        console.log(`[Receiver] Configured server: ${serverUrl}`);
+        console.log(`[Receiver] Configured server from env: ${serverUrl}`);
       } else {
-        console.warn(`[Receiver] Invalid server config found: ${str}`);
+        console.warn(`[Receiver] Invalid server config found in env: ${str}`);
       }
     });
   }

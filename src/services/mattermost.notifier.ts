@@ -15,17 +15,34 @@ export class MattermostNotifier {
 
   constructor(stateRepo: any) {
     this.stateRepo = stateRepo;
-    this.initializeServers();
+    this.initializeServers().catch(err => console.error(`[MattermostNotifier] Initialization failed: ${err}`));
   }
 
-  private initializeServers(): void {
+  private async initializeServers(): Promise<void> {
+    // 1. Try loading from Database (Preferred)
+    try {
+      const dbConfigs = await this.stateRepo.getMattermostConfigs();
+      if (dbConfigs && dbConfigs.length > 0) {
+        this.servers = dbConfigs.map((cfg: any) => ({
+          webhookToken: cfg.webhook_token,
+          serverUrl: cfg.server_url,
+          botToken: cfg.bot_token,
+          channelId: cfg.channel_id,
+        }));
+        return;
+      }
+    } catch (err) {
+      console.error(`[MattermostNotifier] Error loading configs from DB: ${err}`);
+    }
+
+    // 2. Fallback to Environment Variable
     const botsEnv = process.env.MATTERMOST_BOTS || '';
     const serverStrings = botsEnv.split(',').filter(Boolean);
     
     this.servers = serverStrings.map(str => {
       const [webhookToken, serverUrl, botToken, channelId] = str.split('|');
       if (!webhookToken || !serverUrl || !botToken || !channelId) {
-        console.warn(`[MattermostNotifier] Invalid server config found: ${str}`);
+        console.warn(`[MattermostNotifier] Invalid server config found in env: ${str}`);
         return null;
       }
       return { webhookToken, serverUrl, botToken, channelId };
@@ -34,7 +51,7 @@ export class MattermostNotifier {
 
   async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
     if (this.servers.length === 0) {
-      console.warn('[MattermostNotifier] No servers configured in MATTERMOST_BOTS');
+      console.warn('[MattermostNotifier] No servers configured in database or MATTERMOST_BOTS');
       return;
     }
 

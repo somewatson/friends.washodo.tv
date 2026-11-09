@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TwitchWatch Admin</title>
+    <title>Washodo Ward Admin</title>
     <style>
         :root {
             --bg-color: #1a1a1a;
@@ -110,7 +110,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>⚙️ TwitchWatch Admin</h1>
+        <h1>⚙️ Washodo Ward Admin</h1>
         
         <div class="tabs">
             <div class="tab active" onclick="showPanel('streamers')">Streamers</div>
@@ -143,6 +143,13 @@
         <div id="panel-discord" class="panel">
             <h3>Discord Integrations</h3>
             <p>Integrated servers creating the #📯-ward-bot channel.</p>
+            <div class="form-group">
+                <input type="text" id="discord-guild" placeholder="Guild ID">
+                <input type="text" id="discord-channel" placeholder="Channel ID">
+                <input type="text" id="discord-token" placeholder="Bot Token">
+                <input type="text" id="discord-owner" placeholder="Owner ID (Optional)">
+                <button class="btn-primary" onclick="addDiscord()">Add Integration</button>
+            </div>
             <table id="discord-table">
                 <thead>
                     <tr><th>Guild ID</th><th>Channel ID</th><th>Owner</th><th>Actions</th></tr>
@@ -230,7 +237,10 @@
                             <td>${d.guild_id}</td>
                             <td>${d.channel_id}</td>
                             <td>${d.owner_id || 'System'}</td>
-                            <td><button class="btn-danger" onclick="removeDiscord('${d.guild_id}')">Remove</button></td>
+                            <td>
+                                <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
+                                <button class="btn-danger" onclick="removeDiscord('${d.guild_id}')">Remove</button>
+                            </td>
                         </tr>
                     `).join('');
                 } else if (panel === 'mattermost') {
@@ -241,7 +251,10 @@
                             <td>${m.label}</td>
                             <td>${m.server_url}</td>
                             <td>${m.channel_id}</td>
-                            <td><button class="btn-danger" onclick="removeMattermost(${m.id})">Remove</button></td>
+                            <td>
+                                <button class="btn-success" onclick="testMattermost(${m.id})">Test</button>
+                                <button class="btn-danger" onclick="removeMattermost(${m.id})">Remove</button>
+                            </td>
                         </tr>
                     `).join('');
                 }

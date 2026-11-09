@@ -3,9 +3,16 @@ import { getEnvPrefix } from './utils/env';
 
 export class WebhookNotifier {
     private webhookUrls = process.env.WEBHOOK_URLS?.split(',').filter(Boolean) || [];
+    private stateRepo: any;
+
+    constructor(stateRepo: any) {
+        this.stateRepo = stateRepo;
+    }
 
     async sendNotification(streamer: any, tier: string = 'Streamer', cachedThumbnail: string = '') {
-        if (this.webhookUrls.length === 0 && !process.env.MATTERMOST_BOTS) {
+        const mattermostConfigs = this.stateRepo ? await this.stateRepo.getMattermostConfigs() : [];
+        
+        if (this.webhookUrls.length === 0 && (!mattermostConfigs || mattermostConfigs.length === 0) && !process.env.MATTERMOST_BOTS) {
             console.error('No notification endpoints configured (webhooks or bots)');
             return;
         }
@@ -33,29 +40,42 @@ export class WebhookNotifier {
             }));
         }
 
-        // 2. Mattermost Bots
-        const botConfigs = process.env.MATTERMOST_BOTS?.split(',').filter(Boolean) || [];
-        if (botConfigs.length > 0) {
-            notifications.push(...botConfigs.map(async (config) => {
-                const [token, url, channelId] = config.split('|');
-                if (!token || !url || !channelId) {
-                    console.error(`Invalid Mattermost bot config: ${config}. Expected token|url|channelId`);
-                    return;
+        // 2. Mattermost Bots (DB Preferred, then Env Fallback)
+        const bots = [];
+        if (mattermostConfigs && mattermostConfigs.length > 0) {
+            bots.push(...mattermostConfigs.map(cfg => ({
+                token: cfg.bot_token,
+                url: cfg.server_url,
+                channelId: cfg.channel_id
+            })));
+        } else {
+            const botConfigsEnv = process.env.MATTERMOST_BOTS?.split(',').filter(Boolean) || [];
+            botConfigsEnv.forEach(config => {
+                const [token, url, botToken, channelId] = config.split('|');
+                // Note: MattermostNotifier.ts uses webhookToken|serverUrl|botToken|channelId
+                // The old WebhookNotifier.ts expected token|url|channelId.
+                // We should normalize this to match the actual DB/Notifier format.
+                if (token && url && channelId) {
+                    bots.push({ token: botToken || token, url, channelId });
                 }
+            });
+        }
 
+        if (bots.length > 0) {
+            notifications.push(...bots.map(async (bot) => {
                 try {
-                    await axios.post(`${url.replace(/\/$/, '')}/api/v4/posts`, {
-                        channel_id: channelId,
+                    await axios.post(`${bot.url.replace(/\/$/, '')}/api/v4/posts`, {
+                        channel_id: bot.channelId,
                         message: message,
                     }, {
                         headers: {
-                            'Authorization': `Bearer ${token}`,
+                            'Authorization': `Bearer ${bot.token}`,
                             'Content-Type': 'application/json',
                         }
                     });
-                    console.log(`Notification sent to Mattermost bot at ${url} for ${streamer.user_name}`);
+                    console.log(`Notification sent to Mattermost bot at ${bot.url} for ${streamer.user_name}`);
                 } catch (error: any) {
-                    console.error(`Error sending to Mattermost bot at ${url}:`, error.response?.data || error.message);
+                    console.error(`Error sending to Mattermost bot at ${bot.url}:`, error.response?.data || error.message);
                 }
             }));
         }

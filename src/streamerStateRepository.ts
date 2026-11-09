@@ -32,6 +32,7 @@ export class StreamerStateRepository {
                 guild_id TEXT PRIMARY KEY,
                 channel_id TEXT,
                 owner_id TEXT,
+                bot_token TEXT,
                 permissions TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -157,11 +158,11 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM discord_integrations').all() as any[];
     }
 
-    async saveDiscordIntegration(guild_id: string, channel_id: string, owner_id?: string) {
+    async saveDiscordIntegration(guild_id: string, channel_id: string, owner_id?: string, bot_token?: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare(
-            'INSERT INTO discord_integrations (guild_id, channel_id, owner_id) VALUES (?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id'
-        ).run(guild_id, channel_id, owner_id || null);
+            'INSERT INTO discord_integrations (guild_id, channel_id, owner_id, bot_token) VALUES (?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id, bot_token = excluded.bot_token'
+        ).run(guild_id, channel_id, owner_id || null, bot_token || null);
     }
 
     async removeDiscordIntegration(guild_id: string) {

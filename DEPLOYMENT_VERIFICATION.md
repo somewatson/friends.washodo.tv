@@ -1,6 +1,6 @@
-# Deployment Verification Plan - TwitchWatch
+# Deployment Verification Plan - Washodo Ward
 
-This document outlines the plan to implement a verification script to ensure that the TwitchWatch service is correctly deployed and functioning in both development and Docker environments.
+This document outlines the plan to implement a verification script to ensure that the Washodo Ward service is correctly deployed and functioning in both development and Docker environments.
 
 ## 1. Objective
 Create a "Smoke Test" script that verifies the API's availability, authentication, and basic functionality after a deployment.
