@@ -125,5 +125,22 @@ export class TwitchClient {
             console.error(`Error fetching start time for user ${userId}:`, error.response?.data || error.message);
             return null;
         }
+    async searchUsers(query: string): Promise<any[]> {
+        if (!query) return [];
+        const token = await this.getAccessToken();
+        try {
+            const response = await axios.get('https://api.twitch.tv/helix/users', {
+                params: {
+                    query: query,
+                },
+                headers: {
+                    'Client-ID': this.clientId || 'dummy-id',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            return response.data.data;
+        } catch (error: any) {
+            console.error('Error searching Twitch users:', error.response?.data || error.message);
+            return [];
+        }
     }
-}

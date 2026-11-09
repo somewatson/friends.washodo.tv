@@ -168,7 +168,43 @@ export class ApiServer {
         });
 
         this.app.get('/api/admin/streamers', async (req, res) => {
-            res.json(await this.stateRepo.getTrackedEntities());
+            try {
+                const streamers = await this.stateRepo.getStreamers();
+                
+                const hydratedStreamers = await Promise.all(streamers.map(async (s) => {
+                    try {
+                        const users = await this.twitch.getUsers([s.username]);
+                        const user = users[0];
+                        
+                        // Get follower count - we need to check if getFollowerCount exists in ApiServer
+                        // Looking at the provided file content it wasn't visible, let me check.
+                        let followerCount = 0;
+                        if (user) {
+                            const followers = await axios.get('https://api.twitch.tv/helix/users/follows', {
+                                params: { user_id: user.id, type: 'user' },
+                                headers: {
+                                    'Client-ID': process.env.TWITCH_CLIENT_ID || 'dummy-id',
+                                    'Authorization': `Bearer ${await this.twitch.getAccessToken()}`,
+                                }
+                            });
+                            followerCount = followers.data.total;
+                        }
+
+                        return {
+                            ...s,
+                            followerCount,
+                            profileUrl: user ? `https://twitch.tv/${user.login}` : `#`
+                        };
+                    } catch (e) {
+                        console.error(`[Admin API] Failed to hydrate streamer ${s.username}:`, e);
+                        return { ...s, followerCount: 0, profileUrl: `#` };
+                    }
+                }));
+                
+                res.json(hydratedStreamers);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch streamers', details: error.message });
+            }
         });
 
         this.app.post('/api/admin/streamers', async (req, res) => {
@@ -212,7 +248,16 @@ export class ApiServer {
             }
         });
 
-        this.app.post('/api/admin/discord/manual', async (req, res) => {
+        this.app.get('/api/admin/twitch/search', async (req, res) => {
+            const { q } = req.query;
+            if (!q) return res.status(400).json({ error: 'Query parameter q is required' });
+            try {
+                const users = await this.twitch.searchUsers(q as string);
+                res.json(users);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Twitch search failed', details: error.message });
+            }
+        });
             const { guild_id, channel_id, owner_id, bot_token } = req.body;
             if (!guild_id || !channel_id || !bot_token) {
                 return res.status(400).json({ error: 'Missing required fields: guild_id, channel_id, and bot_token are required.' });
