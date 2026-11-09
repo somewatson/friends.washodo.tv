@@ -166,6 +166,42 @@
             align-items: center;
             gap: 8px;
         }
+        .header {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .nav-top {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 20px;
+        }
+        .nav-link {
+            color: #9ca3af;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: color 0.2s ease;
+        }
+        .nav-link:hover {
+            color: #a970ff;
+        }
+        .nav-link.highlight {
+            color: #a970ff;
+            background: rgba(169, 112, 255, 0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(169, 112, 255, 0.3);
+        }
+        .nav-link.highlight:hover {
+            background: rgba(169, 112, 255, 0.2);
+            border-color: #a970ff;
+        }
         .footer-credits {
             display: flex;
             flex-wrap: wrap;
@@ -309,7 +345,10 @@
         }
     </style>
 </head>
-<body>
+<body style="position: relative;">
+    <div class="nav-top">
+        <a href="/discord-setup" class="nav-link highlight">🤖 Add Bot to Discord</a>
+    </div>
     <h1>Streamer Status</h1>
     <div class="container">
         <!-- CONTENT_PLACEHOLDER -->

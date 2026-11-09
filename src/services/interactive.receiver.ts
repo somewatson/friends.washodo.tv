@@ -17,21 +17,42 @@ export class InteractiveReceiver {
   private app: express.Application;
   private notifier: WebhookNotifier;
   private twitchClient: TwitchClient;
+  private stateRepo: any;
   private servers: Map<string, ServerConfig> = new Map();
 
-  constructor(notifier: WebhookNotifier, twitchClient: TwitchClient) {
+  constructor(notifier: WebhookNotifier, twitchClient: TwitchClient, stateRepo: any) {
     this.app = express();
     this.notifier = notifier;
     this.twitchClient = twitchClient;
+    this.stateRepo = stateRepo;
     
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(express.json());
 
-    this.initializeServers();
+    this.initializeServers().catch(err => console.error(`[Receiver] Initialization failed: ${err}`));
     this.setupRoutes();
   }
 
-  private initializeServers(): void {
+  private async initializeServers(): Promise<void> {
+    // 1. Try loading from Database (Preferred)
+    try {
+      const dbConfigs = await this.stateRepo.getMattermostConfigs();
+      if (dbConfigs && dbConfigs.length > 0) {
+        dbConfigs.forEach((cfg: any) => {
+          this.servers.set(cfg.webhook_token, { 
+            webhookToken: cfg.webhook_token, 
+            serverUrl: cfg.server_url, 
+            botToken: cfg.bot_token 
+          });
+          console.log(`[Receiver] Configured server from DB: ${cfg.server_url}`);
+        });
+        return;
+      }
+    } catch (err) {
+      console.error(`[Receiver] Error loading configs from DB: ${err}`);
+    }
+
+    // 2. Fallback to Environment Variable
     const botsEnv = process.env.MATTERMOST_BOTS || '';
     const serverStrings = botsEnv.split(',').filter(Boolean);
     
@@ -39,9 +60,9 @@ export class InteractiveReceiver {
       const [webhookToken, serverUrl, botToken] = str.split('|');
       if (webhookToken && serverUrl && botToken) {
         this.servers.set(webhookToken, { webhookToken, serverUrl, botToken });
-        console.log(`[Receiver] Configured server: ${serverUrl}`);
+        console.log(`[Receiver] Configured server from env: ${serverUrl}`);
       } else {
-        console.warn(`[Receiver] Invalid server config found: ${str}`);
+        console.warn(`[Receiver] Invalid server config found in env: ${str}`);
       }
     });
   }
@@ -87,8 +108,10 @@ export class InteractiveReceiver {
     // 1. Define recognized command keywords (without prefix)
     const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule'];
     
-    // 2. Verify if the bot was actually triggered/mentioned (starts with ! or @)
-    const hasTrigger = parts.some(p => p.startsWith('!') || p.startsWith('@'));
+    // 2. Verify if the bot was actually triggered (starts with !)
+    // Note: Mattermost webhooks don't give us a "mentions" list like Discord, 
+    // so we only trigger on '!' to avoid responding to random @mentions.
+    const hasTrigger = parts.some(p => p.startsWith('!'));
     if (!hasTrigger) return;
 
     // 3. Find the first word that matches a known command (with or without !)
@@ -108,9 +131,8 @@ export class InteractiveReceiver {
     }
 
     if (commandIndex === -1) {
-      // No recognized command found, but bot was mentioned.
-      // Only reply if the first word was a trigger to avoid spamming.
-      if (parts[0]?.startsWith('!') || parts[0]?.startsWith('@')) {
+      // No recognized command found, but triggered with !
+      if (parts[0]?.startsWith('!')) {
         await this.sendResponse(channelId, `I heard you mention me, but I don't recognize a command. Try \`!help\`.`, serverConfig, rootId, false);
       }
       return;
@@ -139,8 +161,13 @@ export class InteractiveReceiver {
   }
 
   private async handleListStreamers(channelId: string, serverConfig: ServerConfig, rootId?: string): Promise<void> {
-    const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-    const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+    if (!this.stateRepo) {
+      await this.sendResponse(channelId, '❌ Database repository not initialized.', serverConfig, rootId, false);
+      return;
+    }
+
+    const members = await this.stateRepo.getEntitiesByCategory('member');
+    const friends = await this.stateRepo.getEntitiesByCategory('friend');
     const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
 
     const allStreamers = [...new Set([...members, ...friends, ...others])];

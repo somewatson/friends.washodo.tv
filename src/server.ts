@@ -1,10 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { TwitchClient } from './twitchClient';
+import { TwitchClient } from './clients/twitch.client';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
+import { DiscordClient } from './clients/discord.client';
 import axios from 'axios';
+import fs from 'fs';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 
@@ -12,7 +15,13 @@ export class ApiServer {
     private app = express();
     private port = process.env.PORT || 3000;
     private apiKey = process.env.API_KEY;
-    private twitch = new TwitchClient();
+    private adminUsername = process.env.ADMIN_USERNAME;
+    private adminPassword = process.env.ADMIN_PASSWORD;
+    private twitch = new TwitchClient({
+        clientId: process.env.TWITCH_CLIENT_ID || '',
+        clientSecret: process.env.TWITCH_CLIENT_SECRET || '',
+    });
+    private discord = new DiscordClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
     private server: any;
@@ -24,6 +33,8 @@ export class ApiServer {
     }
 
     private setupMiddleware() {
+        this.app.use(express.urlencoded({ extended: true }));
+        this.app.use(cookieParser());
         this.app.use(cors({
             origin: ['https://www.washodo.tv', 'http://localhost:3000']
         }));
@@ -33,7 +44,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/api/discord/callback')) {
                 return next();
             }
             
@@ -88,14 +99,330 @@ export class ApiServer {
     }
 
     private setupRoutes(interactiveApp?: express.Application) {
+        const path = require('path');
         if (interactiveApp) {
             this.app.use(interactiveApp);
         }
 
+        // Warden Login
+        this.app.get('/warden-gate', (req, res) => {
+            res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Washodo Ward Login</title>
+                    <style>
+                        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                        .login-box { background: #2d2d2d; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; width: 300px; }
+                        h2 { color: #a970ff; margin-bottom: 20px; }
+                        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; background: #222; border: 1px solid #555; color: white; border-radius: 4px; }
+                        button { width: 100%; padding: 10px; background: #a970ff; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 4px; }
+                        button:hover { opacity: 0.8; }
+                        .error { color: #ef4444; margin-bottom: 10px; font-size: 0.9em; }
+                    </style>
+                </head>
+                <body>
+                    <div class="login-box">
+                        <h2>Warden Login</h2>
+                        <div id="error" class="error"></div>
+                        <form action="/api/admin/login" method="POST">
+                            <input type="text" name="username" placeholder="Username" required>
+                            <input type="password" name="password" placeholder="Password" required>
+                            <button type="submit">Login</button>
+                        </form>
+                    </div>
+                </body>
+                </html>
+            `);
+        });
+
+        this.app.post('/api/admin/login', (req, res) => {
+            const { username, password } = req.body;
+            if (username === this.adminUsername && password === this.adminPassword) {
+                res.cookie('warden_auth', 'true', { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+                res.redirect('/warden-access');
+            } else {
+                res.send('Invalid credentials. <a href="/warden-gate">Try again</a>');
+            }
+        });
+
+        this.app.get('/api/admin/logout', (req, res) => {
+            res.clearCookie('warden_auth');
+            res.redirect('/warden-gate');
+        });
+
+        // Warden Interface
+        this.app.get('/warden-access', (req, res) => {
+            const auth = req.cookies['warden_auth'];
+            if (!auth) return res.redirect('/warden-gate');
+
+
+
+            let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
+            template = template.replace('{{API_KEY}}', this.apiKey || '');
+            res.send(template);
+        });
+
+        // Admin APIs
+        this.app.use('/api/admin', (req, res, next) => {
+            const auth = req.cookies['warden_auth'];
+            if (!auth) return res.status(401).json({ error: 'Unauthorized: Please login via /admin-login' });
+            next();
+        });
+
+        this.app.get('/api/admin/streamers', async (req, res) => {
+            try {
+                const streamers = await this.stateRepo.getStreamers();
+                
+                const hydratedStreamers = await Promise.all(streamers.map(async (s) => {
+                    try {
+                        const users = await this.twitch.getUsers([s.username]);
+                        const user = users[0];
+                        
+                        // Get follower count - we need to check if getFollowerCount exists in ApiServer
+                        // Looking at the provided file content it wasn't visible, let me check.
+                        let followerCount = 0;
+                        if (user) {
+                            const followers = await axios.get('https://api.twitch.tv/helix/channels/followers', {
+                                params: { broadcaster_id: user.id },
+                                headers: {
+                                    'Client-ID': process.env.TWITCH_CLIENT_ID || 'dummy-id',
+                                    'Authorization': `Bearer ${await this.twitch.getAccessToken()}`,
+                                }
+                            });
+                            followerCount = followers.data.total;
+                        }
+
+                            return {
+                                ...s,
+                                followerCount,
+                                profileUrl: user ? `https://twitch.tv/${user.login}` : `https://twitch.tv/${s.username}`
+                            };
+                    } catch (e) {
+                        console.error(`[Admin API] Failed to hydrate streamer ${s.username}:`, e);
+                        return { ...s, followerCount: 0, profileUrl: `https://twitch.tv/${s.username}` };
+                    }
+                }));
+                
+                res.json(hydratedStreamers);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch streamers', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/streamers', async (req, res) => {
+            const { username, category } = req.body;
+            await this.stateRepo.addTrackedEntity(username, category);
+            res.json({ success: true });
+        });
+
+        this.app.delete('/api/admin/streamers/:username', async (req, res) => {
+            await this.stateRepo.removeTrackedEntity(req.params.username);
+            res.json({ success: true });
+        });
+
+        this.app.get('/api/admin/discord', async (req, res) => {
+            try {
+                const integrations = await this.stateRepo.getDiscordIntegrations();
+                
+                const hydratedIntegrations = await Promise.all(integrations.map(async (integration) => {
+                    try {
+                        const details = await this.discord.getGuildDetails(integration.guild_id);
+                        return {
+                            ...integration,
+                            serverName: details.name,
+                            memberCount: details.memberCount,
+                            serverIcon: details.icon
+                        };
+                    } catch (e) {
+                        console.error(`[Admin API] Failed to fetch details for guild ${integration.guild_id}:`, e);
+                        return {
+                            ...integration,
+                            serverName: 'Unknown Server',
+                            memberCount: 0,
+                            serverIcon: null
+                        };
+                    }
+                }));
+
+                res.json(hydratedIntegrations);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch Discord integrations', details: error.message });
+            }
+        });
+
+        this.app.get('/api/admin/twitch/search', async (req, res) => {
+            const { q } = req.query;
+            if (!q) return res.status(400).json({ error: 'Query parameter q is required' });
+            try {
+                const users = await this.twitch.searchUsers(q as string);
+                res.json(users);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Twitch search failed', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/discord/manual', async (req, res) => {
+            const { guild_id, channel_id, owner_id, bot_token } = req.body;
+            if (!guild_id || !channel_id || !bot_token) {
+                return res.status(400).json({ error: 'Missing required fields: guild_id, channel_id, and bot_token are required.' });
+            }
+            await this.stateRepo.saveDiscordIntegration(guild_id, channel_id, owner_id, bot_token);
+            res.json({ success: true });
+        });
+
+        this.app.delete('/api/admin/discord/:guildId', async (req, res) => {
+            await this.stateRepo.removeDiscordIntegration(req.params.guildId);
+            res.json({ success: true });
+        });
+
+        this.app.get('/api/admin/mattermost', async (req, res) => {
+            res.json(await this.stateRepo.getMattermostConfigs());
+        });
+
+        this.app.post('/api/admin/mattermost', async (req, res) => {
+            await this.stateRepo.addMattermostConfig(req.body);
+            res.json({ success: true });
+        });
+
+        this.app.delete('/api/admin/mattermost/:id', async (req, res) => {
+            await this.stateRepo.removeMattermostConfig(parseInt(req.params.id));
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/mattermost/test/:id', async (req, res) => {
+            try {
+                const config = await this.stateRepo.getMattermostConfig(parseInt(req.params.id));
+                if (!config) return res.status(404).json({ error: 'Mattermost config not found' });
+                
+                const env = process.env.APP_ENV;
+                const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
+                
+                await this.notifier.sendMattermostTest(`${prefix}Test message from Washodo Ward Admin Panel!`, config);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Mattermost test failed', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/discord/test/:guildId', async (req, res) => {
+            try {
+                const integration = await this.stateRepo.getDiscordIntegration(req.params.guildId);
+                if (!integration) return res.status(404).json({ error: 'Discord integration not found' });
+                
+                await this.discord.sendTestMessage(integration);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Discord test failed', details: error.message });
+            }
+        });
+
+
+        // Database Portability APIs
+        this.app.get('/api/admin/db/export', async (req, res) => {
+            const dbPath = process.env.DATABASE_PATH || './data/streamers.db';
+            const { DatabaseSync } = require('node:sqlite');
+            const db = new DatabaseSync(dbPath);
+            const tables = ['streamer_status', 'notification_log', 'discord_integrations', 'mattermost_configs', 'tracked_entities'];
+            const data: any = {};
+            for (const table of tables) {
+                data[table] = db.prepare(`SELECT * FROM ${table}`).all();
+            }
+            res.setHeader('Content-Disposition', 'attachment; filename=export.json');
+            res.setHeader('Content-Type', 'application/json');
+            res.send(JSON.stringify(data, null, 2));
+        });
+
+        this.app.post('/api/admin/db/import', async (req, res) => {
+            try {
+                const data = req.body;
+                if (!data || typeof data !== 'object') {
+                    return res.status(400).json({ error: 'Invalid JSON body' });
+                }
+                await this.stateRepo.importData(data);
+                res.json({ success: true, message: 'Database import completed successfully' });
+            } catch (error: any) {
+                console.error('[DB Import] Error:', error);
+                res.status(500).json({ error: 'Import failed', details: error.message });
+            }
+        });
+
+        // Discord OAuth2 Setup Callback
+        this.app.get('/api/discord/callback', async (req, res) => {
+            const { code, state, error } = req.query as { code?: string, state?: string, error?: string };
+
+            const layout = (title: string, content: string, isError: boolean = false) => `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${title}</title>
+                    <style>
+                        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                        .card { background: #2d2d2d; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 500px; width: 90%; }
+                        h1 { color: ${isError ? '#ef4444' : '#a970ff'}; margin-bottom: 20px; font-size: 2em; }
+                        p { font-size: 1.1em; line-height: 1.6; color: #ccc; margin-bottom: 30px; }
+                        .btn { display: inline-block; padding: 12px 24px; background: #a970ff; color: white; text-decoration: none; font-weight: bold; border-radius: 8px; transition: opacity 0.2s; }
+                        .btn:hover { opacity: 0.8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h1>${title}</h1>
+                        <p>${content}</p>
+                        <a href="/discord-setup" class="btn">Return to Setup</a>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            if (error === 'access_denied') {
+                return res.send(layout('❌ Access Denied', 'You declined the authorization request. The bot cannot be set up without the necessary permissions.'));
+            }
+
+            if (!code) {
+                return res.status(400).send(layout('❌ Setup Error', 'Missing authorization code from Discord. Please try again.'));
+            }
+
+            try {
+                const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', 
+                    new URLSearchParams({
+                        client_id: process.env.DISCORD_CLIENT_ID!,
+                        client_secret: process.env.DISCORD_CLIENT_SECRET!,
+                        grant_type: 'authorization_code',
+                        code: code,
+                        redirect_uri: process.env.BASE_URL + '/api/discord/callback',
+                    }), 
+                    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+                );
+    
+                const accessToken = tokenResponse.data.access_token;
+                
+                const guildsResponse = await axios.get('https://discord.com/api/users/@me/guilds', {
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                });
+                
+                const guilds = guildsResponse.data;
+                const authorizedGuild = guilds.find((g: any) => (g.permissions & 0x20) === 0x20);
+                
+                if (!authorizedGuild) {
+                    return res.status(400).send(layout('❌ Setup Failed', 'You do not have "Manage Server" permissions for any of the servers you authorized the bot for.'));
+                }
+                
+                const guild_id = authorizedGuild.id;
+                const channelId = await this.discord.createNotificationChannel(guild_id);
+                await this.stateRepo.saveDiscordIntegration(guild_id, channelId);
+    
+                res.send(layout('✅ Setup Complete!', 'The announcement channel has been created or linked successfully. You can now close this window or return to the dashboard.'));
+            } catch (error: any) {
+                console.error('[Discord OAuth] Setup error:', error.response?.data || error.message);
+                res.status(500).send(layout('❌ Setup Failed', `An unexpected error occurred: ${error.message}`));
+            }
+        });
+
         this.app.get('/streamer/:username', async (req, res) => {
             const username = req.params.username.toLowerCase();
-            const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-            const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+            const members = await this.stateRepo.getEntitiesByCategory('member');
+            const friends = await this.stateRepo.getEntitiesByCategory('friend');
             const allStreamers = [...members, ...friends].map(u => u.toLowerCase());
 
             if (!allStreamers.includes(username)) {
@@ -157,8 +484,8 @@ export class ApiServer {
         this.app.get('/', async (req, res) => {
 
 
-            const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-            const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+            const members = await this.stateRepo.getEntitiesByCategory('member');
+            const friends = await this.stateRepo.getEntitiesByCategory('friend');
             const allStreamers = [...members, ...friends];
             
             try {
@@ -238,16 +565,26 @@ export class ApiServer {
             }
         });
 
-        this.app.get('/api/streamers', (req, res) => {
+        this.app.get('/api/discord/invite', (req, res) => {
+            try {
+                const inviteUrl = this.discord.getInviteUrl();
+                res.json({ url: inviteUrl });
+            } catch (error: any) {
+                console.error('[Discord Setup] Error generating invite link:', error.message);
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/streamers', async (req, res) => {
             res.json({
-                members: (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean),
-                friends: (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean)
+                members: await this.stateRepo.getEntitiesByCategory('member'),
+                friends: await this.stateRepo.getEntitiesByCategory('friend')
             });
         });
 
         this.app.get('/api/status/all', async (req, res) => {
-            const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-            const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+            const members = await this.stateRepo.getEntitiesByCategory('member');
+            const friends = await this.stateRepo.getEntitiesByCategory('friend');
             const allStreamers = [...members, ...friends];
             
             try {
@@ -285,6 +622,11 @@ export class ApiServer {
             } catch (error) {
                 return res.status(500).json({ error: 'Failed to fetch data from Twitch' });
             }
+        });
+
+        // Add a simple redirect from /discord-setup to the HTML file for convenience
+        this.app.get('/discord-setup', (req, res) => {
+            res.sendFile(path.join(__dirname, '../public/discord-setup.html'));
         });
 
         this.app.get('/api/thumbnail/:username', async (req, res) => {
@@ -325,7 +667,7 @@ export class ApiServer {
                 user_name: 'Test Bot',
                 user_login: 'testbot',
                 game_name: 'Testing',
-                title: 'This is a test notification from TwitchWatch!'
+                title: 'This is a test notification from Washodo Ward!'
             };
         
             try {
@@ -339,7 +681,16 @@ export class ApiServer {
         this.app.use(express.static('public'));
     }
 
-    public start() {
+    public async start() {
+        // Initialize Discord Client
+        try {
+            await this.discord.login();
+        } catch (error) {
+            console.error('[Server] Failed to initialize Discord client:', error);
+            // We don't exit here because the server might still be needed for other things, 
+            // but Discord functionality will be broken.
+        }
+
         const portNumber = typeof this.port === 'string' ? parseInt(this.port, 10) : this.port;
         this.server = this.app.listen(portNumber, () => {
             console.log(`API Server running on port ${portNumber}`);

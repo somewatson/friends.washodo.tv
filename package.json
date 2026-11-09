@@ -1,7 +1,7 @@
 {
   "name": "twitch-watch",
   "version": "1.0.0",
-  "description": "TwitchWatch: A lightweight Node.js/TypeScript hybrid service that monitors Twitch streamers, notifies a webhook endpoint when they go live, and provides a secure API for external websites.",
+  "description": "Washodo Ward: A lightweight Node.js/TypeScript hybrid service that monitors Twitch streamers, notifies a webhook endpoint when they go live, and provides a secure API for external websites.",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
@@ -16,14 +16,19 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.20.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "discord.js": "^14.27.0",
+    "discord.js": "^14.28.1",
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
     "node-cron": "^4.6.0",
-    "sqlite3": "^6.0.1"
+    "pino": "^10.4.0",
+    "pino-pretty": "^13.2.0",
+    "sqlite3": "^6.0.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",

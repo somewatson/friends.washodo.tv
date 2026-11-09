@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Washodo Ward Admin</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-color: #a970ff;
+            --secondary-color: #38bdf8;
+            --danger-color: #ef4444;
+            --success-color: #22c55e;
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+        }
+        h1 { color: var(--accent-color); text-align: center; margin-bottom: 30px; }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--accent-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 5px;
+            transition: 0.2s;
+        }
+        .tab.active {
+            background: var(--accent-color);
+            color: white;
+        }
+        .panel {
+            display: none;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .panel.active { display: block; }
+        
+        .guild-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 10px;
+            background: #444;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #444;
+        }
+        th { color: var(--secondary-color); }
+        
+        .form-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #3a3a3a;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        input, select {
+            padding: 8px;
+            background: #222;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-primary { background: var(--accent-color); color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-success { background: var(--success-color); color: white; }
+        button:hover { opacity: 0.8; }
+
+        .status-pill {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+        }
+        .pill-member { background: #4a3aff; }
+        .pill-friend { background: #38bdf8; }
+        .pill-streamer { background: #a970ff; }
+
+        /* Notification Toast */
+        #notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateX(200%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 1000;
+        }
+        #notification-toast.show { transform: translateX(0); }
+        .toast-success { background: var(--success-color); }
+        .toast-error { background: var(--danger-color); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="notification-toast"></div>
+        <h1>⚙️ Washodo Ward Admin</h1>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showPanel('streamers')">Streamers</div>
+            <div class="tab" onclick="showPanel('discord')">Discord</div>
+            <div class="tab" onclick="showPanel('mattermost')">Mattermost</div>
+            <div class="tab" onclick="showPanel('system')">System</div>
+        </div>
+
+        <!-- Streamers Panel -->
+        <div id="panel-streamers" class="panel active">
+            <h3>Manage Tracked Entities</h3>
+            <div class="form-group" style="position: relative;">
+                <input type="text" id="streamer-user" placeholder="Username" oninput="handleUserSearch(this.value)">
+                <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 200px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; z-index: 1000; display: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></div>
+                <select id="streamer-cat">
+                    <option value="member">Member</option>
+                    <option value="friend">Friend</option>
+                    <option value="streamer">Other Streamer</option>
+                </select>
+                <button class="btn-primary" onclick="addStreamer()">Add / Update</button>
+            </div>
+            <table id="streamers-table">
+                <thead>
+                    <tr><th>Username</th><th>Category</th><th>Followers</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Discord Panel -->
+        <div id="panel-discord" class="panel">
+            <h3>Discord Integrations</h3>
+            <p>Integrated servers creating the #📯-ward-bot channel.</p>
+            <div class="form-group">
+                <input type="text" id="discord-guild" placeholder="Guild ID">
+                <input type="text" id="discord-channel" placeholder="Channel ID">
+                <input type="text" id="discord-token" placeholder="Bot Token">
+                <input type="text" id="discord-owner" placeholder="Owner ID (Optional)">
+                <button class="btn-primary" onclick="addDiscord()">Add Integration</button>
+            </div>
+            <table id="discord-table">
+                <thead>
+                    <tr><th>Server</th><th>Channel ID</th><th>Members</th><th>Owner</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Mattermost Panel -->
+        <div id="panel-mattermost" class="panel">
+            <h3>Mattermost Configurations</h3>
+            <div class="form-group">
+                <input type="text" id="mm-label" placeholder="Label (e.g. Main Server)">
+                <input type="text" id="mm-url" placeholder="Server URL">
+                <input type="text" id="mm-webhook" placeholder="Webhook Token">
+                <input type="text" id="mm-bot" placeholder="Bot Token">
+                <input type="text" id="mm-channel" placeholder="Channel ID">
+                <button class="btn-primary" onclick="addMattermost()">Add Config</button>
+            </div>
+            <table id="mm-table">
+                <thead>
+                    <tr><th>Label</th><th>URL</th><th>Channel</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- System Panel -->
+        <div id="panel-system" class="panel">
+            <h3>Database Portability</h3>
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <button class="btn-primary" onclick="exportDb()">Export Database (JSON)</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" id="import-file">
+                    <button class="btn-success" onclick="importDb()">Import Database</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = '{{API_KEY}}'; // This will be injected by the server
+        const BASE_URL = window.location.origin;
+
+        async function api(path, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: { 
+                    'X-API-KEY': API_KEY,
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (body) options.body = JSON.stringify(body);
+            
+            const res = await fetch(`${BASE_URL}${path}`, options);
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        }
+
+        function notify(message, type = 'success') {
+            const toast = document.getElementById('notification-toast');
+            toast.textContent = message;
+            toast.className = type === 'success' ? 'toast-success' : 'toast-error';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
+        function showPanel(id) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`panel-${id}`).classList.add('active');
+            event.currentTarget.classList.add('active');
+            loadData(id);
+        }
+
+        async function handleUserSearch(query) {
+            const resultsDiv = document.getElementById('search-results');
+            if (!query || query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+            try {
+                const users = await api(`/api/admin/twitch/search?q=${encodeURIComponent(query)}`);
+                if (users.length === 0) {
+                    resultsDiv.innerHTML = '<div style="padding: 10px; color: #888;">No users found</div>';
+                } else {
+                    resultsDiv.innerHTML = users.map(u => `
+                        <div style="padding: 10px; cursor: pointer; border-bottom: 1px solid #444; hover: background: #3a3a3a;" 
+                             onclick="selectUser('${u.login}')">
+                            <strong>${u.display_name}</strong> <small style="color: #888">@${u.login}</small>
+                        </div>
+                    `).join('');
+                }
+                resultsDiv.style.display = 'block';
+            } catch (e) {
+                console.error('Search error:', e);
+            }
+        }
+
+        function selectUser(login) {
+            document.getElementById('streamer-user').value = login;
+            document.getElementById('search-results').style.display = 'none';
+        }
+
+        async function loadData(panel) {
+            try {
+                if (panel === 'streamers') {
+                    const data = await api('/api/admin/streamers');
+                    const tbody = document.querySelector('#streamers-table tbody');
+                    tbody.innerHTML = data.map(s => `
+                        <tr>
+                            <td>
+                                <a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold;">${s.username} ↗</a>
+                            </td>
+                            <td><span class="status-pill pill-${s.category}">${s.category}</span></td>
+                            <td>${s.followerCount.toLocaleString()}</td>
+                            <td><button class="btn-danger" onclick="removeStreamer('${s.username}')">Remove</button></td>
+                        </tr>
+                    `).join('');
+                } else if (panel === 'discord') {
+                    const data = await api('/api/admin/discord');
+                    const tbody = document.querySelector('#discord-table tbody');
+                    tbody.innerHTML = data.map(d => `
+                        <tr>
+                            <td>
+                                ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
+                                <strong>${d.serverName}</strong>
+                                <br><small style="color: #888">${d.guild_id}</small>
+                            </td>
+                            <td>${d.channel_id}</td>
+                            <td style="text-align: center">${d.memberCount.toLocaleString()}</td>
+                            <td>${d.owner_id || 'System'}</td>
+                            <td>
+                                <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
+                                <button class="btn-danger" onclick="removeDiscord('${d.guild_id}')">Remove</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else if (panel === 'mattermost') {
+                    const data = await api('/api/admin/mattermost');
+                    const tbody = document.querySelector('#mm-table tbody');
+                    tbody.innerHTML = data.map(m => `
+                        <tr>
+                            <td>${m.label}</td>
+                            <td>${m.server_url}</td>
+                            <td>${m.channel_id}</td>
+                            <td>
+                                <button class="btn-success" onclick="testMattermost(${m.id})">Test</button>
+                                <button class="btn-danger" onclick="removeMattermost(${m.id})">Remove</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                notify('Error loading data: ' + e.message, 'error');
+            }
+        }
+
+        async function addStreamer() {
+            const username = document.getElementById('streamer-user').value;
+            const category = document.getElementById('streamer-cat').value;
+            if (!username) return;
+            await api('/api/admin/streamers', 'POST', { username, category });
+            document.getElementById('streamer-user').value = '';
+            loadData('streamers');
+        }
+
+        async function removeStreamer(username) {
+            if (!confirm('Remove ' + username + '?')) return;
+            await api('/api/admin/streamers/' + username, 'DELETE');
+            loadData('streamers');
+        }
+
+        async function addDiscord() {
+            const body = {
+                guild_id: document.getElementById('discord-guild').value,
+                channel_id: document.getElementById('discord-channel').value,
+                bot_token: document.getElementById('discord-token').value,
+                owner_id: document.getElementById('discord-owner').value
+            };
+            if (!body.guild_id || !body.channel_id || !body.bot_token) {
+                notify('Guild ID, Channel ID and Bot Token are required', 'error');
+                return;
+            }
+            await api('/api/admin/discord/manual', 'POST', body);
+            document.querySelectorAll('#panel-discord input').forEach(i => i.value = '');
+            loadData('discord');
+            notify('Discord integration added successfully!');
+        }
+
+        async function testDiscord(guildId) {
+            try {
+                await api(`/api/admin/discord/test/${guildId}`, 'POST');
+                notify('Test message sent to Discord!');
+            } catch (e) {
+                notify('Discord test failed: ' + e.message, 'error');
+            }
+        }
+        
+        async function testMattermost(id) {
+            try {
+                await api(`/api/admin/mattermost/test/${id}`, 'POST');
+                notify('Test message sent to Mattermost!');
+            } catch (e) {
+                notify('Mattermost test failed: ' + e.message, 'error');
+            }
+        }
+
+        async function removeDiscord(guildId) {
+            if (!confirm('Remove guild ' + guildId + '?')) return;
+            await api('/api/admin/discord/' + guildId, 'DELETE');
+            loadData('discord');
+        }
+
+        async function addMattermost() {
+            const config = {
+                label: document.getElementById('mm-label').value,
+                server_url: document.getElementById('mm-url').value,
+                webhook_token: document.getElementById('mm-webhook').value,
+                bot_token: document.getElementById('mm-bot').value,
+                channel_id: document.getElementById('mm-channel').value
+            };
+            if (!config.server_url) return;
+            await api('/api/admin/mattermost', 'POST', config);
+            document.querySelectorAll('#panel-mattermost input').forEach(i => i.value = '');
+            loadData('mattermost');
+        }
+
+        async function removeMattermost(id) {
+            if (!confirm('Remove this config?')) return;
+            await api('/api/admin/mattermost/' + id, 'DELETE');
+            loadData('mattermost');
+        }
+
+        async function exportDb() {
+            const res = await fetch(`${BASE_URL}/api/admin/db/export`);
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'twitchwatch_db_export.json';
+            a.click();
+        }
+
+        async function importDb() {
+            const fileInput = document.getElementById('import-file');
+            if (!fileInput.files[0]) {
+                notify('Please select a file', 'error');
+                return;
+            }
+            
+            try {
+                const text = await fileInput.files[0].text();
+                const json = JSON.parse(text);
+                await api('/api/admin/db/import', 'POST', json);
+                notify('Database imported successfully!');
+            } catch (e) {
+                notify('Import failed: ' + e.message, 'error');
+            }
+        }
+
+        // Initial load
+        loadData('streamers');
+    </script>
+</body>
+</html>

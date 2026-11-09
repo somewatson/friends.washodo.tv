@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import axios from 'axios';
 import { withRetry, LogThrottler } from '../utils/resilience';
+import { getEnvPrefix } from '../utils/env';
 
 interface DiscordConfig {
     token: string;
@@ -16,24 +17,66 @@ export class DiscordNotifier {
     constructor(stateRepo: any, twitchClient?: any) {
         this.stateRepo = stateRepo;
         this.twitchClient = twitchClient;
-        this.initializeConfigs();
+        this.initializeConfigs().catch(err => console.error(`[DiscordNotifier] Initialization failed: ${err}`));
     }
 
-    private initializeConfigs(): void {
+    private async initializeConfigs(): Promise<void> {
+        // 1. Try loading from Database (Preferred)
+        try {
+            const integrations = await this.stateRepo.getDiscordIntegrations();
+            if (integrations && integrations.length > 0) {
+                this.configs = integrations.map((i: any) => ({
+                    token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
+                    channelId: i.channel_id
+                })).filter((c: any) => c.token && c.channelId);
+                
+                if (this.configs.length > 0) {
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error(`[DiscordNotifier] Error loading configs from DB: ${err}`);
+        }
+
+        // 2. Fallback to Environment Variable
         const discordEnv = process.env.DISCORD_BOTS || '';
         const configStrings = discordEnv.split(',').filter(Boolean);
 
         this.configs = configStrings.map(str => {
             const [token, channelId] = str.split('|');
             if (!token || !channelId) {
-                console.warn(`[DiscordNotifier] Invalid server config found: ${str}`);
+                console.warn(`[DiscordNotifier] Invalid server config found in env: ${str}`);
                 return null;
             }
             return { token, channelId };
         }).filter((c): c is DiscordConfig => c !== null);
     }
 
+    async syncConfigsFromDb(): Promise<void> {
+        const integrations = await this.stateRepo.getDiscordIntegrations();
+        if (integrations.length === 0) return;
+
+        // Map DB integrations to the config format
+        const dbConfigs = integrations.map((i: any) => ({
+            token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
+            channelId: i.channel_id
+        })).filter((c: any) => c.token && c.channelId);
+
+        // Combine with existing configs (removing duplicates by channelId)
+        const allConfigs = [...this.configs, ...dbConfigs];
+        const seenChannels = new Set();
+        this.configs = allConfigs.filter(c => {
+            if (seenChannels.has(c.channelId)) return false;
+            seenChannels.add(c.channelId);
+            return true;
+        });
+
+        console.log(`[DiscordNotifier] Synced ${integrations.length} integrations from DB.`);
+    }
+
+
     async start(): Promise<void> {
+        await this.syncConfigsFromDb();
         const loginPromises = this.configs.map(async (config) => {
             if (this.clients.has(config.token)) return;
 
@@ -69,7 +112,7 @@ export class DiscordNotifier {
         const parts = text.split(/\s+/);
         const lowerParts = parts.map((p: string) => p.toLowerCase());
 
-        const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule'];
+        const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule', 'setup'];
         const hasTrigger = parts.some((p: string) => p.startsWith('!') || p.startsWith('@'));
         if (!hasTrigger) return;
 
@@ -88,7 +131,11 @@ export class DiscordNotifier {
         }
 
         if (commandIndex === -1) {
-            if (parts[0]?.startsWith('!') || parts[0]?.startsWith('@')) {
+            // Check if the bot was actually mentioned by its User ID
+            const botUser = message.client.user;
+            const isBotMentioned = message.mentions.users.has(botUser.id);
+
+            if (isBotMentioned && (parts[0]?.startsWith('!') || parts[0]?.startsWith('@'))) {
                 await message.reply(`I heard you mention me, but I don't recognize a command. Try \`!help\`.`);
             }
             return;
@@ -98,7 +145,7 @@ export class DiscordNotifier {
         const args = parts.slice(commandIndex + 1);
 
         if (command === '!help') {
-            await message.reply('🤖 **Bot Help Menu**\n- `!status`: Check current monitoring status\n- `!streamers`: Show all tracked streamers and their status\n- `!check <username>`: Check a specific streamer\n- `!schedule`: View the current stream schedule\n- `!help`: Show this menu');
+            await message.reply('🤖 **Bot Help Menu**\n- `!status`: Check current monitoring status\n- `!streamers`: Show all tracked streamers and their status\n- `!check <username>`: Check a specific streamer\n- `!schedule`: View the current stream schedule\n- `!setup`: Automatically create the announcement channel\n- `!help`: Show this menu');
         } else if (command === '!status') {
             await message.reply('✅ Bot is active and monitoring streamers!');
         } else if (command === '!schedule') {
@@ -112,6 +159,44 @@ export class DiscordNotifier {
                 return;
             }
             await this.handleCheckStreamer(args[0], message);
+        } else if (command === '!setup') {
+            await this.handleSetup(message);
+        }
+    }
+
+    private async handleSetup(message: any): Promise<void> {
+        try {
+            const guild = message.guild;
+            if (!guild) {
+                await message.reply('❌ This command can only be used in a server.');
+                return;
+            }
+
+            await message.reply('⚙️ Setting up the announcement channel...');
+
+            // Create the channel
+            const channel = await guild.channels.create({
+                name: '📯-ward-bot',
+                type: 0, // GuildText
+                topic: 'Official Twitch notifications for the Washodo community.',
+            });
+
+            // Save to DB
+            await this.stateRepo.saveDiscordIntegration(
+                guild.id, 
+                channel.id, 
+                message.author.id
+            );
+
+            // Update current running configs so notifications start immediately
+            await this.syncConfigsFromDb();
+
+            await channel.send(`✅ **Channel created!** I will now post notifications in this channel. \nManaged by: <@${message.author.id}>`);
+            await message.reply(`✅ Success! I've created the channel <#${channel.id}>.`);
+
+        } catch (error) {
+            console.error('[DiscordNotifier] Setup error:', error);
+            await message.reply('❌ Failed to create the announcement channel. Please ensure I have the `Manage Channels` permission.');
         }
     }
 
@@ -121,8 +206,8 @@ export class DiscordNotifier {
             return;
         }
 
-        const members = (process.env.WASHODO_MEMBERS || '').split(',').filter(Boolean);
-        const friends = (process.env.WASHODO_FRIENDS || '').split(',').filter(Boolean);
+        const members = await this.stateRepo.getEntitiesByCategory('member');
+        const friends = await this.stateRepo.getEntitiesByCategory('friend');
         const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
         const allStreamers = [...new Set([...members, ...friends, ...others])];
 
@@ -180,7 +265,7 @@ export class DiscordNotifier {
 
     async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
         if (this.configs.length === 0) {
-            console.warn('[DiscordNotifier] No servers configured in DISCORD_BOTS');
+            console.warn('[DiscordNotifier] No servers configured in database or DISCORD_BOTS');
             return;
         }
 
@@ -221,7 +306,7 @@ export class DiscordNotifier {
 
                         const embed = new EmbedBuilder()
                             .setColor(0xFF0000)
-                            .setTitle(`${streamer.user_name} ${statusText}`)
+                            .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
                             .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}`)
                             .setThumbnail(thumbnail || null)
                             .setTimestamp();
