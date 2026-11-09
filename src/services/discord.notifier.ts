@@ -17,46 +17,52 @@ export class DiscordNotifier {
     constructor(stateRepo: any, twitchClient?: any) {
         this.stateRepo = stateRepo;
         this.twitchClient = twitchClient;
-        this.initializeConfigs();
+        this.initializeConfigs().catch(err => console.error(`[DiscordNotifier] Initialization failed: ${err}`));
     }
 
-    private initializeConfigs(): void {
-        // We will now load configs from the database instead of just .env
-        // For backward compatibility or initial boot, we still check .env
+    private async initializeConfigs(): Promise<void> {
+        // 1. Try loading from Database (Preferred)
+        try {
+            const integrations = await this.stateRepo.getDiscordIntegrations();
+            if (integrations && integrations.length > 0) {
+                this.configs = integrations.map((i: any) => ({
+                    token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
+                    channelId: i.channel_id
+                })).filter((c: any) => c.token && c.channelId);
+                
+                if (this.configs.length > 0) {
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error(`[DiscordNotifier] Error loading configs from DB: ${err}`);
+        }
+
+        // 2. Fallback to Environment Variable
         const discordEnv = process.env.DISCORD_BOTS || '';
         const configStrings = discordEnv.split(',').filter(Boolean);
 
-        const envConfigs = configStrings.map(str => {
+        this.configs = configStrings.map(str => {
             const [token, channelId] = str.split('|');
             if (!token || !channelId) {
-                console.warn(`[DiscordNotifier] Invalid server config found: ${str}`);
+                console.warn(`[DiscordNotifier] Invalid server config found in env: ${str}`);
                 return null;
             }
             return { token, channelId };
         }).filter((c): c is DiscordConfig => c !== null);
-
-        this.configs = envConfigs;
     }
 
     async syncConfigsFromDb(): Promise<void> {
         const integrations = await this.stateRepo.getDiscordIntegrations();
         if (integrations.length === 0) return;
 
-        // We need the bot token to actually send messages. 
-        // Since we only have one primary bot token usually, we'll use the one from .env.
-        const primaryToken = process.env.DISCORD_BOT_TOKEN;
-        if (!primaryToken) {
-            console.error('[DiscordNotifier] DISCORD_BOT_TOKEN not found in .env; cannot sync DB integrations');
-            return;
-        }
-
         // Map DB integrations to the config format
         const dbConfigs = integrations.map((i: any) => ({
-            token: primaryToken,
+            token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
             channelId: i.channel_id
-        }));
+        })).filter((c: any) => c.token && c.channelId);
 
-        // Combine with env configs (removing duplicates)
+        // Combine with existing configs (removing duplicates by channelId)
         const allConfigs = [...this.configs, ...dbConfigs];
         const seenChannels = new Set();
         this.configs = allConfigs.filter(c => {
@@ -259,7 +265,7 @@ export class DiscordNotifier {
 
     async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
         if (this.configs.length === 0) {
-            console.warn('[DiscordNotifier] No servers configured in DISCORD_BOTS');
+            console.warn('[DiscordNotifier] No servers configured in database or DISCORD_BOTS');
             return;
         }
 
