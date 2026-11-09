@@ -183,7 +183,33 @@ export class ApiServer {
         });
 
         this.app.get('/api/admin/discord', async (req, res) => {
-            res.json(await this.stateRepo.getDiscordIntegrations());
+            try {
+                const integrations = await this.stateRepo.getDiscordIntegrations();
+                
+                const hydratedIntegrations = await Promise.all(integrations.map(async (integration) => {
+                    try {
+                        const details = await this.discord.getGuildDetails(integration.guild_id);
+                        return {
+                            ...integration,
+                            serverName: details.name,
+                            memberCount: details.memberCount,
+                            serverIcon: details.icon
+                        };
+                    } catch (e) {
+                        console.error(`[Admin API] Failed to fetch details for guild ${integration.guild_id}:`, e);
+                        return {
+                            ...integration,
+                            serverName: 'Unknown Server',
+                            memberCount: 0,
+                            serverIcon: null
+                        };
+                    }
+                }));
+
+                res.json(hydratedIntegrations);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch Discord integrations', details: error.message });
+            }
         });
 
         this.app.post('/api/admin/discord/manual', async (req, res) => {

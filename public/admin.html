@@ -57,6 +57,15 @@
         }
         .panel.active { display: block; }
         
+        .guild-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 10px;
+            background: #444;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -171,7 +180,7 @@
             </div>
             <table id="discord-table">
                 <thead>
-                    <tr><th>Guild ID</th><th>Channel ID</th><th>Owner</th><th>Actions</th></tr>
+                    <tr><th>Server</th><th>Channel ID</th><th>Members</th><th>Owner</th><th>Actions</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -261,8 +270,13 @@
                     const tbody = document.querySelector('#discord-table tbody');
                     tbody.innerHTML = data.map(d => `
                         <tr>
-                            <td>${d.guild_id}</td>
+                            <td>
+                                ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
+                                <strong>${d.serverName}</strong>
+                                <br><small style="color: #888">${d.guild_id}</small>
+                            </td>
                             <td>${d.channel_id}</td>
+                            <td style="text-align: center">${d.memberCount.toLocaleString()}</td>
                             <td>${d.owner_id || 'System'}</td>
                             <td>
                                 <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
