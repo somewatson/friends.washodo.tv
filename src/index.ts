@@ -20,8 +20,8 @@ class WashodoWardApp {
     ) {
         console.log(`[${new Date().toISOString()}] Checking streamers...`);
 
-        const entities = await stateRepo.getTrackedEntities();
-        const uniqueStreamers = [...new Set(entities.map(e => e.username))];
+        const entities = await stateRepo.getStreamers();
+        const uniqueStreamers = [...new Set(entities.map((e: any) => e.username))];
 
         try {
             const liveStreams = await twitchClient.getStreamStatus(uniqueStreamers);

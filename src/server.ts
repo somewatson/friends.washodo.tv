@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { TwitchClient } from './twitchClient';
+import { TwitchClient } from './clients/twitch.client';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
 import { DiscordClient } from './clients/discord.client';
@@ -17,7 +17,10 @@ export class ApiServer {
     private apiKey = process.env.API_KEY;
     private adminUsername = process.env.ADMIN_USERNAME;
     private adminPassword = process.env.ADMIN_PASSWORD;
-    private twitch = new TwitchClient();
+    private twitch = new TwitchClient({
+        clientId: process.env.TWITCH_CLIENT_ID || '',
+        clientSecret: process.env.TWITCH_CLIENT_SECRET || '',
+    });
     private discord = new DiscordClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
@@ -258,6 +261,8 @@ export class ApiServer {
                 res.status(500).json({ error: 'Twitch search failed', details: error.message });
             }
         });
+
+        this.app.post('/api/admin/discord/manual', async (req, res) => {
             const { guild_id, channel_id, owner_id, bot_token } = req.body;
             if (!guild_id || !channel_id || !bot_token) {
                 return res.status(400).json({ error: 'Missing required fields: guild_id, channel_id, and bot_token are required.' });

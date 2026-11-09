@@ -121,7 +121,7 @@ export class StreamerStateRepository {
         ).run(username.toLowerCase());
     }
 
-    async getTrackedEntities() {
+    async getStreamers() {
         if (!this.db) throw new Error('Database not initialized');
         return this.db.prepare('SELECT * FROM tracked_entities').all() as any[];
     }
