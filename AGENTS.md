@@ -15,6 +15,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Persistence**: 
   - **CRITICAL**: Use SQLite (`data/streamers.db`) for all persistent state.
   - **Forbidden**: Do not use `state.json` or other loose JSON files for application state.
+  - **Portability**: Use `scripts/db-portable.ts` for importing/exporting the database. All dynamic configuration (Mattermost targets, Discord guilds, tracked streamers) must reside in the database, not in `.env`.
 - **Network Resilience**: 
   - All HTTP calls **must** have explicit timeouts (default 10s).
   - Use exponential backoff for retries to avoid hammering unreachable servers.
@@ -24,16 +25,24 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **Avoid log storms**: Do not log every single failure in tight loops. Implement throttled, deduplicated, or summarized logging to prevent disk I/O spikes that can trigger filesystem read-only locks.
 - **Entrypoints**:
   - `src/index.ts`: Application bootstrap and cron scheduler.
-  - `src/server.ts`: API server for external status checks.
+  - `src/server.ts`: API server for external status checks and admin interface.
   - `src/clients/twitch.client.ts`: Wrapper for Twitch API interactions.
+
+- **Route Authentication & Browser Access**:
+  - **API Routes**: Most `/api/*` routes require the `X-API-KEY` header for authentication.
+  - **Browser Routes**: Routes intended to be accessed directly via a browser (e.g., `/`, `/warden-gate`, `/warden-access`, `/discord-setup`) must be added to the bypass list in the API Key Middleware in `src/server.ts`. Otherwise, the server will return a `401 Unauthorized` error because browsers do not send the required `X-API-KEY` header.
+  - **Warden Auth**: The `/warden-access` panel uses a separate cookie-based authentication flow (`warden_auth`) which is checked *after* the API Key bypass.
 
 ## ⚙️ Configuration & Env
 - **Env Template**: `.env.example`
 - **Key Variables**:
   - `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET`: Required for Twitch API.
-  - `TRACKED_STREAMERS`, `WASHODO_MEMBERS`, `WASHODO_FRIENDS`: Comma-separated lists of streamers to monitor.
-  - `MATTERMOST_BOTS`: Format `token|url|channelId, ...`
-  - `API_KEY`: Used for `X-API-KEY` header authentication on `/api/status/:username`.
+  - `DISCORD_BOT_TOKEN`: Primary token for bot operations.
+  - `API_KEY`: Used for `X-API-KEY` header authentication on admin and status endpoints.
+  - `BASE_URL`: The public URL of the bot (required for OAuth2 callbacks).
+  - `ADMIN_USERNAME`: Username for the Warden admin panel.
+  - `ADMIN_PASSWORD`: Password for the Warden admin panel.
+  - *Note: Tracked streamers and notification targets have been migrated to the SQLite database.*
 
 ## 🧪 Testing Quirks
 - **Framework**: `jest` with `ts-jest`.
