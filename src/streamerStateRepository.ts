@@ -27,7 +27,38 @@ export class StreamerStateRepository {
             )
         `);
 
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS discord_integrations (
+                guild_id TEXT PRIMARY KEY,
+                channel_id TEXT,
+                owner_id TEXT,
+                permissions TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS mattermost_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_url TEXT,
+                webhook_token TEXT,
+                bot_token TEXT,
+                channel_id TEXT,
+                label TEXT
+            )
+        `);
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS tracked_entities (
+                username TEXT PRIMARY KEY,
+                platform TEXT DEFAULT 'twitch',
+                category TEXT,
+                is_active INTEGER DEFAULT 1
+            )
+        `);
+
         // Migration: Ensure necessary columns exist for existing databases
+
         const columns = this.db.prepare('PRAGMA table_info(streamer_status)').all() as any[];
         const columnNames = columns.map(col => col.name);
 
@@ -81,11 +112,55 @@ export class StreamerStateRepository {
         ).run(username.toLowerCase());
     }
 
-    async close() {
-        if (this.db) {
-            this.db.close();
-            this.db = null;
-        }
+    async getTrackedEntities() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM tracked_entities').all() as any[];
+    }
+
+    async addTrackedEntity(username: string, category: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO tracked_entities (username, category) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET category = excluded.category'
+        ).run(username.toLowerCase(), category);
+    }
+
+    async removeTrackedEntity(username: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM tracked_entities WHERE username = ?').run(username.toLowerCase());
+    }
+
+    async getMattermostConfigs() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM mattermost_configs').all() as any[];
+    }
+
+    async addMattermostConfig(config: { server_url: string, webhook_token: string, bot_token: string, channel_id: string, label: string }) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO mattermost_configs (server_url, webhook_token, bot_token, channel_id, label) VALUES (?, ?, ?, ?, ?)'
+        ).run(config.server_url, config.webhook_token, config.bot_token, config.channel_id, config.label);
+    }
+
+    async removeMattermostConfig(id: number) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM mattermost_configs WHERE id = ?').run(id);
+    }
+
+    async getDiscordIntegrations() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM discord_integrations').all() as any[];
+    }
+
+    async saveDiscordIntegration(guild_id: string, channel_id: string, owner_id?: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO discord_integrations (guild_id, channel_id, owner_id) VALUES (?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id'
+        ).run(guild_id, channel_id, owner_id || null);
+    }
+
+    async removeDiscordIntegration(guild_id: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM discord_integrations WHERE guild_id = ?').run(guild_id);
     }
 
     async shouldNotify(username: string, platform: string, targetId: string, intervalMinutes: number): Promise<boolean> {
