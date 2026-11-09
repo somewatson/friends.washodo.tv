@@ -50,12 +50,19 @@ export class DiscordClient {
     }
 
     /**
-     * Creates the notification channel in the specified guild.
+     * Creates the notification channel in the specified guild, or returns the existing one if it already exists.
      */
     public async createNotificationChannel(guildId: string): Promise<string> {
         try {
             const guild = await this.client.guilds.fetch(guildId);
             if (!guild) throw new Error(`Guild ${guildId} not found`);
+
+            // Check for existing channel with the same name
+            const existingChannel = guild.channels.cache.find(c => c.name === '📯-ward-bot');
+            if (existingChannel && existingChannel instanceof TextChannel) {
+                console.log(`[Discord Client] Found existing channel ${existingChannel.id} for guild ${guildId}`);
+                return existingChannel.id;
+            }
 
             const channel = await guild.channels.create({
                 name: '📯-ward-bot',

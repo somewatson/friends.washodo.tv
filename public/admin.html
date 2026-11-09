@@ -278,6 +278,37 @@
             loadData('streamers');
         }
 
+        async function addDiscord() {
+            const body = {
+                guild_id: document.getElementById('discord-guild').value,
+                channel_id: document.getElementById('discord-channel').value,
+                bot_token: document.getElementById('discord-token').value,
+                owner_id: document.getElementById('discord-owner').value
+            };
+            if (!body.guild_id || !body.channel_id || !body.bot_token) return alert('Guild ID, Channel ID and Bot Token are required');
+            await api('/api/admin/discord/manual', 'POST', body);
+            document.querySelectorAll('#panel-discord input').forEach(i => i.value = '');
+            loadData('discord');
+        }
+
+        async function testDiscord(guildId) {
+            try {
+                await api(`/api/admin/discord/test/${guildId}`, 'POST');
+                alert('Test message sent to Discord!');
+            } catch (e) {
+                alert('Discord test failed: ' + e.message);
+            }
+        }
+
+        async function testMattermost(id) {
+            try {
+                await api(`/api/admin/mattermost/test/${id}`, 'POST');
+                alert('Test message sent to Mattermost!');
+            } catch (e) {
+                alert('Mattermost test failed: ' + e.message);
+            }
+        }
+
         async function removeDiscord(guildId) {
             if (!confirm('Remove guild ' + guildId + '?')) return;
             await api('/api/admin/discord/' + guildId, 'DELETE');

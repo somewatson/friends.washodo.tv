@@ -214,6 +214,31 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.post('/api/admin/mattermost/test/:id', async (req, res) => {
+            try {
+                const config = await this.stateRepo.getMattermostConfig(parseInt(req.params.id));
+                if (!config) return res.status(404).json({ error: 'Mattermost config not found' });
+                
+                await this.notifier.sendMattermostTest(config);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Mattermost test failed', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/discord/test/:guildId', async (req, res) => {
+            try {
+                const integration = await this.stateRepo.getDiscordIntegration(req.params.guildId);
+                if (!integration) return res.status(404).json({ error: 'Discord integration not found' });
+                
+                await this.discord.sendTestMessage(integration);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Discord test failed', details: error.message });
+            }
+        });
+
+
         // Database Portability APIs
         this.app.get('/api/admin/db/export', async (req, res) => {
             const dbPath = process.env.DATABASE_PATH || './data/streamers.db';
@@ -263,7 +288,7 @@ export class ApiServer {
                 const channelId = await this.discord.createNotificationChannel(guild_id);
                 await this.stateRepo.saveDiscordIntegration(guild_id, channelId);
     
-                res.send('<h1>✅ Setup Complete!</h1><p>The announcement channel has been created. You can now close this window.</p>');
+                res.send('<h1>✅ Setup Complete!</h1><p>The announcement channel has been created or linked. You can now close this window.</p>');
             } catch (error: any) {
                 console.error('[Discord OAuth] Setup error:', error.response?.data || error.message);
                 res.status(500).send(`<h1>❌ Setup Failed</h1><p>${error.message}</p>`);
