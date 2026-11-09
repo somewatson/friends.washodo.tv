@@ -5,6 +5,8 @@ import { TwitchClient } from './twitchClient';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
 import axios from 'axios';
+import fs from 'fs';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 
@@ -12,6 +14,8 @@ export class ApiServer {
     private app = express();
     private port = process.env.PORT || 3000;
     private apiKey = process.env.API_KEY;
+    private adminUsername = process.env.ADMIN_USERNAME;
+    private adminPassword = process.env.ADMIN_PASSWORD;
     private twitch = new TwitchClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
@@ -24,6 +28,8 @@ export class ApiServer {
     }
 
     private setupMiddleware() {
+        this.app.use(express.urlencoded({ extended: true }));
+        this.app.use(cookieParser());
         this.app.use(cors({
             origin: ['https://www.washodo.tv', 'http://localhost:3000']
         }));
@@ -33,7 +39,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/api/discord/callback')) {
                 return next();
             }
             
@@ -92,6 +98,176 @@ export class ApiServer {
         if (interactiveApp) {
             this.app.use(interactiveApp);
         }
+
+        // Warden Login
+        this.app.get('/warden-gate', (req, res) => {
+            res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>TwitchWatch Login</title>
+                    <style>
+                        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                        .login-box { background: #2d2d2d; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; width: 300px; }
+                        h2 { color: #a970ff; margin-bottom: 20px; }
+                        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; background: #222; border: 1px solid #555; color: white; border-radius: 4px; }
+                        button { width: 100%; padding: 10px; background: #a970ff; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 4px; }
+                        button:hover { opacity: 0.8; }
+                        .error { color: #ef4444; margin-bottom: 10px; font-size: 0.9em; }
+                    </style>
+                </head>
+                <body>
+                    <div class="login-box">
+                        <h2>Warden Login</h2>
+                        <div id="error" class="error"></div>
+                        <form action="/api/admin/login" method="POST">
+                            <input type="text" name="username" placeholder="Username" required>
+                            <input type="password" name="password" placeholder="Password" required>
+                            <button type="submit">Login</button>
+                        </form>
+                    </div>
+                </body>
+                </html>
+            `);
+        });
+
+        this.app.post('/api/admin/login', (req, res) => {
+            const { username, password } = req.body;
+            if (username === this.adminUsername && password === this.adminPassword) {
+                res.cookie('warden_auth', 'true', { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+                res.redirect('/warden-access');
+            } else {
+                res.send('Invalid credentials. <a href="/warden-gate">Try again</a>');
+            }
+        });
+
+        this.app.get('/api/admin/logout', (req, res) => {
+            res.clearCookie('warden_auth');
+            res.redirect('/warden-gate');
+        });
+
+        // Warden Interface
+        this.app.get('/warden-access', (req, res) => {
+            const auth = req.cookies['warden_auth'];
+            if (!auth) return res.redirect('/warden-gate');
+
+
+
+            let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
+            template = template.replace('{{API_KEY}}', this.apiKey || '');
+            res.send(template);
+        });
+
+        // Admin APIs
+        this.app.use('/api/admin', (req, res, next) => {
+            const auth = req.cookies['warden_auth'];
+            if (!auth) return res.status(401).json({ error: 'Unauthorized: Please login via /admin-login' });
+            next();
+        });
+
+        this.app.get('/api/admin/streamers', async (req, res) => {
+            res.json(await this.stateRepo.getTrackedEntities());
+        });
+
+        this.app.post('/api/admin/streamers', async (req, res) => {
+            const { username, category } = req.body;
+            await this.stateRepo.addTrackedEntity(username, category);
+            res.json({ success: true });
+        });
+
+        this.app.delete('/api/admin/streamers/:username', async (req, res) => {
+            await this.stateRepo.removeTrackedEntity(req.params.username);
+            res.json({ success: true });
+        });
+
+        this.app.get('/api/admin/discord', async (req, res) => {
+            res.json(await this.stateRepo.getDiscordIntegrations());
+        });
+
+        this.app.delete('/api/admin/discord/:guildId', async (req, res) => {
+            await this.stateRepo.removeDiscordIntegration(req.params.guildId);
+            res.json({ success: true });
+        });
+
+        this.app.get('/api/admin/mattermost', async (req, res) => {
+            res.json(await this.stateRepo.getMattermostConfigs());
+        });
+
+        this.app.post('/api/admin/mattermost', async (req, res) => {
+            await this.stateRepo.addMattermostConfig(req.body);
+            res.json({ success: true });
+        });
+
+        this.app.delete('/api/admin/mattermost/:id', async (req, res) => {
+            await this.stateRepo.removeMattermostConfig(parseInt(req.params.id));
+            res.json({ success: true });
+        });
+
+        // Database Portability APIs
+        this.app.get('/api/admin/db/export', async (req, res) => {
+            const dbPath = process.env.DATABASE_PATH || './data/streamers.db';
+            const { DatabaseSync } = require('node:sqlite');
+            const db = new DatabaseSync(dbPath);
+            const tables = ['streamer_status', 'notification_log', 'discord_integrations', 'mattermost_configs', 'tracked_entities'];
+            const data: any = {};
+            for (const table of tables) {
+                data[table] = db.prepare(`SELECT * FROM ${table}`).all();
+            }
+            res.setHeader('Content-Disposition', 'attachment; filename=export.json');
+            res.setHeader('Content-Type', 'application/json');
+            res.send(JSON.stringify(data, null, 2));
+        });
+
+        this.app.post('/api/admin/db/import', async (req, res) => {
+            // In a real app, use multer for file uploads. 
+            // For this lightweight bot, we'll expect a JSON body or a simple implementation.
+            // Since we're using a simple HTML form, let's implement a basic JSON import.
+            res.status(501).send('Import requires multer for file uploads. Please use db-portable.ts script for now.');
+        });
+
+        // Discord OAuth2 Setup Callback
+        this.app.get('/api/discord/callback', async (req, res) => {
+            const code = req.query.code as string;
+            const guild_id = req.query.state as string; // We'll pass guild_id in state
+
+            if (!code || !guild_id) {
+                return res.status(400).send('Missing code or state');
+            }
+
+            try {
+                const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', 
+                    new URLSearchParams({
+                        client_id: process.env.DISCORD_CLIENT_ID!,
+                        client_secret: process.env.DISCORD_CLIENT_SECRET!,
+                        grant_type: 'authorization_code',
+                        code: code,
+                        redirect_uri: process.env.BASE_URL + '/api/discord/callback',
+                    }), 
+                    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+                );
+
+                const botToken = process.env.DISCORD_BOT_TOKEN;
+                if (!botToken) throw new Error('DISCORD_BOT_TOKEN not configured');
+
+                const channelResponse = await axios.post(
+                    `https://discord.com/api/v10/guilds/${guild_id}/channels`,
+                    {
+                        name: '📯-ward-bot',
+                        type: 0,
+                        topic: 'Official Twitch notifications for the Washodo community.',
+                    },
+                    { headers: { Authorization: `Bot ${botToken}` } }
+                );
+
+                const channelId = channelResponse.data.id;
+                await this.stateRepo.saveDiscordIntegration(guild_id, channelId);
+
+                res.send('<h1>✅ Setup Complete!</h1><p>The announcement channel has been created. You can now close this window.</p>');
+            } catch (error: any) {
+                console.error('[Discord OAuth] Setup error:', error.response?.data || error.message);
+                res.status(500).send(`<h1>❌ Setup Failed</h1><p>${error.message}</p>`);
+            }
+        });
 
         this.app.get('/streamer/:username', async (req, res) => {
             const username = req.params.username.toLowerCase();
@@ -248,7 +424,12 @@ export class ApiServer {
             const scopes = ['bot', 'applications.commands'].join('%20');
             const permissions = 0x400 | 0x800 | 0x1000000000 | 0x10000 | 0x4000; // VIEW_CHANNEL | SEND_MESSAGES | SEND_MESSAGES_IN_THREADS | READ_MESSAGE_HISTORY | EMBED_LINKS
             
-            const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scopes}`;
+            // To support the "Magic Link" auto-setup, we would normally use the OAuth2 flow.
+            // For a simple "Add Bot" link, we'll point to the authorize URL.
+            // To capture the guild_id, we'd need a custom landing page or a bot command.
+            // Since we've implemented /setup and a callback, we'll provide the OAuth2 link here.
+            
+            const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scopes}&redirect_uri=${encodeURIComponent(process.env.BASE_URL + '/api/discord/callback')}&response_type=code&state=guild_id_placeholder`;
             
             res.json({ url: inviteUrl });
         });
