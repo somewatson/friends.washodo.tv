@@ -183,8 +183,8 @@ export class ApiServer {
                         // Looking at the provided file content it wasn't visible, let me check.
                         let followerCount = 0;
                         if (user) {
-                            const followers = await axios.get('https://api.twitch.tv/helix/users/follows', {
-                                params: { user_id: user.id, type: 'user' },
+                            const followers = await axios.get('https://api.twitch.tv/helix/channels/followers', {
+                                params: { user_id: user.id },
                                 headers: {
                                     'Client-ID': process.env.TWITCH_CLIENT_ID || 'dummy-id',
                                     'Authorization': `Bearer ${await this.twitch.getAccessToken()}`,
@@ -193,14 +193,14 @@ export class ApiServer {
                             followerCount = followers.data.total;
                         }
 
-                        return {
-                            ...s,
-                            followerCount,
-                            profileUrl: user ? `https://twitch.tv/${user.login}` : `#`
-                        };
+                            return {
+                                ...s,
+                                followerCount,
+                                profileUrl: user ? `https://twitch.tv/${user.login}` : `https://twitch.tv/${s.username}`
+                            };
                     } catch (e) {
                         console.error(`[Admin API] Failed to hydrate streamer ${s.username}:`, e);
-                        return { ...s, followerCount: 0, profileUrl: `#` };
+                        return { ...s, followerCount: 0, profileUrl: `https://twitch.tv/${s.username}` };
                     }
                 }));
                 
