@@ -109,11 +109,12 @@ export class TwitchClient {
   }
 
   async searchUsers(query: string): Promise<any[]> {
+    if (!query) return [];
     const token = await this.fetchAccessToken();
     try {
       const response = await axios.get('https://api.twitch.tv/helix/users', {
         params: {
-          query: query,
+          login: query,
         },
         headers: {
           'Client-ID': this.config.clientId,
