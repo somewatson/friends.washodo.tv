@@ -184,7 +184,7 @@ export class ApiServer {
                         let followerCount = 0;
                         if (user) {
                             const followers = await axios.get('https://api.twitch.tv/helix/channels/followers', {
-                                params: { user_id: user.id },
+                                params: { broadcaster_id: user.id },
                                 headers: {
                                     'Client-ID': process.env.TWITCH_CLIENT_ID || 'dummy-id',
                                     'Authorization': `Bearer ${await this.twitch.getAccessToken()}`,
