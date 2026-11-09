@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { withRetry, LogThrottler } from '../utils/resilience';
+import { getEnvPrefix } from '../utils/env';
 
 interface ServerConfig {
   webhookToken: string;
@@ -39,6 +40,7 @@ export class MattermostNotifier {
 
     const statusText = isRecurring ? 'is STILL LIVE!' : 'is now LIVE!';
     const prefix = isRecurring ? '🔔 *Reminder:* ' : '';
+    const envPrefix = getEnvPrefix();
 
     const thumbnail = streamer.thumbnail_url 
       ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
@@ -60,7 +62,7 @@ export class MattermostNotifier {
 
         if (!shouldNotify) continue;
 
-        const message = `${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`;
+        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`;
 
         await withRetry(
           () => axios.post(`${server.serverUrl}/api/v4/posts`, {

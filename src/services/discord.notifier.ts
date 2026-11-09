@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import axios from 'axios';
 import { withRetry, LogThrottler } from '../utils/resilience';
+import { getEnvPrefix } from '../utils/env';
 
 interface DiscordConfig {
     token: string;
@@ -299,7 +300,7 @@ export class DiscordNotifier {
 
                         const embed = new EmbedBuilder()
                             .setColor(0xFF0000)
-                            .setTitle(`${streamer.user_name} ${statusText}`)
+                            .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
                             .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}`)
                             .setThumbnail(thumbnail || null)
                             .setTimestamp();

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getEnvPrefix } from './utils/env';
 
 export class WebhookNotifier {
     private webhookUrls = process.env.WEBHOOK_URLS?.split(',').filter(Boolean) || [];
@@ -15,7 +16,8 @@ export class WebhookNotifier {
         
         const uptimeInfo = streamer.uptime ? `\n**${streamer.uptime}**` : '';
         const imageMarkdown = `![Stream Thumbnail](${thumbnail})\n`;
-        const message = `### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n${imageMarkdown}\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})\n[View all streamers](${baseUrl}/)\n\nVisit our website: https://friends.washodo.tv`;
+        const envPrefix = getEnvPrefix();
+        const message = `${envPrefix}### 🔴 ${streamer.user_name} [${tier}] is LIVE!${uptimeInfo}\n${imageMarkdown}\n**Game:** ${streamer.game_name}\n**Title:** ${streamer.title}\n\n[Watch Now](https://twitch.tv/${streamer.user_login})\n[View all streamers](${baseUrl}/)\n\nVisit our website: https://friends.washodo.tv`;
 
         const notifications: Promise<any>[] = [];
 

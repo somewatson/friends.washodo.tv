@@ -37,6 +37,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Env Template**: `.env.example`
 - **Key Variables**:
   - `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET`: Required for Twitch API.
+  - `APP_ENV`: The current environment (`production`, `staging`, `development`). Used to prefix notifications in non-prod.
   - `DISCORD_BOT_TOKEN`: Primary token for bot operations.
   - `API_KEY`: Used for `X-API-KEY` header authentication on admin and status endpoints.
   - `BASE_URL`: The public URL of the bot (required for OAuth2 callbacks).
