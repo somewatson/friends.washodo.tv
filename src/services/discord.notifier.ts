@@ -62,16 +62,21 @@ export class DiscordNotifier {
             channelId: i.channel_id
         })).filter((c: any) => c.token && c.channelId);
 
-        // Combine with existing configs (removing duplicates by channelId)
+        // Combine with existing configs (removing duplicates by channelId OR token)
         const allConfigs = [...this.configs, ...dbConfigs];
         const seenChannels = new Set();
+        const seenTokens = new Set();
+        
         this.configs = allConfigs.filter(c => {
             if (seenChannels.has(c.channelId)) return false;
+            if (seenTokens.has(c.token)) return false;
+            
             seenChannels.add(c.channelId);
+            seenTokens.add(c.token);
             return true;
         });
 
-        console.log(`[DiscordNotifier] Synced ${integrations.length} integrations from DB.`);
+        console.log(`[DiscordNotifier] Synced ${integrations.length} integrations from DB. Total unique configs: ${this.configs.length}`);
     }
 
 
@@ -96,7 +101,7 @@ export class DiscordNotifier {
 
                 await client.login(config.token);
                 this.clients.set(config.token, client);
-                console.log(`[DiscordNotifier] Bot logged in for channel ${config.channelId}`);
+                console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
             } catch (error) {
                 console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}:`, error);
             }
@@ -332,7 +337,7 @@ export class DiscordNotifier {
                     const client = this.clients.get(config.token);
                     if (client) {
                         const channel = await client.channels.fetch(config.channelId).catch(() => null);
-                        if (channel?.guildId) {
+                        if (channel && 'guildId' in channel) {
                             await this.stateRepo.markDiscordIntegrationInactive(channel.guildId);
                             // Update local configs to stop trying immediately
                             this.configs = this.configs.filter(c => c.channelId !== config.channelId);
