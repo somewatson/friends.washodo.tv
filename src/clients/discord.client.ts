@@ -27,6 +27,13 @@ export class DiscordClient {
         }
         await this._client.login(token);
         console.log('[Discord Client] Logged in successfully');
+
+        // Log all incoming chat messages
+        this._client.on('messageCreate', (message) => {
+            if (message.author.bot) return;
+            const channelName = (message.channel as any).name || 'DM/Unknown';
+            console.log(`[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`);
+        });
     }
 
     /**
@@ -61,8 +68,11 @@ export class DiscordClient {
             const guild = await this._client.guilds.fetch(guildId);
             if (!guild) throw new Error(`Guild ${guildId} not found`);
 
-            // Check for existing channel with the same name
-            const existingChannel = guild.channels.cache.find(c => c.name === '📯-ward-bot');
+            // Use guild.channels.fetch() to get the latest state from Discord, 
+            // as the cache might be stale or incomplete.
+            const channels = await guild.channels.fetch();
+            const existingChannel = channels.find(c => c?.name === '📯-ward-bot');
+            
             if (existingChannel && existingChannel instanceof TextChannel) {
                 console.log(`[Discord Client] Found existing channel ${existingChannel.id} for guild ${guildId}`);
                 return existingChannel.id;

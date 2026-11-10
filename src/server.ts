@@ -326,6 +326,7 @@ export class ApiServer {
                 const config = await this.stateRepo.getMattermostConfig(parseInt(req.params.id));
                 if (!config) return res.status(404).json({ error: 'Mattermost config not found' });
                 
+                console.log(`[Admin Panel] Sending Mattermost test notification for config ${req.params.id}`);
                 const env = process.env.APP_ENV;
                 const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
                 
@@ -341,6 +342,7 @@ export class ApiServer {
                 const integration = await this.stateRepo.getDiscordIntegration(req.params.guildId);
                 if (!integration) return res.status(404).json({ error: 'Discord integration not found' });
                 
+                console.log(`[Admin Panel] Sending Discord test notification for guild ${req.params.guildId}`);
                 await this.discord.sendTestMessage(integration);
                 res.json({ success: true });
             } catch (error: any) {
