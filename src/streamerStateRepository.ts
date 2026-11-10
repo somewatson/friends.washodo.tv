@@ -269,12 +269,12 @@ export class StreamerStateRepository {
                 UPDATE announcements 
                 SET text = ?, order_index = ?, is_active = ?, discord_enabled = ?, mattermost_enabled = ?, twitch_enabled = ?, start_date = ?, end_date = ?, cron_schedule = ?
                 WHERE id = ?
-            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date, announcement.cron_schedule, announcement.id);
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date ?? null, announcement.end_date ?? null, announcement.cron_schedule ?? null, announcement.id);
         } else {
             this.db.prepare(`
                 INSERT INTO announcements (text, order_index, is_active, discord_enabled, mattermost_enabled, twitch_enabled, start_date, end_date, cron_schedule) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date, announcement.cron_schedule);
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date ?? null, announcement.end_date ?? null, announcement.cron_schedule ?? null);
         }
     }
 

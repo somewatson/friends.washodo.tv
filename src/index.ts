@@ -1,5 +1,7 @@
 import cron from 'node-cron';
 import cronParser from 'cron-parser';
+// @ts-ignore
+const parser = cronParser;
 import { TwitchClient } from './clients/twitch.client';
 import { TwitchChatClient } from './clients/twitch_chat.client';
 import { MattermostNotifier } from './services/mattermost.notifier';
@@ -57,7 +59,7 @@ class WashodoWardApp {
                 if (!ann.cron_schedule) continue;
 
                 try {
-                    const interval = cronParser.parseExpression(ann.cron_schedule);
+                    const interval = (cronParser as any).parseExpression(ann.cron_schedule);
                     const nextDate = interval.next().toDate();
                     if (Math.abs(nextDate.getTime() - now.getTime()) < 60000) {
                         console.log(`[Broadcast] Schedule match for announcement ${ann.id}: ${ann.cron_schedule}`);
