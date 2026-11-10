@@ -402,11 +402,31 @@
             gap: 5px;
             margin-bottom: 5px;
         }
-        .toolbar button {
+        /* In-place editing styles */
+        .editable-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .editable-text {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .editable-text:hover {
+            color: var(--accent-color);
+        }
+        .editable-input {
+            padding: 4px 8px;
+            background: #111;
+            border: 1px solid var(--accent-color);
+            color: white;
+            border-radius: 4px;
+            font-size: 1em;
+            width: 150px;
+        }
+        .btn-icon {
             padding: 4px 8px;
             font-size: 0.8em;
-            background: #444;
-            color: white;
         }
         .modal-footer {
             display: flex;
@@ -745,7 +765,11 @@
                 const tbody = document.querySelector('#mm-table tbody');
                 tbody.innerHTML = data.map(m => `
                     <tr>
-                        <td style="cursor:pointer" onclick="editMattermostLabel(${m.id}, '${m.label}')">${m.label}</td>
+                        <td>
+                            <div class="editable-container" id="mm-label-container-${m.id}">
+                                <span class="editable-text" onclick="enterEditMode(${m.id}, '${m.label}')">${m.label}</span>
+                            </div>
+                        </td>
                         <td>${m.server_url}</td>
                         <td>${m.channel_id}</td>
                         <td class="col-toggle text-center" onclick="toggleMattermost(${m.id}, !${m.is_active})">
@@ -1038,9 +1062,24 @@
             renderMattermost(document.getElementById('content-area'));
         }
         
-        async function editMattermostLabel(id, currentLabel) {
-            const newLabel = prompt('Edit Mattermost Label:', currentLabel);
-            if (newLabel === null || newLabel === currentLabel) return;
+        async function enterEditMode(id, currentLabel) {
+            const container = document.getElementById(`mm-label-container-${id}`);
+            container.innerHTML = `
+                <input type="text" class="editable-input" id="edit-input-${id}" value="${currentLabel}">
+                <button class="btn-primary btn-icon" onclick="saveMattermostLabel(${id})">💾</button>
+                <button class="btn-danger btn-icon" onclick="renderMattermost(document.getElementById('content-area'))">❌</button>
+            `;
+            const input = document.getElementById(`edit-input-${id}`);
+            input.focus();
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') saveMattermostLabel(id);
+                if (e.key === 'Escape') renderMattermost(document.getElementById('content-area'));
+            };
+        }
+
+        async function saveMattermostLabel(id) {
+            const input = document.getElementById(`edit-input-${id}`);
+            const newLabel = input.value;
             if (!newLabel.trim()) {
                 notify('Label cannot be empty', 'error');
                 return;
@@ -1052,6 +1091,10 @@
             } catch (e) {
                 notify('Failed to update label: ' + e.message, 'error');
             }
+        }
+
+        async function editMattermostLabel(id, currentLabel) {
+            // Deprecated in favor of enterEditMode
         }
 
 
@@ -1295,6 +1338,13 @@
 
         window.addEventListener('popstate', handlePageLoad);
         window.onload = handlePageLoad;
+        
+        window.addEventListener('click', e => {
+            if (e.target.classList.contains('modal')) {
+                if (e.target.id === 'announcement-modal') closeModal();
+                if (e.target.id === 'broadcast-preview-modal') closePreviewModal();
+            }
+        });
         
         // Intercept navigation to prevent full page reload
         document.addEventListener('click', e => {

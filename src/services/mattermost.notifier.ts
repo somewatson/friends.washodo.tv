@@ -146,6 +146,8 @@ export class MattermostNotifier {
   }
 
   async getActiveTargets() {
+    // Ensure servers are up-to-date from the database before returning targets
+    await this.initializeServers();
     return this.servers
       .filter(s => s.isActive)
       .map(s => ({

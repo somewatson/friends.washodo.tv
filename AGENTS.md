@@ -64,5 +64,6 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Admin UI**: Maintain consistent table layouts. Use `.col-toggle` and `.text-center` for toggle columns to prevent layout shifting.
 - **Destructive Actions**: All destructive actions (e.g., "Remove" or "Delete" buttons) must be preceded by a confirmation dialog to prevent accidental data loss.
 - **Notifications**: Do not use browser `alert()` calls to notify users. Use in-page, stylized notification elements (toasts, banners, or status messages) to provide feedback.
-- **Modals**: Avoid using modals for complex forms or previews. Prefer dedicated pages or in-page expandable sections to improve accessibility, readability, and maintainability.
+- **Modals**: Avoid using modals for complex forms or previews. Prefer dedicated pages or in-page expandable sections to improve accessibility, readability, and maintainability. Modals should be dismissible by clicking on the backdrop.
+- **Interactions**: Avoid browser `prompt()` and `alert()` dialogs. Use in-place editing (e.g., switching between text and input fields) for simple property updates to maintain a seamless UX.
 - **Planning**: Technical plans and feature progress are tracked in the `/goals` directory.
