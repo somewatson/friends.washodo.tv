@@ -416,10 +416,17 @@ export class ApiServer {
                 const app = this.mainApp as any;
                 const announcements = await this.stateRepo.getAnnouncements();
                 const activeAnnouncements = announcements.filter((a: any) => a.is_active);
-        
-                const discordTargets = await app.discordNotifier.getActiveTargets();
-                const mattermostTargets = await app.mattermostNotifier.getActiveTargets();
-        
+
+                const hasDiscord = activeAnnouncements.some((a: any) => a.discord_enabled);
+                const hasMattermost = activeAnnouncements.some((a: any) => a.mattermost_enabled);
+
+                const discordTargets = hasDiscord 
+                    ? await app.discordNotifier.getActiveTargets() 
+                    : [];
+                const mattermostTargets = hasMattermost 
+                    ? await app.mattermostNotifier.getActiveTargets() 
+                    : [];
+
                 res.json({
                     announcements: activeAnnouncements.map((a: any) => ({
                         id: a.id,
