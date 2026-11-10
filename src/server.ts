@@ -456,13 +456,21 @@ export class ApiServer {
                 
                 if (announcement.cron_schedule) {
                     try {
-                        // @ts-ignore
-                        cronParser.parseExpression(announcement.cron_schedule);
+                        const cronParserAny = cronParser as any;
+                        if (typeof cronParserAny.parseExpression === 'function') {
+                            cronParserAny.parseExpression(announcement.cron_schedule);
+                        } else if (cronParserAny.default && typeof cronParserAny.default.parseExpression === 'function') {
+                            cronParserAny.default.parseExpression(announcement.cron_schedule);
+                        } else {
+                            // Fallback for different import styles
+                            const cp = require('cron-parser');
+                            (cp.parseExpression || cp.default?.parseExpression)(announcement.cron_schedule);
+                        }
                     } catch (e: any) {
                         return res.status(400).json({ error: `Invalid cron schedule: ${e.message}` });
                     }
                 }
-
+                
                 await this.stateRepo.saveAnnouncement(announcement);
                 res.json({ success: true });
             } catch (error: any) {
