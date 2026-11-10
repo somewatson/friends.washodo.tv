@@ -82,11 +82,28 @@ export class DiscordClient {
             }
 
             console.log(`[Discord Client] No announcement channel found for guild ${guildId}. Creating one...`);
-            const channel = await guild.channels.create({
-                name: '📯-ward-bot',
-                type: ChannelType.GuildText,
-                topic: 'Official Twitch notifications for the Washodo community.',
-            });
+            let channel;
+            try {
+                // Attempt to create as a formal Announcement channel first (requires Community enabled)
+                channel = await guild.channels.create({
+                    name: '📯-ward-bot',
+                    type: ChannelType.GuildAnnouncement,
+                    topic: 'Official Twitch notifications for the Washodo community.',
+                });
+                console.log(`[Discord Client] Successfully created GuildAnnouncement channel for guild ${guildId}`);
+            } catch (announcementError: any) {
+                // Discord returns 50035 (Invalid Form Body) if Community features are not enabled
+                if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
+                    console.log(`[Discord Client] Community features not enabled for guild ${guildId}. Falling back to GuildText...`);
+                    channel = await guild.channels.create({
+                        name: '📯-ward-bot',
+                        type: ChannelType.GuildText,
+                        topic: 'Official Twitch notifications for the Washodo community.',
+                    });
+                } else {
+                    throw announcementError;
+                }
+            }
 
             if (!channel) {
                 throw new Error('Failed to create announcement channel');
