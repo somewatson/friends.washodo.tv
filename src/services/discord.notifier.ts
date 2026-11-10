@@ -364,6 +364,9 @@ export class DiscordNotifier {
             return;
         }
 
+        // Ensure configs are up-to-date from the database before broadcasting
+        await this.syncConfigsFromDb();
+
         // Filter active configs first to ensure we are iterating through only enabled ones
         const activeConfigs = this.configs.filter(c => c.isActive);
         if (activeConfigs.length === 0) {
@@ -374,11 +377,32 @@ export class DiscordNotifier {
         for (const config of activeConfigs) {
             try {
                 const client = this.clients.get(config.token);
-                if (!client) continue;
+                if (!client) {
+                    console.error(`[DiscordNotifier] No client found for token used in channel ${config.channelId}. Attempting to login...`);
+                    
+                    // Attempt a lazy login if the client is missing
+                    try {
+                        const newClient = new Client({
+                            intents: [
+                                GatewayIntentBits.Guilds,
+                                GatewayIntentBits.GuildMessages,
+                                GatewayIntentBits.MessageContent
+                            ]
+                        });
+                        await newClient.login(config.token);
+                        this.clients.set(config.token, newClient);
+                    } catch (loginErr) {
+                        console.error(`[DiscordNotifier] Lazy login failed for ${config.channelId}:`, loginErr);
+                        continue;
+                    }
+                }
+
+                const activeClient = this.clients.get(config.token);
+                if (!activeClient) continue;
 
                 await withRetry(
                     async () => {
-                        const channel = await client.channels.fetch(config.channelId);
+                        const channel = await activeClient.channels.fetch(config.channelId);
                         if (!channel || !channel.isTextBased()) {
                             throw new Error(`Channel ${config.channelId} not found or not text-based`);
                         }
@@ -402,6 +426,8 @@ export class DiscordNotifier {
     }
 
     async getActiveTargets() {
+        // Ensure configs are up-to-date from the database before returning targets
+        await this.syncConfigsFromDb();
         const targets = [];
         for (const config of this.configs) {
             if (config.isActive) {
