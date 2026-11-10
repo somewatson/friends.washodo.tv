@@ -313,7 +313,7 @@ export class DiscordNotifier {
                         const embed = new EmbedBuilder()
                             .setColor(0xFF0000)
                             .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
-                            .setDescription(`**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}\n\n${scheduleText}`)
+                            .setDescription(`**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}`)
                             .setThumbnail(thumbnail || null)
                             .setTimestamp();
 

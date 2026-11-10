@@ -82,7 +82,7 @@ export class MattermostNotifier {
 
         if (!shouldNotify) continue;
 
-        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title || 'No title provided'}\nLink: https://twitch.tv/${streamer.user_login}\n\n${scheduleText}`;
+        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title || 'No title provided'}\nLink: https://twitch.tv/${streamer.user_login}`;
 
         await withRetry(
           () => axios.post(`${server.serverUrl}/api/v4/posts`, {
