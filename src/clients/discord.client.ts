@@ -74,7 +74,7 @@ export class DiscordClient {
             if (!guild) throw new Error(`Guild ${guildId} not found`);
 
             const channels = await guild.channels.fetch();
-            const existingAnnouncement = channels.find(c => c?.name === '📯-ward-bot' && c?.type === ChannelType.GuildAnnouncement);
+            const existingAnnouncement = channels.find(c => c?.name === '📯-ward-bot' && (c?.type === ChannelType.GuildAnnouncement || c?.type === ChannelType.GuildText));
             
             if (existingAnnouncement) {
                 console.log(`[Discord Client] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
@@ -84,7 +84,7 @@ export class DiscordClient {
             console.log(`[Discord Client] No announcement channel found for guild ${guildId}. Creating one...`);
             const channel = await guild.channels.create({
                 name: '📯-ward-bot',
-                type: ChannelType.GuildAnnouncement,
+                type: ChannelType.GuildText,
                 topic: 'Official Twitch notifications for the Washodo community.',
             });
 
