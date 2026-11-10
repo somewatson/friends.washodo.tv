@@ -60,7 +60,27 @@ export class ApiServer {
         // or just after the dynamic routes.
     }
 
-    private formatUptime(startTime: string | null): string {
+    private injectEnvBanner(template: string): string {
+        const env = process.env.APP_ENV;
+        if (!env || env === 'production') return template;
+
+        const bannerHtml = `
+            <div id="env-banner" style="position: fixed; top: 0; left: 0; width: 100%; background: #a970ff; color: white; text-align: center; padding: 5px 0; font-size: 0.75rem; font-weight: bold; z-index: 1000; text-transform: uppercase; letter-spacing: 0.1em; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+                Running in ${env.toUpperCase()} mode
+            </div>
+            <style>
+                body { padding-top: 25px !important; }
+            </style>
+        `;
+
+        if (template.includes('<body style="position: relative;">')) {
+            return template.replace('<body style="position: relative;">', `<body style="position: relative;">${bannerHtml}`);
+        } else if (template.includes('<body>')) {
+            return template.replace('<body>', `<body>${bannerHtml}`);
+        }
+        
+        return template;
+    }
         if (!startTime) return 'Unknown';
         const start = new Date(startTime);
         const now = new Date();
@@ -160,7 +180,7 @@ export class ApiServer {
 
             let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
             template = template.replace('{{API_KEY}}', this.apiKey || '');
-            res.send(template);
+            res.send(this.injectEnvBanner(template));
         });
 
         // Admin APIs
@@ -757,8 +777,11 @@ export class ApiServer {
         });
 
         // Add a simple redirect from /discord-setup to the HTML file for convenience
-        this.app.get('/discord-setup', (req, res) => {
-            res.sendFile(path.join(__dirname, '../public/discord-setup.html'));
+        this.app.get('/discord-setup', async (req, res) => {
+            const path = require('path');
+            const fs = require('fs');
+            let template = fs.readFileSync(path.join(__dirname, '../public/discord-setup.html'), 'utf8');
+            res.send(this.injectEnvBanner(template));
         });
 
         this.app.get('/api/thumbnail/:username', async (req, res) => {
