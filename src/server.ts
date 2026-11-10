@@ -25,10 +25,11 @@ export class ApiServer {
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
     private server: any;
+    private mainApp: any;
 
-    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any, app?: any) {
+    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any, mainApp?: any) {
         this.stateRepo = stateRepo;
-        this.app = app;
+        this.mainApp = mainApp;
         this.setupMiddleware();
         this.setupRoutes(interactiveReceiver?.getApp());
     }
@@ -373,11 +374,11 @@ export class ApiServer {
 
         this.app.post('/api/admin/broadcast-now', async (req, res) => {
             try {
-                if (!this.app) {
-                    return res.status(500).json({ error: 'App reference not initialized' });
+                if (!this.mainApp) {
+                    return res.status(500).json({ error: 'Main app reference not initialized' });
                 }
                 
-                const app = this.app as any;
+                const app = this.mainApp as any;
                 
                 // We need notifiers from the app. I'll modify bootstrap in index.ts to store them.
                 await app.triggerForcedBroadcast(app.mattermostNotifier, app.discordNotifier, app.twitchChatClient);
