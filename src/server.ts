@@ -81,6 +81,8 @@ export class ApiServer {
         
         return template;
     }
+
+    private formatUptime(startTime: string | null): string {
         if (!startTime) return 'Unknown';
         const start = new Date(startTime);
         const now = new Date();
@@ -600,20 +602,7 @@ export class ApiServer {
                 let template = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
                 template = template.replace('<!-- CONTENT_PLACEHOLDER -->', html);
                 
-                const env = process.env.APP_ENV;
-                if (env && env !== 'production') {
-                    const bannerHtml = `
-                        <div id="env-banner" style="position: fixed; top: 0; left: 0; width: 100%; background: #a970ff; color: white; text-align: center; padding: 5px 0; font-size: 0.75rem; font-weight: bold; z-index: 1000; text-transform: uppercase; letter-spacing: 0.1em; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-                            Running in ${env.toUpperCase()} mode
-                        </div>
-                        <style>
-                            body { padding-top: 25px !important; }
-                        </style>
-                    `;
-                    template = template.replace('<body style="position: relative;">', `<body style="position: relative;">${bannerHtml}`);
-                }
-
-                res.send(template);
+                res.send(this.injectEnvBanner(template));
             } catch (error) {
                 console.error(`Error rendering status page for ${username}:`, error);
                 res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1>');
@@ -697,20 +686,7 @@ export class ApiServer {
                 let template = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
                 template = template.replace('<!-- CONTENT_PLACEHOLDER -->', html);
                 
-                const env = process.env.APP_ENV;
-                if (env && env !== 'production') {
-                    const bannerHtml = `
-                        <div id="env-banner" style="position: fixed; top: 0; left: 0; width: 100%; background: #a970ff; color: white; text-align: center; padding: 5px 0; font-size: 0.75rem; font-weight: bold; z-index: 1000; text-transform: uppercase; letter-spacing: 0.1em; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-                            Running in ${env.toUpperCase()} mode
-                        </div>
-                        <style>
-                            body { padding-top: 25px !important; }
-                        </style>
-                    `;
-                    template = template.replace('<body style="position: relative;">', `<body style="position: relative;">${bannerHtml}`);
-                }
-
-                res.send(template);
+                res.send(this.injectEnvBanner(template));
             } catch (error) {
                 console.error('Error rendering status page:', error);
                 res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1><p style="color:white; background:#333; padding:20px;">Failed to fetch streamer status.</p>');
