@@ -410,8 +410,8 @@ export class DiscordNotifier {
                     try {
                         const channel = await client.channels.fetch(config.channelId);
                         targets.push({
-                            guildName: channel?.guild?.name || 'Unknown Guild',
-                            channelName: channel?.name || 'Unknown Channel',
+                            guildName: (channel as any)?.guild?.name || 'Unknown Guild',
+                            channelName: (channel as any)?.name || 'Unknown Channel',
                             channelId: config.channelId
                         });
                     } catch (e) {

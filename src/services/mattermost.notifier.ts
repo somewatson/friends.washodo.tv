@@ -8,6 +8,7 @@ interface ServerConfig {
   botToken: string;
   channelId: string;
   isActive: boolean;
+  label?: string;
 }
 
 export class MattermostNotifier {
