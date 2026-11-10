@@ -792,7 +792,7 @@
         async function renderBroadcasts(container) {
             try {
                 const timeData = await api('/api/admin/system/time');
-                const serverTimeStr = new Date(timeData.serverTime).toLocaleString();
+                const serverTimeStr = new Date(timeData.serverTime).toUTCString();
                 const timezoneStr = timeData.timezone;
 
                 container.innerHTML = `
