@@ -193,7 +193,12 @@
             </div>
             <table id="streamers-table">
                 <thead>
-                    <tr><th>Username</th><th>Category</th><th>Followers</th><th>Actions</th></tr>
+                    <tr>
+                        <th>Username</th>
+                        <th>Category</th>
+                        <th>Followers</th>
+                        <th>Actions</th>
+                    </tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -212,7 +217,13 @@
             </div>
             <table id="discord-table">
                 <thead>
-                    <tr><th>Server</th><th>Channel ID</th><th>Members</th><th>Owner</th><th>Actions</th></tr>
+                    <tr>
+                        <th>Server</th>
+                        <th>Channel ID</th>
+                        <th>Members</th>
+                        <th>Owner</th>
+                        <th>Actions</th>
+                    </tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -231,7 +242,12 @@
             </div>
             <table id="mm-table">
                 <thead>
-                    <tr><th>Label</th><th>URL</th><th>Channel</th><th>Actions</th></tr>
+                    <tr>
+                        <th>Label</th>
+                        <th>URL</th>
+                        <th>Channel</th>
+                        <th>Actions</th>
+                    </tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -254,7 +270,6 @@
     <script>
         const API_KEY = '{{API_KEY}}'; // This will be injected by the server
         const BASE_URL = window.location.origin;
-
 
         async function api(path, method = 'GET', body = null) {
             const options = {
@@ -317,7 +332,6 @@
             }, 300);
         }
 
-
         function selectUser(login) {
             document.getElementById('streamer-user').value = login;
             document.getElementById('search-results').style.display = 'none';
@@ -339,7 +353,6 @@
                         </tr>
                     `).join('');
                     
-                    // Initialize Sortable on the table body
                     new Sortable(tbody, {
                         animation: 150,
                         ghostClass: 'sortable-ghost',
@@ -372,6 +385,7 @@
                             <td>${d.owner_id || 'System'}</td>
                             <td>
                                 <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
+                                <button class="btn-primary" onclick="syncDiscord('${d.guild_id}')">Sync</button>
                                 <button class="btn-danger" onclick="removeDiscord('${d.guild_id}')">Remove</button>
                             </td>
                         </tr>
@@ -396,7 +410,6 @@
             }
         }
 
-
         async function addStreamer() {
             const username = document.getElementById('streamer-user').value;
             const category = document.getElementById('streamer-cat').value;
@@ -411,7 +424,6 @@
             await api('/api/admin/streamers/' + username, 'DELETE');
             loadData('streamers');
         }
-
 
         async function addDiscord() {
             const body = {
@@ -428,6 +440,17 @@
             document.querySelectorAll('#panel-discord input').forEach(i => i.value = '');
             loadData('discord');
             notify('Discord integration added successfully!');
+        }
+
+        async function syncDiscord(guildId) {
+            if (!confirm('Are you sure you want to sync the Discord server? This will attempt to find or create the announcement channel.')) return;
+            try {
+                await api(`/api/admin/discord/sync-channel/${guildId}`, 'POST');
+                notify('Discord server synced successfully!');
+                loadData('discord');
+            } catch (e) {
+                notify('Discord sync failed: ' + e.message, 'error');
+            }
         }
 
         async function testDiscord(guildId) {
@@ -454,7 +477,6 @@
             loadData('discord');
         }
 
-
         async function addMattermost() {
             const config = {
                 label: document.getElementById('mm-label').value,
@@ -474,7 +496,6 @@
             await api('/api/admin/mattermost/' + id, 'DELETE');
             loadData('mattermost');
         }
-
 
         async function exportDb() {
             const res = await fetch(`${BASE_URL}/api/admin/db/export`);
