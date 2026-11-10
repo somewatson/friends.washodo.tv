@@ -30,7 +30,8 @@ export class MattermostNotifier {
             serverUrl: cfg.server_url,
             botToken: cfg.bot_token,
             channelId: cfg.channel_id,
-            isActive: Boolean(cfg.is_active)
+            isActive: Boolean(cfg.is_active),
+            label: cfg.label
           }));
           return;
         }

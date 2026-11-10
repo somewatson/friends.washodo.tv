@@ -1065,7 +1065,7 @@
                     html += '</div>';
         
                     if (data.targets.discord.length > 0) {
-                        html += '<div class="preview-section"><h4 style="color: var(--secondary-color)">💬 Discord Channels</h4>';
+                        html += '<div class="preview-section"><h4 style="color: var(--secondary-color)">💬 Discord Channels</h4><p style="font-size: 0.85em; color: #aaa; margin-bottom: 10px;">Active Discord servers and the specific channels where notifications are sent.</p>';
                         html += data.targets.discord.map(t => `
                             <div class="preview-item">
                                 <span class="target-name">${t.guildName} / ${t.channelName}</span>
@@ -1076,7 +1076,7 @@
                     }
         
                     if (data.targets.mattermost.length > 0) {
-                        html += '<div class="preview-section"><h4 style="color: var(--secondary-color)">🏢 Mattermost Webhooks</h4>';
+                        html += '<div class="preview-section"><h4 style="color: var(--secondary-color)">🏢 Mattermost Webhooks</h4><p style="font-size: 0.85em; color: #aaa; margin-bottom: 10px;">Active Mattermost server configurations and their designated webhook endpoints.</p>';
                         html += data.targets.mattermost.map(t => `
                             <div class="preview-item">
                                 <span class="target-name">${t.label}</span>
