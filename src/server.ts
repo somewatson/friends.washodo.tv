@@ -476,6 +476,13 @@ export class ApiServer {
                 }
                 
                 await this.stateRepo.saveAnnouncement(announcement);
+
+                // Trigger reschedule in the main app if available
+                if (this.mainApp && typeof this.mainApp.scheduleBroadcasts === 'function') {
+                    const app = this.mainApp as any;
+                    await app.scheduleBroadcasts(app.mattermostNotifier, app.discordNotifier, app.twitchChatClient);
+                }
+
                 res.json({ success: true });
             } catch (error: any) {
                 console.error('[Admin API] Failed to save announcement:', error);

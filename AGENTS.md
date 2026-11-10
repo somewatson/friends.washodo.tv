@@ -28,6 +28,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **Avoid log storms**: Do not log every single failure in tight loops. Implement throttled, deduplicated, or summarized logging to prevent disk I/O spikes that can trigger filesystem read-only locks.
 - **Notifications**: 
   - **Environment Tagging**: All outgoing notifications (Discord, Mattermost, etc.) **must** be prefixed with the current environment if it is not `production` (e.g., `[STAGING]`, `[DEV]`). This prevents confusion between test and live notifications.
+  - **Broadcasts vs Live Alerts**: "Broadcast messages" (scheduled global announcements) are a distinct concept from "Live Streamer announcements" (triggered by Twitch status). The broadcast preview should only display global broadcast messages.
 - **Entrypoints**:
   - `src/index.ts`: Application bootstrap and cron scheduler.
   - `src/server.ts`: API server for external status checks and admin interface.

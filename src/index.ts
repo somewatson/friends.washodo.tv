@@ -77,6 +77,7 @@ class WashodoWardApp {
                         this.executeBroadcast(ann, mattermostNotifier, discordNotifier, twitchChatClient);
                     });
                     this.broadcastJobs.set(ann.id, job);
+                    console.log(`[Broadcast] Successfully scheduled announcement ${ann.id} with schedule: ${ann.cron_schedule}`);
                 } catch (err) {
                     console.error(`[Broadcast] Invalid cron expression for announcement ${ann.id}: ${ann.cron_schedule}`);
                 }

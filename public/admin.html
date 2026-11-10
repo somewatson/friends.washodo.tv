@@ -286,26 +286,46 @@
         }
         .preview-section {
             background: #3a3a3a;
-            padding: 15px;
+            padding: 20px;
             border-radius: 10px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #555;
         }
         .preview-section h4 {
-            margin: 0 0 10px 0;
+            margin: 0 0 15px 0;
             color: var(--secondary-color);
             border-bottom: 1px solid #555;
-            padding-bottom: 5px;
+            padding-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .preview-item {
             display: flex;
             justify-content: space-between;
-            padding: 5px 0;
-            font-size: 0.9em;
+            align-items: center;
+            padding: 10px 0;
+            font-size: 1em;
             border-bottom: 1px solid #444;
         }
         .preview-item:last-child { border-bottom: none; }
-        .preview-item .target-name { font-weight: bold; }
-        .preview-item .target-id { color: #888; font-family: monospace; font-size: 0.8em; }
+        .preview-item .target-name { 
+            font-weight: 500; 
+            color: #fff;
+            max-width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .preview-item .target-id { 
+            color: #aaa; 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 0.85em; 
+            background: #222;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
         .modal-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1035,17 +1055,17 @@
                 if (data.announcements.length === 0) {
                     list.innerHTML = '<div style="text-align:center; padding: 20px;">No active announcements to broadcast.</div>';
                 } else {
-                    let html = '<div class="preview-section"><h4>📢 Active Announcements</h4>';
+                    let html = '<div class="preview-section"><h4 style="color: var(--accent-color)">📢 Active Broadcast Messages</h4>';
                     html += data.announcements.map(a => `
                         <div class="preview-item">
-                            <span class="target-name">${a.text.substring(0, 60)}${a.text.length > 60 ? '...' : ''}</span>
+                            <span class="target-name">${a.text.substring(0, 80)}${a.text.length > 80 ? '...' : ''}</span>
                             <span class="target-id">D:${a.discord_enabled ? '✅' : '❌'} M:${a.mattermost_enabled ? '✅' : '❌'} T:${a.twitch_enabled ? '✅' : '❌'}</span>
                         </div>
                     `).join('');
                     html += '</div>';
-
+        
                     if (data.targets.discord.length > 0) {
-                        html += '<div class="preview-section"><h4>💬 Discord Targets</h4>';
+                        html += '<div class="preview-section"><h4 style="color: var(--secondary-color)">💬 Discord Channels</h4>';
                         html += data.targets.discord.map(t => `
                             <div class="preview-item">
                                 <span class="target-name">${t.guildName} / ${t.channelName}</span>
@@ -1054,9 +1074,9 @@
                         `).join('');
                         html += '</div>';
                     }
-
+        
                     if (data.targets.mattermost.length > 0) {
-                        html += '<div class="preview-section"><h4>🏢 Mattermost Targets</h4>';
+                        html += '<div class="preview-section"><h4 style="color: var(--secondary-color)">🏢 Mattermost Webhooks</h4>';
                         html += data.targets.mattermost.map(t => `
                             <div class="preview-item">
                                 <span class="target-name">${t.label}</span>
@@ -1065,11 +1085,11 @@
                         `).join('');
                         html += '</div>';
                     }
-
+        
                     if (data.targets.discord.length === 0 && data.targets.mattermost.length === 0) {
-                        html += '<div class="preview-section"><h4>⚠️ No active notification targets configured.</h4></div>';
+                        html += '<div class="preview-section"><h4 style="color: var(--danger-color)">⚠️ No active notification targets configured.</h4></div>';
                     }
-
+        
                     list.innerHTML = html;
                 }
                 
