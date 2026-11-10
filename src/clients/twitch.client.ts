@@ -62,6 +62,7 @@ export class TwitchClient {
   }
 
   async getLiveStreamers(usernames: string[]): Promise<any[]> {
+    if (!usernames || usernames.length === 0) return [];
     const token = await this.fetchAccessToken();
     try {
       const response = await axios.get('https://api.twitch.tv/helix/streams', {
