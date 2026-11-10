@@ -521,8 +521,8 @@ export class ApiServer {
             const now = new Date();
             res.json({
                 serverTime: now.toISOString(),
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                localString: now.toString()
+                timezone: 'UTC',
+                localString: now.toUTCString()
             });
         });
 
