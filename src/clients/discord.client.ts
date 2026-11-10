@@ -28,9 +28,11 @@ export class DiscordClient {
         await this._client.login(token);
         console.log('[Discord Client] Logged in successfully');
 
-        // Log all incoming chat messages
+        // Log only messages that mention the bot
         this._client.on('messageCreate', (message) => {
             if (message.author.bot) return;
+            if (!message.mentions.has(this._client.user!)) return;
+
             const channelName = (message.channel as any).name || 'DM/Unknown';
             console.log(`[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`);
         });
