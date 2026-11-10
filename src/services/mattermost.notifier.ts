@@ -110,21 +110,24 @@ export class MattermostNotifier {
   }
 
   async broadcast(text: string): Promise<void> {
+    // Ensure servers are up-to-date from the database before broadcasting
+    await this.initializeServers();
+
     if (this.servers.length === 0) {
       console.warn('[MattermostNotifier] No servers configured for broadcast');
       return;
     }
-
+    
     // Filter active servers first to ensure we are iterating through only enabled ones
     const activeServers = this.servers.filter(s => s.isActive);
     if (activeServers.length === 0) {
       console.warn('[MattermostNotifier] No active servers configured for broadcast');
       return;
     }
-
+    
     const envPrefix = getEnvPrefix();
     const message = `${envPrefix}📢 **Community Announcement**\n\n${text}`;
-
+    
     for (const server of activeServers) {
       try {
         await withRetry(
