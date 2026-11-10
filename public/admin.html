@@ -801,7 +801,8 @@
                         <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; flex-direction: column; gap: 4px;">
                                 <small style="color: #aaa;">Manual trigger for all active announcements.</small>
-                                <small style="color: var(--secondary-color); font-weight: bold;">Server Time: ${serverTimeStr} (${timezoneStr})</small>
+                                <small style="color: var(--secondary-color); font-weight: bold;">Server Time (UTC): ${serverTimeStr} (${timezoneStr})</small>
+                                <small style="color: #aaa;">Your Local Time: ${new Date().toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})</small>
                             </div>
                             <div style="display: flex; gap: 10px;">
                                 <button class="btn-primary" onclick="previewBroadcast()">👁️ Preview Targets</button>
@@ -1306,8 +1307,10 @@
             try {
                 const res = await api(`/api/admin/cron-next?schedule=${encodeURIComponent(cron)}`);
                 const nextDate = new Date(res.next);
-                const nextStr = nextDate.toLocaleString();
-                previewDiv.textContent = `${cron} → ${translation} (Next: ${nextStr})`;
+                const nextUTC = nextDate.toUTCString();
+                const nextLocal = nextDate.toLocaleString();
+                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                previewDiv.textContent = `${cron} → ${translation} (Next: ${nextUTC} UTC / ${nextLocal} ${tz})`;
             } catch (e) {
                 previewDiv.textContent = `${cron} → ${translation}`;
             }

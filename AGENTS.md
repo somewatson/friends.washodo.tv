@@ -67,4 +67,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Notifications**: Do not use browser `alert()` calls to notify users. Use in-page, stylized notification elements (toasts, banners, or status messages) to provide feedback.
 - **Modals**: Avoid using modals for complex forms or previews. Prefer dedicated pages or in-page expandable sections to improve accessibility, readability, and maintainability. Modals should be dismissible by clicking on the backdrop.
 - **Interactions**: Avoid browser `prompt()` and `alert()` dialogs. Use in-place editing (e.g., switching between text and input fields) for simple property updates to maintain a seamless UX.
-- **Planning**: Technical plans and feature progress are tracked in the `/goals` directory.
+- **Timezone Handling**:
+  - **Source of Truth**: All schedules (cron) are processed and stored in UTC.
+  - **Admin UI**: Always provide "Dual-Context Visibility". When displaying or configuring UTC times, explicitly show the equivalent local time for the user. Never force the user to perform mental timezone calculations.
+  - **Formatting**: Use UTC strings for server-side anchors and provide clear local translations in the frontend.
