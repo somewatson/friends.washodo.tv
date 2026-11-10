@@ -324,17 +324,19 @@
             <div style="background: #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--accent-color);">
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
                     <div style="flex: 1;">
-                        <label style="display: block; font-size: 0.9em; margin-bottom: 5px;">Broadcast Schedule (Cron):</label>
-                        <input type="text" id="broadcast-cron" style="width: 100%; background: #222; color: white; border: 1px solid #555; border-radius: 4px; padding: 8px; font-family: monospace;" placeholder="0 12 * * *">
+                        <label style="display: block; font-size: 0.9em; margin-bottom: 5px;">Global Broadcast Control:</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="broadcast-enabled"> 
+                            <label for="broadcast-enabled">Enable all scheduled broadcasts</label>
+                        </div>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                        <label><input type="checkbox" id="broadcast-enabled"> Enabled</label>
-                        <button class="btn-primary" onclick="saveBroadcastSettings()">Save</button>
+                        <button class="btn-primary" onclick="saveBroadcastSettings()">Save Global Settings</button>
                     </div>
                 </div>
                 <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                    <small style="color: #aaa;">Example: <code>0 12 * * *</code> (Daily at noon)</small>
-                    <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send Broadcast Now</button>
+                    <small style="color: #aaa;">Note: Individual announcements now have their own schedules in the list below.</small>
+                    <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send All Active Now</button>
                 </div>
             </div>
 
@@ -405,6 +407,11 @@
                     <label>End:</label>
                     <input type="date" id="ann-end">
                 </div>
+                <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                    <label>Schedule (Cron):</label>
+                    <input type="text" id="ann-cron" style="flex: 1; background: #222; color: white; border: 1px solid #555; border-radius: 4px; padding: 8px; font-family: monospace;" placeholder="0 12 * * *">
+                    <div id="cron-preview" style="font-size: 0.8em; min-width: 150px;"></div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-danger" onclick="closeModal()">Cancel</button>
@@ -432,6 +439,25 @@
             const res = await fetch(`${BASE_URL}${path}`, options);
             if (!res.ok) throw new Error(await res.text());
             return res.json();
+        }
+
+        async function triggerBroadcastNow() {
+            try {
+                await api('/api/admin/broadcast-now', 'POST');
+                notify('Broadcast triggered successfully!');
+            } catch (e) {
+                notify('Failed to trigger broadcast: ' + e.message, 'error');
+            }
+        }
+
+        async function saveBroadcastSettings() {
+            const enabled = document.getElementById('broadcast-enabled').checked;
+            try {
+                await api('/api/admin/broadcast-settings', 'POST', { is_enabled: enabled, cron_schedule: '' });
+                notify('Global settings saved successfully!');
+            } catch (e) {
+                notify('Failed to save settings: ' + e.message, 'error');
+            }
         }
 
         function notify(message, type = 'success') {
@@ -562,9 +588,9 @@
                 } else if (panel === 'bot-settings') {
                     // Load Broadcast Settings
                     const bSettings = await api('/api/admin/broadcast-settings');
-                    document.getElementById('broadcast-cron').value = bSettings.cron_schedule || '0 12 * * *';
+                    // Removed broadcast-cron assignment as the input no longer exists
                     document.getElementById('broadcast-enabled').checked = !!bSettings.is_enabled;
-
+                    
                     const data = await api('/api/admin/announcements');
                     const tbody = document.querySelector('#announcements-table tbody');
                     tbody.innerHTML = data.map(a => `
@@ -572,9 +598,9 @@
                             <td>${a.order_index}</td>
                             <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.text}</td>
                             <td><input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="toggleAnnouncement(${a.id}, this.checked)"></td>
-                            <td><input type="checkbox" ${a.discord_enabled ? 'checked' : ''}></td>
-                            <td><input type="checkbox" ${a.mattermost_enabled ? 'checked' : ''}></td>
-                            <td><input type="checkbox" ${a.twitch_enabled ? 'checked' : ''}></td>
+                            <td><input type="checkbox" ${a.discord_enabled ? 'checked' : ''} onchange="toggleAnnouncementTarget(${a.id}, 'discord_enabled', this.checked)"></td>
+                            <td><input type="checkbox" ${a.mattermost_enabled ? 'checked' : ''} onchange="toggleAnnouncementTarget(${a.id}, 'mattermost_enabled', this.checked)"></td>
+                            <td><input type="checkbox" ${a.twitch_enabled ? 'checked' : ''} onchange="toggleAnnouncementTarget(${a.id}, 'twitch_enabled', this.checked)"></td>
                             <td>
                                 <button class="btn-primary" onclick="openAnnouncementModal(${a.id})">Edit</button>
                                 <button class="btn-danger" onclick="deleteAnnouncement(${a.id})">Delete</button>
@@ -712,6 +738,9 @@
                         document.getElementById('ann-twitch').checked = !!ann.twitch_enabled;
                         document.getElementById('ann-start').value = ann.start_date || '';
                         document.getElementById('ann-end').value = ann.end_date || '';
+                        if (document.getElementById('ann-cron')) {
+                            document.getElementById('ann-cron').value = ann.cron_schedule || '';
+                        }
                         updatePreview();
                     }
                 });
@@ -768,7 +797,8 @@
                 mattermost_enabled: document.getElementById('ann-mattermost').checked,
                 twitch_enabled: document.getElementById('ann-twitch').checked,
                 start_date: document.getElementById('ann-start').value || null,
-                end_date: document.getElementById('ann-end').value || null
+                end_date: document.getElementById('ann-end').value || null,
+                cron_schedule: document.getElementById('ann-cron')?.value || null
             };
             try {
                 await api('/api/admin/announcements', 'POST', body);
@@ -797,6 +827,56 @@
             if (ann) {
                 await api('/api/admin/announcements', 'POST', { ...ann, is_active: active });
                 notify('Status updated!');
+            }
+        }
+
+        async function toggleAnnouncementTarget(id, field, value) {
+            try {
+                const data = await api('/api/admin/announcements');
+                const ann = data.find(a => a.id === id);
+                if (ann) {
+                    await api('/api/admin/announcements', 'POST', { ...ann, [field]: value });
+                    notify(`${field} updated!`);
+                }
+            } catch (e) {
+                notify('Failed to update target: ' + e.message, 'error');
+            }
+        }
+
+        function applyCronPreset(presetKey) {
+            const presets = {
+                'hourly': '0 * * * *',
+                'daily_noon': '0 12 * * *',
+                'daily_midnight': '0 0 * * *',
+                'weekly_mon': '0 0 * * 1',
+                'every_6h': '0 */6 * * *',
+            };
+            const cronInput = document.getElementById('ann-cron');
+            if (cronInput && presets[presetKey]) {
+                cronInput.value = presets[presetKey];
+                updateCronPreview();
+            }
+        }
+
+        async function updateCronPreview() {
+            const cronInput = document.getElementById('ann-cron');
+            const previewDiv = document.getElementById('cron-preview');
+            if (!cronInput || !previewDiv) return;
+
+            const cron = cronInput.value;
+            if (!cron) {
+                previewDiv.textContent = '';
+                return;
+            }
+
+            try {
+                // In a real app, we'd call a backend API that uses cron-parser
+                // For now, we'll provide a basic local hint or just say "Validating..."
+                previewDiv.textContent = 'Schedule: ' + cron + ' (Check validity on save)';
+                previewDiv.style.color = 'var(--secondary-color)';
+            } catch (e) {
+                previewDiv.textContent = 'Invalid cron expression';
+                previewDiv.style.color = 'var(--danger-color)';
             }
         }
 

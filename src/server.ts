@@ -26,8 +26,9 @@ export class ApiServer {
     private stateRepo: StreamerStateRepository;
     private server: any;
 
-    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any) {
+    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any, app?: any) {
         this.stateRepo = stateRepo;
+        this.app = app;
         this.setupMiddleware();
         this.setupRoutes(interactiveReceiver?.getApp());
     }
@@ -372,11 +373,16 @@ export class ApiServer {
 
         this.app.post('/api/admin/broadcast-now', async (req, res) => {
             try {
-                // This endpoint will be called by the "Send Now" button
-                // We can't easily trigger the cron job, but we can call a method in the app
-                // For now, we'll use a simple custom event or a global reference if available.
-                // Instead, I'll implement a method in WashodoWardApp and call it here.
-                res.json({ success: true, message: 'Broadcast triggered' });
+                if (!this.app) {
+                    return res.status(500).json({ error: 'App reference not initialized' });
+                }
+                
+                const app = this.app as any;
+                
+                // We need notifiers from the app. I'll modify bootstrap in index.ts to store them.
+                await app.triggerForcedBroadcast(app.mattermostNotifier, app.discordNotifier, app.twitchChatClient);
+                
+                res.json({ success: true, message: 'Forced broadcast triggered for all active announcements' });
             } catch (error: any) {
                 res.status(500).json({ error: 'Failed to trigger broadcast', details: error.message });
             }

@@ -71,6 +71,21 @@ export class StreamerStateRepository {
             )
         `);
 
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT,
+                order_index INTEGER DEFAULT 0,
+                is_active INTEGER DEFAULT 1,
+                discord_enabled INTEGER DEFAULT 1,
+                mattermost_enabled INTEGER DEFAULT 1,
+                twitch_enabled INTEGER DEFAULT 0,
+                start_date TEXT,
+                end_date TEXT,
+                cron_schedule TEXT
+            )
+        `);
+
 
         // Migration: Ensure necessary columns exist for existing databases
 
@@ -247,19 +262,19 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM announcements ORDER BY order_index ASC').all() as any[];
     }
 
-    async saveAnnouncement(announcement: { id?: number, text: string, order_index: number, is_active: boolean, discord_enabled: boolean, mattermost_enabled: boolean, twitch_enabled: boolean, start_date: string | null, end_date: string | null }) {
+    async saveAnnouncement(announcement: { id?: number, text: string, order_index: number, is_active: boolean, discord_enabled: boolean, mattermost_enabled: boolean, twitch_enabled: boolean, start_date: string | null, end_date: string | null, cron_schedule?: string | null }) {
         if (!this.db) throw new Error('Database not initialized');
         if (announcement.id) {
             this.db.prepare(`
                 UPDATE announcements 
-                SET text = ?, order_index = ?, is_active = ?, discord_enabled = ?, mattermost_enabled = ?, twitch_enabled = ?, start_date = ?, end_date = ? 
+                SET text = ?, order_index = ?, is_active = ?, discord_enabled = ?, mattermost_enabled = ?, twitch_enabled = ?, start_date = ?, end_date = ?, cron_schedule = ?
                 WHERE id = ?
-            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date, announcement.id);
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date, announcement.cron_schedule, announcement.id);
         } else {
             this.db.prepare(`
-                INSERT INTO announcements (text, order_index, is_active, discord_enabled, mattermost_enabled, twitch_enabled, start_date, end_date) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date);
+                INSERT INTO announcements (text, order_index, is_active, discord_enabled, mattermost_enabled, twitch_enabled, start_date, end_date, cron_schedule) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date, announcement.cron_schedule);
         }
     }
 
