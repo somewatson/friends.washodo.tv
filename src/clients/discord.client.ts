@@ -63,36 +63,44 @@ export class DiscordClient {
     /**
      * Creates the notification channel in the specified guild, or returns the existing one if it already exists.
      */
-    public async createNotificationChannel(guildId: string): Promise<string> {
+    /**
+     * Ensures an announcement channel exists for the guild.
+     * If a channel named '📯-ward-bot' exists but is NOT an announcement channel, 
+     * it will create a NEW announcement channel to ensure the correct type.
+     */
+    public async findOrCreateAnnouncementChannel(guildId: string): Promise<string> {
         try {
             const guild = await this._client.guilds.fetch(guildId);
             if (!guild) throw new Error(`Guild ${guildId} not found`);
 
-            // Use guild.channels.fetch() to get the latest state from Discord, 
-            // as the cache might be stale or incomplete.
             const channels = await guild.channels.fetch();
-            const existingChannel = channels.find(c => c?.name === '📯-ward-bot');
+            const existingAnnouncement = channels.find(c => c?.name === '📯-ward-bot' && c?.type === ChannelType.GuildAnnouncement);
             
-            if (existingChannel && existingChannel instanceof TextChannel) {
-                console.log(`[Discord Client] Found existing channel ${existingChannel.id} for guild ${guildId}`);
-                return existingChannel.id;
+            if (existingAnnouncement) {
+                console.log(`[Discord Client] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
+                return existingAnnouncement.id;
             }
 
+            console.log(`[Discord Client] No announcement channel found for guild ${guildId}. Creating one...`);
             const channel = await guild.channels.create({
                 name: '📯-ward-bot',
-                type: ChannelType.GuildText,
+                type: ChannelType.GuildAnnouncement,
                 topic: 'Official Twitch notifications for the Washodo community.',
             });
 
-            if (!channel || !(channel instanceof TextChannel)) {
-                throw new Error('Failed to create a valid text channel');
+            if (!channel) {
+                throw new Error('Failed to create announcement channel');
             }
 
             return channel.id;
         } catch (error: any) {
-            console.error('[Discord Client] Error creating channel:', error);
+            console.error('[Discord Client] Error in findOrCreateAnnouncementChannel:', error);
             throw error;
         }
+    }
+
+    public async createNotificationChannel(guildId: string): Promise<string> {
+        return this.findOrCreateAnnouncementChannel(guildId);
     }
 
     async sendTestMessage(integration: any) {

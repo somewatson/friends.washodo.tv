@@ -233,6 +233,29 @@ export class ApiServer {
             }
         });
 
+        this.app.post('/api/admin/discord/sync-channel/:guildId', async (req, res) => {
+            try {
+                const guildId = req.params.guildId;
+                const channelId = await this.discord.findOrCreateAnnouncementChannel(guildId);
+                
+                const integration = await this.stateRepo.getDiscordIntegration(guildId);
+                if (integration) {
+                    await this.stateRepo.saveDiscordIntegration(
+                        integration.guild_id, 
+                        channelId, 
+                        integration.owner_id, 
+                        integration.bot_token
+                    );
+                } else {
+                    return res.status(404).json({ error: 'Discord integration not found for this guild' });
+                }
+                
+                res.json({ success: true, channelId });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to sync Discord channel', details: error.message });
+            }
+        });
+
         this.app.get('/api/admin/discord', async (req, res) => {
             try {
                 const integrations = await this.stateRepo.getDiscordIntegrations();
