@@ -47,7 +47,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/warden/') || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback')) {
                 return next();
             }
             
@@ -177,12 +177,10 @@ export class ApiServer {
         });
 
         // Warden Interface
-        this.app.get('/warden-access', (req, res) => {
+        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system'], (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
-
-
-
+            
             let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
             template = template.replace('{{API_KEY}}', this.apiKey || '');
             res.send(this.injectEnvBanner(template));
@@ -725,8 +723,9 @@ export class ApiServer {
             const filteredFriends = friends.filter(f => f.show_on_page);
             
             try {
-                const liveList = await this.twitch.getLiveStreamers([...filteredMembers, ...filteredFriends]);
-                const userList = await this.twitch.getUsers([...filteredMembers, ...filteredFriends]);
+                const usernames = [...filteredMembers, ...filteredFriends].map(s => s.username);
+                const liveList = await this.twitch.getLiveStreamers(usernames);
+                const userList = await this.twitch.getUsers(usernames);
                 
                 const userMap: Record<string, any> = {};
                 userList.forEach(u => {

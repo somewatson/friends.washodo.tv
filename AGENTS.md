@@ -35,8 +35,8 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 
 - **Route Authentication & Browser Access**:
   - **API Routes**: Most `/api/*` routes require the `X-API-KEY` header for authentication.
-  - **Browser Routes**: Routes intended to be accessed directly via a browser (e.g., `/`, `/warden-gate`, `/warden-access`, `/discord-setup`) must be added to the bypass list in the API Key Middleware in `src/server.ts`. Otherwise, the server will return a `401 Unauthorized` error because browsers do not send the required `X-API-KEY` header.
-  - **Warden Auth**: The `/warden-access` panel uses a separate cookie-based authentication flow (`warden_auth`) which is checked *after* the API Key bypass.
+  - **Browser Routes**: Routes intended to be accessed directly via a browser (e.g., `/`, `/warden-gate`, `/warden/*`, `/discord-setup`) must be added to the bypass list in the API Key Middleware in `src/server.ts`. Otherwise, the server will return a `401 Unauthorized` error because browsers do not send the required `X-API-KEY` header.
+  - **Warden Auth**: The `/warden/*` panel uses a separate cookie-based authentication flow (`warden_auth`) which is checked *after* the API Key bypass.
 
 ## ⚙️ Configuration & Env
 - **Env Template**: `.env.example`
@@ -60,6 +60,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **File Edits**: Always read the file in its entirety (or the relevant section) immediately before performing any edit to ensure context is current and minimize errors.
 - **Verification**: Always run `npm run build` and verify it succeeds before performing any `git commit`.
 - **UI/UX**: Follow `washodo_style_guide.md` for the status page (Dark Mode, Washodo Purple `#a970ff`, Sky Blue `#38bdf8`).
+- **Admin UI**: Maintain consistent table layouts. Use `.col-toggle` and `.text-center` for toggle columns to prevent layout shifting.
 - **Destructive Actions**: All destructive actions (e.g., "Remove" or "Delete" buttons) must be preceded by a confirmation dialog to prevent accidental data loss.
 - **Notifications**: Do not use browser `alert()` calls to notify users. Use in-page, stylized notification elements (toasts, banners, or status messages) to provide feedback.
 - **Planning**: Technical plans and feature progress are tracked in the `/goals` directory.

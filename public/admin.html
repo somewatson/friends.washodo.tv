@@ -19,7 +19,82 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 260px;
+            background-color: #111;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+        }
+        .sidebar-header {
             padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+        .sidebar-header h1 {
+            font-size: 1.2rem;
+            color: var(--accent-color);
+            margin: 0;
+        }
+        .nav-menu {
+            flex: 1;
+            padding: 20px 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: 0.2s;
+            font-weight: 500;
+            border-left: 4px solid transparent;
+        }
+        .nav-item:hover {
+            background: #222;
+            color: var(--accent-color);
+        }
+        .nav-item.active {
+            background: #222;
+            color: var(--accent-color);
+            border-left-color: var(--accent-color);
+        }
+        .nav-item span {
+            margin-right: 10px;
+            font-size: 1.1rem;
+        }
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid #333;
+        }
+        .btn-home {
+            display: block;
+            text-align: center;
+            padding: 10px;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .btn-home:hover {
+            background: var(--accent-color);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 40px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -28,34 +103,29 @@
             max-width: 1000px;
             width: 100%;
         }
-        h1 { color: var(--accent-color); text-align: center; margin-bottom: 30px; }
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            justify-content: center;
+        .page-header {
+            margin-bottom: 30px;
+            text-align: left;
+            width: 100%;
+            max-width: 1000px;
         }
-        .tab {
-            padding: 10px 20px;
-            background: var(--card-bg);
-            border: 1px solid var(--accent-color);
-            color: var(--text-color);
-            cursor: pointer;
-            border-radius: 5px;
-            transition: 0.2s;
+        .page-header h2 {
+            color: var(--accent-color);
+            margin: 0;
+            font-size: 1.8rem;
         }
-        .tab.active {
-            background: var(--accent-color);
-            color: white;
+        .page-header p {
+            color: #888;
+            margin: 5px 0 0 0;
         }
-        .panel {
-            display: none;
+
+        .card {
             background: var(--card-bg);
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
         }
-        .panel.active { display: block; }
         
         .guild-icon {
             width: 32px;
@@ -77,6 +147,9 @@
             border-bottom: 1px solid #444;
         }
         th { color: var(--secondary-color); }
+        
+        .text-center { text-align: center !important; }
+        .col-toggle { width: 80px; text-align: center; }
         
         .form-group {
             display: grid;
@@ -106,14 +179,13 @@
         .btn-danger { background: var(--danger-color); color: white; }
         .btn-success { background: var(--success-color); color: white; }
         button:hover { opacity: 0.8; }
-
+        
         .status-pill {
             padding: 2px 8px;
             border-radius: 10px;
             font-size: 0.8em;
         }
-
-        /* Autocomplete Results Styling */
+        
         .search-result-item {
             padding: 10px;
             cursor: pointer;
@@ -129,8 +201,7 @@
         .search-result-item small {
             color: #888;
         }
-
-        /* Draggable Row Styling */
+        
         .draggable-row {
             cursor: grab;
         }
@@ -141,8 +212,7 @@
             opacity: 0.4;
             background: var(--accent-color) !important;
         }
-
-        /* Toggle Switch Styling */
+        
         .switch {
             position: relative;
             display: inline-block;
@@ -186,8 +256,7 @@
             gap: 8px;
             cursor: pointer;
         }
-
-        /* Announcement Modal Styling */
+        
         .modal {
             display: none;
             position: fixed;
@@ -317,150 +386,33 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>⚙️ Washodo Ward</h1>
+        </div>
+        <div class="nav-menu">
+            <a href="/warden/streamers" class="nav-item" id="nav-streamers"><span>👥</span> Streamers</a>
+            <a href="/warden/discord" class="nav-item" id="nav-discord"><span>💬</span> Discord</a>
+            <a href="/warden/mattermost" class="nav-item" id="nav-mattermost"><span>🏢</span> Mattermost</a>
+            <a href="/warden/broadcasts" class="nav-item" id="nav-broadcasts"><span>📢</span> Broadcasts</a>
+            <a href="/warden/system" class="nav-item" id="nav-system"><span>🛠️</span> System</a>
+        </div>
+        <div class="sidebar-footer">
+            <a href="/" target="_blank" class="btn-home">🏠 Return Home</a>
+        </div>
+    </div>
+
+    <div class="main-content">
         <div id="notification-toast"></div>
-        <h1>⚙️ Washodo Ward Admin</h1>
         
-        <div class="tabs">
-            <div class="tab active" onclick="showPanel('streamers')">Streamers</div>
-            <div class="tab" onclick="showPanel('discord')">Discord</div>
-            <div class="tab" onclick="showPanel('mattermost')">Mattermost</div>
-            <div class="tab" onclick="showPanel('bot-settings')">Bot Settings</div>
-            <div class="tab" onclick="showPanel('system')">System</div>
-            <a href="/" target="_blank" class="tab" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">🏠 Home</a>
-        </div>
-
-        <!-- Streamers Panel -->
-        <div id="panel-streamers" class="panel active">
-            <h3>Manage Tracked Entities</h3>
-            <div class="form-group" style="position: relative;">
-                <input type="text" id="streamer-user" placeholder="Username" oninput="handleUserSearch(this.value)">
-                <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 200px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; z-index: 1000; display: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></div>
-                <select id="streamer-cat">
-                    <option value="member">Member</option>
-                    <option value="friend">Friend</option>
-                    <option value="streamer">Other Streamer</option>
-                </select>
-                <button class="btn-primary" onclick="addStreamer()">Add / Update</button>
-            </div>
-            <table id="streamers-table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Category</th>
-                        <th>Followers</th>
-                        <th>Notify</th>
-                        <th>Show</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <!-- Discord Panel -->
-        <div id="panel-discord" class="panel">
-            <h3>Discord Integrations</h3>
-            <p>Integrated servers creating the #📯-ward-bot channel.</p>
-            <div class="form-group">
-                <input type="text" id="discord-guild" placeholder="Guild ID">
-                <input type="text" id="discord-channel" placeholder="Channel ID">
-                <input type="text" id="discord-token" placeholder="Bot Token">
-                <input type="text" id="discord-owner" placeholder="Owner ID (Optional)">
-                <button class="btn-primary" onclick="addDiscord()">Add Integration</button>
-            </div>
-            <table id="discord-table">
-                <thead>
-                    <tr>
-                        <th>Server</th>
-                        <th>Channel ID</th>
-                        <th>Members</th>
-                        <th>Owner</th>
-                        <th>Active</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <!-- Mattermost Panel -->
-        <div id="panel-mattermost" class="panel">
-            <h3>Mattermost Configurations</h3>
-            <div class="form-group">
-                <input type="text" id="mm-label" placeholder="Label (e.g. Main Server)">
-                <input type="text" id="mm-url" placeholder="Server URL">
-                <input type="text" id="mm-webhook" placeholder="Webhook Token">
-                <input type="text" id="mm-bot" placeholder="Bot Token">
-                <input type="text" id="mm-channel" placeholder="Channel ID">
-                <button class="btn-primary" onclick="addMattermost()">Add Config</button>
-            </div>
-            <table id="mm-table">
-                <thead>
-                    <tr>
-                        <th>Label</th>
-                        <th>URL</th>
-                        <th>Channel</th>
-                        <th>Active</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <!-- Bot Settings Panel -->
-        <div id="panel-bot-settings" class="panel">
-            <h3 style="margin-bottom: 10px;">Community Broadcasts</h3>
-            <div style="background: #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--accent-color);">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
-                    <div style="flex: 1;">
-                        <label style="display: block; font-size: 0.9em; margin-bottom: 5px;">Global Broadcast Control:</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="broadcast-enabled"> 
-                            <label for="broadcast-enabled">Enable all scheduled broadcasts</label>
-                        </div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                        <button class="btn-primary" onclick="saveBroadcastSettings()">Save Global Settings</button>
-                    </div>
-                </div>
-                <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                    <small style="color: #aaa;">Note: Individual announcements now have their own schedules in the list below.</small>
-                    <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send All Active Now</button>
-                </div>
+        <div class="container">
+            <div class="page-header">
+                <h2 id="page-title">Loading...</h2>
+                <p id="page-desc"></p>
             </div>
 
-            <h3 style="margin-bottom: 10px;">Announcement Content</h3>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <p>Manage the ordered list of announcements sent with notifications and broadcasts.</p>
-                <button class="btn-primary" onclick="openAnnouncementModal()">+ Add Announcement</button>
-            </div>
-            <table id="announcements-table">
-                <thead>
-                    <tr>
-                        <th>Order</th>
-                        <th>Text Preview</th>
-                        <th>Active</th>
-                        <th>Discord</th>
-                        <th>MM</th>
-                        <th>Twitch</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <!-- System Panel -->
-        <div id="panel-system" class="panel">
-            <h3>Database Portability</h3>
-            <div style="display: flex; gap: 20px; align-items: center;">
-                <button class="btn-primary" onclick="exportDb()">Export Database (JSON)</button>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="file" id="import-file">
-                    <button class="btn-success" onclick="importDb()">Import Database</button>
-                </div>
+            <div id="content-area">
+                <!-- Content dynamically injected here -->
             </div>
         </div>
     </div>
@@ -517,11 +469,10 @@
             </div>
         </div>
     </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
-        const API_KEY = '{{API_KEY}}'; // This will be injected by the server
+        const API_KEY = '{{API_KEY}}';
         const BASE_URL = window.location.origin;
 
         async function api(path, method = 'GET', body = null) {
@@ -533,29 +484,9 @@
                 }
             };
             if (body) options.body = JSON.stringify(body);
-            
             const res = await fetch(`${BASE_URL}${path}`, options);
             if (!res.ok) throw new Error(await res.text());
             return res.json();
-        }
-
-        async function triggerBroadcastNow() {
-            try {
-                await api('/api/admin/broadcast-now', 'POST');
-                notify('Broadcast triggered successfully!');
-            } catch (e) {
-                notify('Failed to trigger broadcast: ' + e.message, 'error');
-            }
-        }
-
-        async function saveBroadcastSettings() {
-            const enabled = document.getElementById('broadcast-enabled').checked;
-            try {
-                await api('/api/admin/broadcast-settings', 'POST', { is_enabled: enabled, cron_schedule: '' });
-                notify('Global settings saved successfully!');
-            } catch (e) {
-                notify('Failed to save settings: ' + e.message, 'error');
-            }
         }
 
         function notify(message, type = 'success') {
@@ -566,32 +497,356 @@
             setTimeout(() => toast.classList.remove('show'), 4000);
         }
 
-        function showPanel(id) {
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            
-            const targetPanel = document.getElementById(`panel-${id}`);
-            if (targetPanel) {
-                targetPanel.classList.add('active');
-            }
+        async function handlePageLoad() {
+            const path = window.location.pathname;
+            const contentArea = document.getElementById('content-area');
+            const titleEl = document.getElementById('page-title');
+            const descEl = document.getElementById('page-desc');
 
-            if (event && event.currentTarget) {
-                event.currentTarget.classList.add('active');
+            // Update nav active state
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            
+            if (path === '/warden/streamers') {
+                document.getElementById('nav-streamers').classList.add('active');
+                titleEl.textContent = 'Manage Streamers';
+                descEl.textContent = 'Add and organize tracked community members and friends.';
+                renderStreamers(contentArea);
+            } else if (path === '/warden/discord') {
+                document.getElementById('nav-discord').classList.add('active');
+                titleEl.textContent = 'Discord Integrations';
+                descEl.textContent = 'Configure announcement channels for Discord servers.';
+                renderDiscord(contentArea);
+            } else if (path === '/warden/mattermost') {
+                document.getElementById('nav-mattermost').classList.add('active');
+                titleEl.textContent = 'Mattermost Configs';
+                descEl.textContent = 'Configure webhooks for Mattermost servers.';
+                renderMattermost(contentArea);
+            } else if (path === '/warden/broadcasts') {
+                document.getElementById('nav-broadcasts').classList.add('active');
+                titleEl.textContent = 'Community Broadcasts';
+                descEl.textContent = 'Manage global settings and scheduled announcements.';
+                renderBroadcasts(contentArea);
+            } else if (path === '/warden/system') {
+                document.getElementById('nav-system').classList.add('active');
+                titleEl.textContent = 'System Tools';
+                descEl.textContent = 'Database maintenance and portability tools.';
+                renderSystem(contentArea);
+            } else {
+                window.location.href = '/warden/streamers';
             }
-            loadData(id);
         }
 
+        async function renderStreamers(container) {
+            container.innerHTML = `
+                <div class="card">
+                    <div class="form-group" style="position: relative;">
+                        <input type="text" id="streamer-user" placeholder="Username" oninput="handleUserSearch(this.value)">
+                        <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 200px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; z-index: 1000; display: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></div>
+                        <select id="streamer-cat">
+                            <option value="member">Member</option>
+                            <option value="friend">Friend</option>
+                            <option value="streamer">Other Streamer</option>
+                        </select>
+                        <button class="btn-primary" onclick="addStreamer()">Add / Update</button>
+                    </div>
+                    <table id="streamers-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Category</th>
+                                <th>Followers</th>
+                                <th>Notify</th>
+                                <th>Show</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            `;
+            try {
+                const data = await api('/api/admin/streamers');
+                const tbody = document.querySelector('#streamers-table tbody');
+                tbody.innerHTML = data.map(s => `
+                    <tr class="draggable-row" data-username="${s.username}">
+                        <td><a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold;">${s.username} ↗</a></td>
+                        <td><span class="status-pill pill-${s.category}">${s.category}</span></td>
+                        <td>${s.followerCount.toLocaleString()}</td>
+                        <td class="col-toggle text-center" onclick="toggleStreamerNotify('${s.username}', !${s.notify_enabled})">
+                            <label class="switch">
+                                <input type="checkbox" ${s.notify_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td class="col-toggle text-center" onclick="toggleStreamerShow('${s.username}', !${s.show_on_page})">
+                            <label class="switch">
+                                <input type="checkbox" ${s.show_on_page ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td><button class="btn-danger" onclick="removeStreamer('${s.username}')">Remove</button></td>
+                    </tr>
+                `).join('');
+                
+                new Sortable(tbody, {
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    onEnd: async function() {
+                        const rows = Array.from(tbody.querySelectorAll('.draggable-row'));
+                        const order = rows.map((row, index) => ({
+                            username: row.getAttribute('data-username'),
+                            orderIndex: index
+                        }));
+                        try {
+                            await api('/api/admin/streamers/reorder', 'POST', { order });
+                            notify('Order saved successfully!');
+                        } catch (e) {
+                            notify('Failed to save order: ' + e.message, 'error');
+                        }
+                    }
+                });
+            } catch (e) {
+                notify('Error loading streamers: ' + e.message, 'error');
+            }
+        }
+
+        async function renderDiscord(container) {
+            container.innerHTML = `
+                <div class="card">
+                    <p>Integrated servers creating the #📯-ward-bot channel.</p>
+                    <div class="form-group">
+                        <input type="text" id="discord-guild" placeholder="Guild ID">
+                        <input type="text" id="discord-channel" placeholder="Channel ID">
+                        <input type="text" id="discord-token" placeholder="Bot Token">
+                        <input type="text" id="discord-owner" placeholder="Owner ID (Optional)">
+                        <button class="btn-primary" onclick="addDiscord()">Add Integration</button>
+                    </div>
+                    <table id="discord-table">
+                        <thead>
+                            <tr>
+                                <th>Server</th>
+                                <th>Channel ID</th>
+                                <th>Members</th>
+                                <th>Owner</th>
+                                <th>Active</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            `;
+            try {
+                const data = await api('/api/admin/discord');
+                const tbody = document.querySelector('#discord-table tbody');
+                tbody.innerHTML = data.map(d => `
+                    <tr>
+                        <td>
+                            ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
+                            <strong>${d.serverName}</strong><br><small style="color: #888">${d.guild_id}</small>
+                        </td>
+                        <td>${d.channel_id}</td>
+                        <td class="text-center">${d.memberCount.toLocaleString()}</td>
+                        <td>${d.owner_id || 'System'}</td>
+                        <td class="col-toggle text-center" onclick="toggleDiscord('${d.guild_id}', !${d.is_active})">
+                            <label class="switch">
+                                <input type="checkbox" ${d.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td>
+                            <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
+                            <button class="btn-primary" onclick="syncDiscord('${d.guild_id}')">Sync</button>
+                            <button class="btn-danger" onclick="removeDiscord('${d.guild_id}')">Remove</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                notify('Error loading Discord: ' + e.message, 'error');
+            }
+        }
+
+        async function renderMattermost(container) {
+            container.innerHTML = `
+                <div class="card">
+                    <div class="form-group">
+                        <input type="text" id="mm-label" placeholder="Label (e.g. Main Server)">
+                        <input type="text" id="mm-url" placeholder="Server URL">
+                        <input type="text" id="mm-webhook" placeholder="Webhook Token">
+                        <input type="text" id="mm-bot" placeholder="Bot Token">
+                        <input type="text" id="mm-channel" placeholder="Channel ID">
+                        <button class="btn-primary" onclick="addMattermost()">Add Config</button>
+                    </div>
+                    <table id="mm-table">
+                        <thead>
+                            <tr>
+                                <th>Label</th>
+                                <th>URL</th>
+                                <th>Channel</th>
+                                <th>Active</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            `;
+            try {
+                const data = await api('/api/admin/mattermost');
+                const tbody = document.querySelector('#mm-table tbody');
+                tbody.innerHTML = data.map(m => `
+                    <tr>
+                        <td>${m.label}</td>
+                        <td>${m.server_url}</td>
+                        <td>${m.channel_id}</td>
+                        <td class="col-toggle text-center" onclick="toggleMattermost(${m.id}, !${m.is_active})">
+                            <label class="switch">
+                                <input type="checkbox" ${m.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td>
+                            <button class="btn-success" onclick="testMattermost(${m.id})">Test</button>
+                            <button class="btn-danger" onclick="removeMattermost(${m.id})">Remove</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                notify('Error loading Mattermost: ' + e.message, 'error');
+            }
+        }
+
+        async function renderBroadcasts(container) {
+            container.innerHTML = `
+                <div class="card">
+                    <h3 style="margin-top:0">Global Control</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="broadcast-enabled"> 
+                            <label for="broadcast-enabled">Enable all scheduled broadcasts</label>
+                        </div>
+                        <button class="btn-primary" onclick="saveBroadcastSettings()">Save Settings</button>
+                    </div>
+                    <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <small style="color: #aaa;">Individual announcements have their own schedules below.</small>
+                        <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send All Active Now</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin:0">Announcements</h3>
+                        <button class="btn-primary" onclick="openAnnouncementModal()">+ Add Announcement</button>
+                    </div>
+                    <table id="announcements-table">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Text Preview</th>
+                                <th>Active</th>
+                                <th>Discord</th>
+                                <th>MM</th>
+                                <th>Twitch</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            `;
+            try {
+                const bSettings = await api('/api/admin/broadcast-settings');
+                document.getElementById('broadcast-enabled').checked = !!bSettings.is_enabled;
+                
+                const data = await api('/api/admin/announcements');
+                const tbody = document.querySelector('#announcements-table tbody');
+                tbody.innerHTML = data.map(a => `
+                    <tr class="draggable-row" data-id="${a.id}">
+                        <td>${a.order_index}</td>
+                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.text}</td>
+                        <td class="col-toggle text-center" onclick="toggleAnnouncement(${a.id}, !${a.is_active})">
+                            <label class="switch">
+                                <input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td class="col-toggle text-center" onclick="toggleAnnouncementTarget(${a.id}, 'discord_enabled', !${a.discord_enabled})">
+                            <label class="switch">
+                                <input type="checkbox" ${a.discord_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td class="col-toggle text-center" onclick="toggleAnnouncementTarget(${a.id}, 'mattermost_enabled', !${a.mattermost_enabled})">
+                            <label class="switch">
+                                <input type="checkbox" ${a.mattermost_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td class="col-toggle text-center" onclick="toggleAnnouncementTarget(${a.id}, 'twitch_enabled', !${a.twitch_enabled})">
+                            <label class="switch">
+                                <input type="checkbox" ${a.twitch_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td>
+                            <button class="btn-primary" onclick="openAnnouncementModal(${a.id})">Edit</button>
+                            <button class="btn-danger" onclick="deleteAnnouncement(${a.id})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+                
+                new Sortable(tbody, {
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    onEnd: async function() {
+                        const rows = Array.from(tbody.querySelectorAll('.draggable-row'));
+                        const order = rows.map((row, index) => ({
+                            id: parseInt(row.getAttribute('data-id')),
+                            orderIndex: index
+                        }));
+                        try {
+                            await api('/api/admin/announcements/reorder', 'POST', { order });
+                            notify('Order saved successfully!');
+                            loadDataBotSettings();
+                        } catch (e) {
+                            notify('Failed to save order: ' + e.message, 'error');
+                        }
+                    }
+                });
+            } catch (e) {
+                notify('Error loading broadcasts: ' + e.message, 'error');
+            }
+        }
+
+        async function loadDataBotSettings() {
+            const container = document.getElementById('content-area');
+            await renderBroadcasts(container);
+        }
+
+        async function renderSystem(container) {
+            container.innerHTML = `
+                <div class="card">
+                    <h3>Database Portability</h3>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <button class="btn-primary" onclick="exportDb()">Export Database (JSON)</button>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="file" id="import-file">
+                            <button class="btn-success" onclick="importDb()">Import Database</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Existing Logic functions moved here
         let searchTimeout;
         async function handleUserSearch(query) {
             const resultsDiv = document.getElementById('search-results');
-            
             clearTimeout(searchTimeout);
-            
             if (!query || query.length < 3) {
                 resultsDiv.style.display = 'none';
                 return;
             }
-
             searchTimeout = setTimeout(async () => {
                 try {
                     const users = await api(`/api/admin/twitch/search?q=${encodeURIComponent(query)}`);
@@ -616,166 +871,19 @@
             document.getElementById('search-results').style.display = 'none';
         }
 
-        async function loadData(panel) {
-            try {
-                if (panel === 'streamers') {
-                    const data = await api('/api/admin/streamers');
-                    const tbody = document.querySelector('#streamers-table tbody');
-                    tbody.innerHTML = data.map(s => `
-                        <tr class="draggable-row" data-username="${s.username}">
-                            <td>
-                                <a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold;">${s.username} ↗</a>
-                            </td>
-                            <td><span class="status-pill pill-${s.category}">${s.category}</span></td>
-                            <td>${s.followerCount.toLocaleString()}</td>
-                            <td class="toggle-container" onclick="toggleStreamerNotify('${s.username}', !${s.notify_enabled})">
-                                <label class="switch">
-                                    <input type="checkbox" ${s.notify_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
-                            <td class="toggle-container" onclick="toggleStreamerShow('${s.username}', !${s.show_on_page})">
-                                <label class="switch">
-                                    <input type="checkbox" ${s.show_on_page ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
+        async function addStreamer() {
+            const username = document.getElementById('streamer-user').value;
+            const category = document.getElementById('streamer-cat').value;
+            if (!username) return;
+            await api('/api/admin/streamers', 'POST', { username, category });
+            document.getElementById('streamer-user').value = '';
+            renderStreamers(document.getElementById('content-area'));
+        }
 
-                            <td><button class="btn-danger" onclick="removeStreamer('${s.username}')">Remove</button></td>
-                        </tr>
-                    `).join('');
-                    
-                    new Sortable(tbody, {
-                        animation: 150,
-                        ghostClass: 'sortable-ghost',
-                        onEnd: async function() {
-                            const rows = Array.from(tbody.querySelectorAll('.draggable-row'));
-                            const order = rows.map((row, index) => ({
-                                username: row.getAttribute('data-username'),
-                                orderIndex: index
-                            }));
-                            try {
-                                await api('/api/admin/streamers/reorder', 'POST', { order });
-                                notify('Order saved successfully!');
-                            } catch (e) {
-                                notify('Failed to save order: ' + e.message, 'error');
-                            }
-                        }
-                    });
-                } else if (panel === 'discord') {
-                    const data = await api('/api/admin/discord');
-                    const tbody = document.querySelector('#discord-table tbody');
-                    tbody.innerHTML = data.map(d => `
-                        <tr>
-                            <td>
-                                ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
-                                <strong>${d.serverName}</strong>
-                                <br><small style="color: #888">${d.guild_id}</small>
-                            </td>
-                            <td>${d.channel_id}</td>
-                            <td style="text-align: center">${d.memberCount.toLocaleString()}</td>
-                            <td>${d.owner_id || 'System'}</td>
-                            <td class="toggle-container" onclick="toggleDiscord('${d.guild_id}', !${d.is_active})">
-                                <label class="switch">
-                                    <input type="checkbox" ${d.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
-
-                            <td>
-                                <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
-                                <button class="btn-primary" onclick="syncDiscord('${d.guild_id}')">Sync</button>
-                                <button class="btn-danger" onclick="removeDiscord('${d.guild_id}')">Remove</button>
-                            </td>
-                        </tr>
-                    `).join('');
-                } else if (panel === 'mattermost') {
-                    const data = await api('/api/admin/mattermost');
-                    const tbody = document.querySelector('#mm-table tbody');
-                    tbody.innerHTML = data.map(m => `
-                        <tr>
-                            <td>${m.label}</td>
-                            <td>${m.server_url}</td>
-                            <td>${m.channel_id}</td>
-                            <td class="toggle-container" onclick="toggleMattermost(${m.id}, !${m.is_active})">
-                                <label class="switch">
-                                    <input type="checkbox" ${m.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
-
-                            <td>
-                                <button class="btn-success" onclick="testMattermost(${m.id})">Test</button>
-                                <button class="btn-danger" onclick="removeMattermost(${m.id})">Remove</button>
-                            </td>
-                        </tr>
-                    `).join('');
-                } else if (panel === 'bot-settings') {
-                    // Load Broadcast Settings
-                    const bSettings = await api('/api/admin/broadcast-settings');
-                    // Removed broadcast-cron assignment as the input no longer exists
-                    document.getElementById('broadcast-enabled').checked = !!bSettings.is_enabled;
-                    
-                    const data = await api('/api/admin/announcements');
-                    const tbody = document.querySelector('#announcements-table tbody');
-                    tbody.innerHTML = data.map(a => `
-                        <tr class="draggable-row" data-id="${a.id}">
-                            <td>${a.order_index}</td>
-                            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.text}</td>
-                            <td class="toggle-container" onclick="toggleAnnouncement(${a.id}, !${a.is_active})">
-                                <label class="switch">
-                                    <input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
-                            <td class="toggle-container" onclick="toggleAnnouncementTarget(${a.id}, 'discord_enabled', !${a.discord_enabled})">
-                                <label class="switch">
-                                    <input type="checkbox" ${a.discord_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
-                            <td class="toggle-container" onclick="toggleAnnouncementTarget(${a.id}, 'mattermost_enabled', !${a.mattermost_enabled})">
-                                <label class="switch">
-                                    <input type="checkbox" ${a.mattermost_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
-                            <td class="toggle-container" onclick="toggleAnnouncementTarget(${a.id}, 'twitch_enabled', !${a.twitch_enabled})">
-                                <label class="switch">
-                                    <input type="checkbox" ${a.twitch_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
-                                    <span class="slider"></span>
-                                </label>
-                            </td>
-
-                            <td>
-                                <button class="btn-primary" onclick="openAnnouncementModal(${a.id})">Edit</button>
-                                <button class="btn-danger" onclick="deleteAnnouncement(${a.id})">Delete</button>
-                            </td>
-                        </tr>
-                    `).join('');
-                    
-                    new Sortable(tbody, {
-                        animation: 150,
-                        ghostClass: 'sortable-ghost',
-                        onEnd: async function() {
-                            const rows = Array.from(tbody.querySelectorAll('.draggable-row'));
-                            const order = rows.map((row, index) => ({
-                                id: parseInt(row.getAttribute('data-id')),
-                                orderIndex: index
-                            }));
-                            try {
-                                await api('/api/admin/announcements/reorder', 'POST', { order });
-                                notify('Order saved successfully!');
-                                loadData('bot-settings');
-                            } catch (e) {
-                                notify('Failed to save order: ' + e.message, 'error');
-                            }
-                        }
-                    });
-                }
-            } catch (e) {
-                notify('Error loading data: ' + e.message, 'error');
-            }
+        async function removeStreamer(username) {
+            if (!confirm('Are you sure you want to remove ' + username + '? This action cannot be undone.')) return;
+            await api('/api/admin/streamers/' + username, 'DELETE');
+            renderStreamers(document.getElementById('content-area'));
         }
 
         async function toggleStreamerNotify(username, enabled) {
@@ -796,21 +904,6 @@
             }
         }
 
-        async function addStreamer() {
-            const username = document.getElementById('streamer-user').value;
-            const category = document.getElementById('streamer-cat').value;
-            if (!username) return;
-            await api('/api/admin/streamers', 'POST', { username, category });
-            document.getElementById('streamer-user').value = '';
-            loadData('streamers');
-        }
-
-        async function removeStreamer(username) {
-            if (!confirm('Are you sure you want to remove ' + username + '? This action cannot be undone.')) return;
-            await api('/api/admin/streamers/' + username, 'DELETE');
-            loadData('streamers');
-        }
-
         async function addDiscord() {
             const body = {
                 guild_id: document.getElementById('discord-guild').value,
@@ -824,16 +917,16 @@
             }
             await api('/api/admin/discord/manual', 'POST', body);
             document.querySelectorAll('#panel-discord input').forEach(i => i.value = '');
-            loadData('discord');
+            renderDiscord(document.getElementById('content-area'));
             notify('Discord integration added successfully!');
         }
 
         async function syncDiscord(guildId) {
-            if (!confirm('Are you sure you want to sync the Discord server? This will attempt to find or create the announcement channel.')) return;
+            if (!confirm('Are you sure you want to sync the Discord server?')) return;
             try {
                 await api(`/api/admin/discord/sync-channel/${guildId}`, 'POST');
                 notify('Discord server synced successfully!');
-                loadData('discord');
+                renderDiscord(document.getElementById('content-area'));
             } catch (e) {
                 notify('Discord sync failed: ' + e.message, 'error');
             }
@@ -848,15 +941,6 @@
             }
         }
 
-        async function toggleMattermost(id, active) {
-            try {
-                await api('/api/admin/mattermost/toggle', 'POST', { id, active });
-                notify('Mattermost configuration status updated!');
-            } catch (e) {
-                notify('Failed to update Mattermost status: ' + e.message, 'error');
-            }
-        }
-        
         async function testDiscord(guildId) {
             try {
                 await api(`/api/admin/discord/test/${guildId}`, 'POST');
@@ -865,20 +949,11 @@
                 notify('Discord test failed: ' + e.message, 'error');
             }
         }
-        
-        async function testMattermost(id) {
-            try {
-                await api(`/api/admin/mattermost/test/${id}`, 'POST');
-                notify('Test message sent to Mattermost!');
-            } catch (e) {
-                notify('Mattermost test failed: ' + e.message, 'error');
-            }
-        }
 
         async function removeDiscord(guildId) {
-            if (!confirm('Are you sure you want to remove guild ' + guildId + '? This action cannot be undone.')) return;
+            if (!confirm('Are you sure you want to remove guild ' + guildId + '?')) return;
             await api('/api/admin/discord/' + guildId, 'DELETE');
-            loadData('discord');
+            renderDiscord(document.getElementById('content-area'));
         }
 
         async function addMattermost() {
@@ -892,24 +967,59 @@
             if (!config.server_url) return;
             await api('/api/admin/mattermost', 'POST', config);
             document.querySelectorAll('#panel-mattermost input').forEach(i => i.value = '');
-            loadData('mattermost');
+            renderMattermost(document.getElementById('content-area'));
+        }
+
+        async function toggleMattermost(id, active) {
+            try {
+                await api('/api/admin/mattermost/toggle', 'POST', { id, active });
+                notify('Mattermost configuration status updated!');
+            } catch (e) {
+                notify('Failed to update Mattermost status: ' + e.message, 'error');
+            }
+        }
+
+        async function testMattermost(id) {
+            try {
+                await api(`/api/admin/mattermost/test/${id}`, 'POST');
+                notify('Test message sent to Mattermost!');
+            } catch (e) {
+                notify('Mattermost test failed: ' + e.message, 'error');
+            }
         }
 
         async function removeMattermost(id) {
-            if (!confirm('Are you sure you want to remove this configuration? This action cannot be undone.')) return;
+            if (!confirm('Are you sure you want to remove this configuration?')) return;
             await api('/api/admin/mattermost/' + id, 'DELETE');
-            loadData('mattermost');
+            renderMattermost(document.getElementById('content-area'));
         }
 
-        // Announcement Management
+        async function triggerBroadcastNow() {
+            try {
+                await api('/api/admin/broadcast-now', 'POST');
+                notify('Broadcast triggered successfully!');
+            } catch (e) {
+                notify('Failed to trigger broadcast: ' + e.message, 'error');
+            }
+        }
+
+        async function saveBroadcastSettings() {
+            const enabled = document.getElementById('broadcast-enabled').checked;
+            try {
+                await api('/api/admin/broadcast-settings', 'POST', { is_enabled: enabled, cron_schedule: '' });
+                notify('Global settings saved successfully!');
+            } catch (e) {
+                notify('Failed to save settings: ' + e.message, 'error');
+            }
+        }
+
+        // Announcement Logic
         let currentAnnId = null;
         function openAnnouncementModal(id = null) {
             currentAnnId = id;
             const modal = document.getElementById('announcement-modal');
             modal.style.display = 'flex';
-            
             if (id) {
-                // Fetch existing data
                 api('/api/admin/announcements').then(data => {
                     const ann = data.find(a => a.id === id);
                     if (ann) {
@@ -920,15 +1030,14 @@
                         document.getElementById('ann-twitch').checked = !!ann.twitch_enabled;
                         document.getElementById('ann-start').value = ann.start_date || '';
                         document.getElementById('ann-end').value = ann.end_date || '';
-                if (document.getElementById('ann-cron')) {
-                    document.getElementById('ann-cron').value = ann.cron_schedule || '';
-                    updateCronPreview();
-                }
+                        if (document.getElementById('ann-cron')) {
+                            document.getElementById('ann-cron').value = ann.cron_schedule || '';
+                            updateCronPreview();
+                        }
                         updatePreview();
                     }
                 });
             } else {
-                // Reset for new
                 document.getElementById('ann-text').value = '';
                 document.getElementById('ann-active').checked = true;
                 document.getElementById('ann-discord').checked = true;
@@ -959,7 +1068,6 @@
         function updatePreview() {
             const text = document.getElementById('ann-text').value;
             const preview = document.getElementById('ann-preview');
-            // Simple markdown replacement for preview
             let html = text
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -974,7 +1082,7 @@
             const body = {
                 id: currentAnnId,
                 text: document.getElementById('ann-text').value,
-                order_index: 0, // Reordering is handled by separate API
+                order_index: 0,
                 is_active: document.getElementById('ann-active').checked,
                 discord_enabled: document.getElementById('ann-discord').checked,
                 mattermost_enabled: document.getElementById('ann-mattermost').checked,
@@ -987,7 +1095,7 @@
                 await api('/api/admin/announcements', 'POST', body);
                 notify('Announcement saved successfully!');
                 closeModal();
-                loadData('bot-settings');
+                renderBroadcasts(document.getElementById('content-area'));
             } catch (e) {
                 notify('Failed to save announcement: ' + e.message, 'error');
             }
@@ -998,7 +1106,7 @@
             try {
                 await api(`/api/admin/announcements/${id}`, 'DELETE');
                 notify('Deleted successfully!');
-                loadData('bot-settings');
+                renderBroadcasts(document.getElementById('content-area'));
             } catch (e) {
                 notify('Delete failed: ' + e.message, 'error');
             }
@@ -1010,6 +1118,7 @@
             if (ann) {
                 await api('/api/admin/announcements', 'POST', { ...ann, is_active: active });
                 notify('Status updated!');
+                renderBroadcasts(document.getElementById('content-area'));
             }
         }
 
@@ -1020,6 +1129,7 @@
                 if (ann) {
                     await api('/api/admin/announcements', 'POST', { ...ann, [field]: value });
                     notify(`${field} updated!`);
+                    renderBroadcasts(document.getElementById('content-area'));
                 }
             } catch (e) {
                 notify('Failed to update target: ' + e.message, 'error');
@@ -1034,24 +1144,22 @@
                 'weekly_mon': '0 0 * * 1',
                 'every_6h': '0 */6 * * *',
             };
-                const cronInput = document.getElementById('ann-cron');
-                if (cronInput) {
-                    cronInput.value = presets[presetKey];
-                    updateCronPreview();
-                }
+            const cronInput = document.getElementById('ann-cron');
+            if (cronInput) {
+                cronInput.value = presets[presetKey];
+                updateCronPreview();
+            }
         }
 
         function updateCronPreview() {
             const cronInput = document.getElementById('ann-cron');
             const previewDiv = document.getElementById('cron-preview');
             if (!cronInput || !previewDiv) return;
-
             const cron = cronInput.value;
             if (!cron) {
                 previewDiv.textContent = '';
                 return;
             }
-
             const translation = translateCron(cron);
             previewDiv.textContent = `${cron} → ${translation}`;
             previewDiv.style.color = 'var(--secondary-color)';
@@ -1060,18 +1168,14 @@
         function translateCron(cron) {
             const parts = cron.split(' ');
             if (parts.length !== 5) return 'Custom schedule';
-
             const [min, hour, dom, month, dow] = parts;
-
             if (min === '0' && hour === '0' && dom === '*' && month === '*' && dow === '*') return 'Daily at Midnight';
             if (min === '0' && hour === '12' && dom === '*' && month === '*' && dow === '*') return 'Daily at Noon';
             if (min === '0' && hour === '*' && dom === '*' && month === '*' && dow === '*') return 'Hourly';
             if (min === '0' && hour === '0' && dom === '*' && month === '*' && dow === '1') return 'Weekly on Monday';
             if (min === '0' && hour === '*/6' && dom === '*' && month === '*' && dow === '*') return 'Every 6 hours';
-            
             if (min === '0' && hour === '*' && dom === '*' && month === '*' && (dow === '0' || dow === '6' || dow === '0,6')) return 'Weekends';
             if (min === '0' && hour === '*' && dom === '*' && month === '*' && dow === '1-5') return 'Weekdays';
-
             return 'Custom schedule';
         }
 
@@ -1091,7 +1195,6 @@
                 notify('Please select a file', 'error');
                 return;
             }
-            
             try {
                 const text = await fileInput.files[0].text();
                 const json = JSON.parse(text);
@@ -1102,8 +1205,18 @@
             }
         }
 
-        // Initial load
-        loadData('streamers');
+        window.addEventListener('popstate', handlePageLoad);
+        window.onload = handlePageLoad;
+        
+        // Intercept navigation to prevent full page reload
+        document.addEventListener('click', e => {
+            if (e.target.classList.contains('nav-item')) {
+                e.preventDefault();
+                const href = e.target.getAttribute('href');
+                window.history.pushState({}, '', href);
+                handlePageLoad();
+            }
+        });
     </script>
 </body>
 </html>
