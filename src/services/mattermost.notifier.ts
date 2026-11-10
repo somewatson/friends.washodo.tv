@@ -49,7 +49,7 @@ export class MattermostNotifier {
     }).filter((s): s is ServerConfig => s !== null);
   }
 
-  async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
+  async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
     if (this.servers.length === 0) {
       console.warn('[MattermostNotifier] No servers configured in database or MATTERMOST_BOTS');
       return;
@@ -79,7 +79,7 @@ export class MattermostNotifier {
 
         if (!shouldNotify) continue;
 
-        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`;
+        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}\n\n${scheduleText}`;
 
         await withRetry(
           () => axios.post(`${server.serverUrl}/api/v4/posts`, {

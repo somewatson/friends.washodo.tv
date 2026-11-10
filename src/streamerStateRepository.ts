@@ -51,6 +51,17 @@ export class StreamerStateRepository {
         `);
 
         this.db.exec(`
+            CREATE TABLE IF NOT EXISTS bot_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                discord_enabled INTEGER DEFAULT 1,
+                mattermost_enabled INTEGER DEFAULT 1,
+                twitch_enabled INTEGER DEFAULT 0,
+                expiry_date TEXT
+            )
+        `);
+
+        this.db.exec(`
             CREATE TABLE IF NOT EXISTS tracked_entities (
                 username TEXT PRIMARY KEY,
                 platform TEXT DEFAULT 'twitch',
@@ -215,6 +226,26 @@ export class StreamerStateRepository {
     async removeMattermostConfig(id: number) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare('DELETE FROM mattermost_configs WHERE id = ?').run(id);
+    }
+
+    async getBotSetting(key: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = this.db.prepare('SELECT * FROM bot_settings WHERE key = ?').get(key) as any;
+        return row;
+    }
+
+    async saveBotSetting(key: string, value: string, discord: boolean, mattermost: boolean, twitch: boolean, expiry: string | null) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(`
+            INSERT INTO bot_settings (key, value, discord_enabled, mattermost_enabled, twitch_enabled, expiry_date) 
+            VALUES (?, ?, ?, ?, ?, ?) 
+            ON CONFLICT(key) DO UPDATE SET 
+                value = excluded.value, 
+                discord_enabled = excluded.discord_enabled, 
+                mattermost_enabled = excluded.mattermost_enabled, 
+                twitch_enabled = excluded.twitch_enabled, 
+                expiry_date = excluded.expiry_date
+        `).run(key, value, discord ? 1 : 0, mattermost ? 1 : 0, twitch ? 1 : 0, expiry);
     }
 
     async getDiscordIntegration(guildId: string) {

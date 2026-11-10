@@ -330,6 +330,39 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.get('/api/admin/bot-settings', async (req, res) => {
+            try {
+                const setting = await this.stateRepo.getBotSetting('schedule_text');
+                res.json(setting || { 
+                    key: 'schedule_text', 
+                    value: '', 
+                    discord_enabled: 1, 
+                    mattermost_enabled: 1, 
+                    twitch_enabled: 0, 
+                    expiry_date: null 
+                });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch bot settings', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/bot-settings', async (req, res) => {
+            try {
+                const { value, discord_enabled, mattermost_enabled, twitch_enabled, expiry_date } = req.body;
+                await this.stateRepo.saveBotSetting(
+                    'schedule_text', 
+                    value, 
+                    !!discord_enabled, 
+                    !!mattermost_enabled, 
+                    !!twitch_enabled, 
+                    expiry_date
+                );
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to save bot settings', details: error.message });
+            }
+        });
+
         this.app.get('/api/admin/mattermost', async (req, res) => {
             res.json(await this.stateRepo.getMattermostConfigs());
         });

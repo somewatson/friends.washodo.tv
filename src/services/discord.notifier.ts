@@ -154,7 +154,8 @@ export class DiscordNotifier {
         } else if (command === '!status') {
             await message.reply('✅ Bot is active and monitoring streamers!');
         } else if (command === '!schedule') {
-            const schedule = process.env.BOT_SCHEDULE_TEXT || 'No schedule configured.';
+            const setting = await this.stateRepo.getBotSetting('schedule_text');
+            const schedule = setting?.value || 'No schedule configured.';
             await message.reply(`📅 **Current Schedule**\n${schedule}`);
         } else if (command === '!streamers') {
             await this.handleListStreamers(message);
@@ -268,7 +269,7 @@ export class DiscordNotifier {
         }
     }
 
-    async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
+    async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured in database or DISCORD_BOTS');
             return;
@@ -308,7 +309,7 @@ export class DiscordNotifier {
                         const embed = new EmbedBuilder()
                             .setColor(0xFF0000)
                             .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
-                            .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}`)
+                            .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}\n\n${scheduleText}`)
                             .setThumbnail(thumbnail || null)
                             .setTimestamp();
 

@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { TwitchClient } from './clients/twitch.client';
+import { TwitchChatClient } from './clients/twitch_chat.client';
 import { MattermostNotifier } from './services/mattermost.notifier';
 import { DiscordNotifier } from './services/discord.notifier';
 import { StateManager } from './services/state.manager';
@@ -15,6 +16,7 @@ class WashodoWardApp {
         twitchClient: TwitchClient, 
         mattermostNotifier: MattermostNotifier, 
         discordNotifier: DiscordNotifier, 
+        twitchChatClient: TwitchChatClient,
         stateManager: StateManager,
         stateRepo: StreamerStateRepository
     ) {
@@ -35,10 +37,23 @@ class WashodoWardApp {
                     const streamData = liveStreams.find((s: any) => s.user_login === username);
                     const isRecurring = !!previouslyLive;
                     
-                    await Promise.allSettled([
-                        mattermostNotifier.notify(streamData, isRecurring),
-                        discordNotifier.notify(streamData, isRecurring)
-                    ]);
+                    // Fetch current bot settings from DB
+                    const settings = await stateRepo.getBotSetting('schedule_text');
+                    const scheduleText = settings?.value || process.env.BOT_SCHEDULE_TEXT || '';
+                    
+                    const notifications = [];
+                    
+                    if (settings?.mattermost_enabled || !settings) {
+                        notifications.push(mattermostNotifier.notify(streamData, isRecurring, scheduleText));
+                    }
+                    if (settings?.discord_enabled || !settings) {
+                        notifications.push(discordNotifier.notify(streamData, isRecurring, scheduleText));
+                    }
+                    if (settings?.twitch_enabled) {
+                        notifications.push(twitchChatClient.sendMessage(username, `${scheduleText}`));
+                    }
+
+                    await Promise.allSettled(notifications);
 
                 } else if (!currentlyLive && previouslyLive) {
                     console.log(`Streamer ${username} went offline.`);
@@ -67,6 +82,7 @@ class WashodoWardApp {
             // Initialize Notifiers
             const mattermostNotifier = new MattermostNotifier(stateRepo);
             const discordNotifier = new DiscordNotifier(stateRepo, twitchClient);
+            const twitchChatClient = new TwitchChatClient(stateRepo, twitchClient);
             await discordNotifier.start();
 
             const stateManager = new StateManager();
@@ -80,10 +96,10 @@ class WashodoWardApp {
 
             // Set up the cron job with the initialized services
             const intervalStr = process.env.CHECK_INTERVAL || '*/5 * * * *';
-            cron.schedule(intervalStr, () => this.runCheck(twitchClient, mattermostNotifier, discordNotifier, stateManager, stateRepo));
+            cron.schedule(intervalStr, () => this.runCheck(twitchClient, mattermostNotifier, discordNotifier, twitchChatClient, stateManager, stateRepo));
 
             // Run immediately on start
-            await this.runCheck(twitchClient, mattermostNotifier, discordNotifier, stateManager, stateRepo);
+            await this.runCheck(twitchClient, mattermostNotifier, discordNotifier, twitchChatClient, stateManager, stateRepo);
 
             console.log(`Twitch Notifier started. Polling every ${intervalStr}`);
         } catch (error) {
