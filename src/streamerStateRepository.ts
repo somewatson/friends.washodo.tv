@@ -51,13 +51,16 @@ export class StreamerStateRepository {
         `);
 
         this.db.exec(`
-            CREATE TABLE IF NOT EXISTS bot_settings (
-                key TEXT PRIMARY KEY,
-                value TEXT,
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT,
+                order_index INTEGER DEFAULT 0,
+                is_active INTEGER DEFAULT 1,
                 discord_enabled INTEGER DEFAULT 1,
                 mattermost_enabled INTEGER DEFAULT 1,
                 twitch_enabled INTEGER DEFAULT 0,
-                expiry_date TEXT
+                start_date TEXT,
+                end_date TEXT
             )
         `);
 
@@ -228,24 +231,49 @@ export class StreamerStateRepository {
         this.db.prepare('DELETE FROM mattermost_configs WHERE id = ?').run(id);
     }
 
+    async getAnnouncements() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM announcements ORDER BY order_index ASC').all() as any[];
+    }
+
+    async saveAnnouncement(announcement: { id?: number, text: string, order_index: number, is_active: boolean, discord_enabled: boolean, mattermost_enabled: boolean, twitch_enabled: boolean, start_date: string | null, end_date: string | null }) {
+        if (!this.db) throw new Error('Database not initialized');
+        if (announcement.id) {
+            this.db.prepare(`
+                UPDATE announcements 
+                SET text = ?, order_index = ?, is_active = ?, discord_enabled = ?, mattermost_enabled = ?, twitch_enabled = ?, start_date = ?, end_date = ? 
+                WHERE id = ?
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date, announcement.id);
+        } else {
+            this.db.prepare(`
+                INSERT INTO announcements (text, order_index, is_active, discord_enabled, mattermost_enabled, twitch_enabled, start_date, end_date) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date, announcement.end_date);
+        }
+    }
+
+    async deleteAnnouncement(id: number) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM announcements WHERE id = ?').run(id);
+    }
+
+    async updateAnnouncementOrder(updates: {id: number, orderIndex: number}[]) {
+        if (!this.db) throw new Error('Database not initialized');
+        for (const update of updates) {
+            this.db.prepare('UPDATE announcements SET order_index = ? WHERE id = ?').run(update.orderIndex, update.id);
+        }
+    }
+
     async getBotSetting(key: string) {
         if (!this.db) throw new Error('Database not initialized');
-        const row = this.db.prepare('SELECT * FROM bot_settings WHERE key = ?').get(key) as any;
-        return row;
+        // For backward compatibility with the single-setting approach, 
+        // we can return a dummy or handle the migration. 
+        // Since we are moving to 'announcements' table, this is mostly deprecated.
+        return null; 
     }
 
     async saveBotSetting(key: string, value: string, discord: boolean, mattermost: boolean, twitch: boolean, expiry: string | null) {
-        if (!this.db) throw new Error('Database not initialized');
-        this.db.prepare(`
-            INSERT INTO bot_settings (key, value, discord_enabled, mattermost_enabled, twitch_enabled, expiry_date) 
-            VALUES (?, ?, ?, ?, ?, ?) 
-            ON CONFLICT(key) DO UPDATE SET 
-                value = excluded.value, 
-                discord_enabled = excluded.discord_enabled, 
-                mattermost_enabled = excluded.mattermost_enabled, 
-                twitch_enabled = excluded.twitch_enabled, 
-                expiry_date = excluded.expiry_date
-        `).run(key, value, discord ? 1 : 0, mattermost ? 1 : 0, twitch ? 1 : 0, expiry);
+        // Deprecated in favor of announcements table
     }
 
     async getDiscordIntegration(guildId: string) {

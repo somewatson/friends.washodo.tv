@@ -352,37 +352,50 @@ export class ApiServer {
             res.json({ success: true });
         });
 
-        this.app.get('/api/admin/bot-settings', async (req, res) => {
+        this.app.get('/api/admin/announcements', async (req, res) => {
             try {
-                const setting = await this.stateRepo.getBotSetting('schedule_text');
-                res.json(setting || { 
-                    key: 'schedule_text', 
-                    value: '', 
-                    discord_enabled: 1, 
-                    mattermost_enabled: 1, 
-                    twitch_enabled: 0, 
-                    expiry_date: null 
-                });
+                const announcements = await this.stateRepo.getAnnouncements();
+                res.json(announcements);
             } catch (error: any) {
-                res.status(500).json({ error: 'Failed to fetch bot settings', details: error.message });
+                res.status(500).json({ error: 'Failed to fetch announcements', details: error.message });
             }
         });
 
-        this.app.post('/api/admin/bot-settings', async (req, res) => {
+        this.app.post('/api/admin/announcements', async (req, res) => {
             try {
-                const { value, discord_enabled, mattermost_enabled, twitch_enabled, expiry_date } = req.body;
-                await this.stateRepo.saveBotSetting(
-                    'schedule_text', 
-                    value, 
-                    !!discord_enabled, 
-                    !!mattermost_enabled, 
-                    !!twitch_enabled, 
-                    expiry_date
-                );
+                await this.stateRepo.saveAnnouncement(req.body);
                 res.json({ success: true });
             } catch (error: any) {
-                res.status(500).json({ error: 'Failed to save bot settings', details: error.message });
+                res.status(500).json({ error: 'Failed to save announcement', details: error.message });
             }
+        });
+
+        this.app.delete('/api/admin/announcements/:id', async (req, res) => {
+            try {
+                await this.stateRepo.deleteAnnouncement(parseInt(req.params.id));
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to delete announcement', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/announcements/reorder', async (req, res) => {
+            try {
+                const { order } = req.body;
+                if (!Array.isArray(order)) return res.status(400).json({ error: 'Invalid order format' });
+                await this.stateRepo.updateAnnouncementOrder(order);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to update order', details: error.message });
+            }
+        });
+
+        this.app.get('/api/admin/bot-settings', async (req, res) => {
+            res.json({ message: 'Use /api/admin/announcements for managing schedule rows' });
+        });
+
+        this.app.post('/api/admin/bot-settings', async (req, res) => {
+            res.status(400).json({ error: 'Use /api/admin/announcements for managing schedule rows' });
         });
 
         this.app.get('/api/admin/mattermost', async (req, res) => {

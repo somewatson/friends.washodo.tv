@@ -1,43 +1,51 @@
 # Goal: Move BOT_SCHEDULE_TEXT to Database and Warden Admin Panel
 
 ## Objective
-Migrate the static `BOT_SCHEDULE_TEXT` environment variable into the SQLite database and provide a management interface within the Warden admin panel. This will allow admins to update bot announcements in real-time without requiring a service restart and control which platforms receive these notifications.
+Migrate the static `BOT_SCHEDULE_TEXT` environment variable into a structured SQLite database system and provide a high-fidelity management interface within the Warden admin panel. This allows admins to manage multiple, ordered, and time-limited announcements with platform-specific targeting and rich text editing.
 
 ## Proposed Features
 
-### 1. Core Management
-- **Database Persistence**: Move the schedule text from `.env` to a new `bot_settings` or `announcements` table in `data/streamers.db`.
-- **Platform Targeting**: Add checkboxes in the admin panel to enable/disable delivery to:
-    - **Discord**
-    - **Mattermost**
-    - **Twitch Chat** (New functionality)
-- **Admin Interface**: Add a dedicated section in the Warden admin panel to edit the schedule text and targeting options.
-- **Markdown Support**: Ensure the input field supports Markdown for rich formatting in Discord and Mattermost.
-- **Live Preview**: Implement a preview window in the Warden panel to see how the text will appear in notifications.
+### 1. Core Management & "Announcement Rows"
+- **Database Persistence**: Transition from a single setting to an `announcements` table in `data/streamers.db`.
+    - `id`: Primary Key.
+    - `text`: The markdown content of the message.
+    - `order_index`: To control the vertical sequence of messages.
+    - `is_active`: Toggle to enable/disable a specific row.
+    - `discord_enabled`, `mattermost_enabled`, `twitch_enabled`: Per-message platform targeting.
+    - `start_date`, `end_date`: Temporal validity for time-limited events.
+- **Admin Interface (The "Rows" View)**:
+    - A list view of all announcements that can be reordered via drag-and-drop.
+    - Ability to add, edit, and delete individual announcement rows.
+- **Rich Text Editor**:
+    - A dedicated editing modal for each row.
+    - Markdown toolbar (Bold, Italic, Links).
+    - **Live Preview**: Side-by-side rendering of how the message will appear in Discord and Mattermost.
 
 ### 2. Enhanced Functionality
 - **Dynamic Placeholders**: Support "magic tags" for runtime replacement:
     - `{{today}}`: Current date.
     - `{{streamer_count}}`: Number of streamers currently live.
     - `{{team_link}}`: Link to the Twitch team page.
-- **Expiration Dates**: Add an optional "Valid Until" date to announcements so they automatically expire (e.g., for time-limited events).
-- **Scheduled Rotations**: (Optional/Phase 2) Ability to rotate multiple messages based on time of day or day of week.
+- **Temporal Logic**: Automatically filter out messages where the current date is outside the `start_date` and `end_date` window.
 
 ### 3. UX & Reliability
-- **Confirmation Dialogs**: Ensure "Save" actions have clear feedback and destructive changes are confirmed.
+- **Confirmation Dialogs**: Destructive actions (deleting a row) require confirmation.
 - **Environment Tagging**: Maintain the existing `[STAGING]` / `[DEV]` prefixing for notifications sent from non-production environments.
+- **Notification Assembly**: Combine all active, valid announcement rows into a single formatted block for each notification.
 
 ## Technical Implementation Steps
-1. **Database Migration**: Create a migration script or update the DB schema to include the new settings table (including columns for `text`, `discord_enabled`, `mattermost_enabled`, `twitch_enabled`, and `expiry_date`).
-2. **Twitch Chat Bot Integration**:
-    - Implement a Twitch IRC client/wrapper to allow the bot to send messages to the tracked streamers' chats.
-    - Configure Twitch bot credentials in `.env` and the database.
-3. **Backend Update**: 
-    - Create an API endpoint in `src/server.ts` to GET and POST the schedule settings.
-    - Update the notification logic in the main loop to fetch the settings from the DB and check platform flags before sending.
-4. **Frontend Update**: 
-    - Add a "Bot Settings" view to the Warden admin panel.
-    - Implement the text editor, platform checkboxes, and preview logic.
-5. **Verification**: 
-    - Verify that updates in the Warden panel are reflected in the next bot notification across all enabled platforms.
-    - Run `npm run build` and `npm test` to ensure no regressions.
+1. **Database Migration**:
+    - Create the `announcements` table.
+    - Implement CRUD methods in `StreamerStateRepository` to handle these rows.
+2. **Backend Update**:
+    - Create API endpoints in `src/server.ts` for listing, creating, updating, deleting, and reordering announcements.
+    - Implement the "Assembly" logic: fetch active/valid rows $\rightarrow$ sort by index $\rightarrow$ replace placeholders $\rightarrow$ join with newlines.
+    - Update the main loop in `src/index.ts` to use the assembled text.
+3. **Frontend Update**:
+    - Implement the draggable list in `public/admin.html`.
+    - Build the rich text editing modal with a Markdown-to-HTML previewer.
+    - Integrate with the new API endpoints.
+4. **Verification**:
+    - Verify the correct sequence of messages is delivered to enabled platforms.
+    - Test date-based expiration.
+    - Run `npm run build` to ensure type safety.

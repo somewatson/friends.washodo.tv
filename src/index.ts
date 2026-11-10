@@ -7,6 +7,7 @@ import { StateManager } from './services/state.manager';
 import { InteractiveReceiver } from './services/interactive.receiver';
 import { StreamerStateRepository } from './streamerStateRepository';
 import { ApiServer } from './server';
+import { AnnouncementAssembler } from './services/announcement.assembler';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -37,20 +38,20 @@ class WashodoWardApp {
                     const streamData = liveStreams.find((s: any) => s.user_login === username);
                     const isRecurring = !!previouslyLive;
                     
-                    // Fetch current bot settings from DB
-                    const settings = await stateRepo.getBotSetting('schedule_text');
-                    const scheduleText = settings?.value || process.env.BOT_SCHEDULE_TEXT || '';
+                    // Assemble announcements from DB
+                    const announcements = await stateRepo.getAnnouncements();
+                    const assembled = await AnnouncementAssembler.assemble(announcements, liveUsernames.length);
                     
                     const notifications = [];
                     
-                    if (settings?.mattermost_enabled || !settings) {
-                        notifications.push(mattermostNotifier.notify(streamData, isRecurring, scheduleText));
+                    if (assembled.mattermost) {
+                        notifications.push(mattermostNotifier.notify(streamData, isRecurring, assembled.mattermost));
                     }
-                    if (settings?.discord_enabled || !settings) {
-                        notifications.push(discordNotifier.notify(streamData, isRecurring, scheduleText));
+                    if (assembled.discord) {
+                        notifications.push(discordNotifier.notify(streamData, isRecurring, assembled.discord));
                     }
-                    if (settings?.twitch_enabled) {
-                        notifications.push(twitchChatClient.sendMessage(username, `${scheduleText}`));
+                    if (assembled.twitch) {
+                        notifications.push(twitchChatClient.sendMessage(username, assembled.twitch));
                     }
 
                     await Promise.allSettled(notifications);
