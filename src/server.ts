@@ -448,7 +448,21 @@ export class ApiServer {
         this.app.get('/api/admin/announcements', async (req, res) => {
             try {
                 const announcements = await this.stateRepo.getAnnouncements();
-                res.json(announcements);
+                
+                const hydratedAnnouncements = await Promise.all(announcements.map(async (a) => {
+                    let nextRun = null;
+                    if (a.cron_schedule) {
+                        try {
+                            const interval = (cronParser as any).parseExpression(a.cron_schedule);
+                            nextRun = interval.next().toString();
+                        } catch (e) {
+                            nextRun = null;
+                        }
+                    }
+                    return { ...a, next_run: nextRun };
+                }));
+
+                res.json(hydratedAnnouncements);
             } catch (error: any) {
                 res.status(500).json({ error: 'Failed to fetch announcements', details: error.message });
             }

@@ -825,6 +825,7 @@
                                     <th>Discord</th>
                                     <th>MM</th>
                                     <th>Twitch</th>
+                                    <th>Next Run</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -862,6 +863,9 @@
                                 <input type="checkbox" ${a.twitch_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
                                 <span class="slider"></span>
                             </label>
+                        </td>
+                        <td style="font-size: 0.85em; color: #aaa; white-space: nowrap;">
+                            ${a.next_run ? `${new Date(a.next_run).toLocaleString()} (${formatRelativeTime(a.next_run)})` : '—'}
                         </td>
                         <td>
                             <button class="btn-primary" onclick="openAnnouncementModal(${a.id})">Edit</button>
@@ -1317,7 +1321,23 @@
             previewDiv.style.color = 'var(--secondary-color)';
         }
 
-        function translateCron(cron) {
+        function formatRelativeTime(dateStr) {
+            if (!dateStr) return '—';
+            const next = new Date(dateStr);
+            const now = new Date();
+            const diffMs = next - now;
+            if (diffMs < 0) return 'Past';
+
+            const diffSecs = Math.floor(diffMs / 1000);
+            const diffMins = Math.floor(diffSecs / 60);
+            const diffHrs = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHrs / 24);
+
+            if (diffHrs < 1) return `in ${diffMins}m`;
+            if (diffDays < 1) return `in ${diffHrs}h ${diffMins % 60}m`;
+            return `in ${diffDays}d ${diffHrs % 24}h`;
+        }
+        
             const parts = cron.split(' ');
             if (parts.length !== 5) return 'Custom schedule';
             const [min, hour, dom, month, dow] = parts;
