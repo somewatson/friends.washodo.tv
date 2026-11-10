@@ -745,7 +745,7 @@
                 const tbody = document.querySelector('#mm-table tbody');
                 tbody.innerHTML = data.map(m => `
                     <tr>
-                        <td>${m.label}</td>
+                        <td style="cursor:pointer" onclick="editMattermostLabel(${m.id}, '${m.label}')">${m.label}</td>
                         <td>${m.server_url}</td>
                         <td>${m.channel_id}</td>
                         <td class="col-toggle text-center" onclick="toggleMattermost(${m.id}, !${m.is_active})">
@@ -1037,6 +1037,23 @@
             await api('/api/admin/mattermost/' + id, 'DELETE');
             renderMattermost(document.getElementById('content-area'));
         }
+        
+        async function editMattermostLabel(id, currentLabel) {
+            const newLabel = prompt('Edit Mattermost Label:', currentLabel);
+            if (newLabel === null || newLabel === currentLabel) return;
+            if (!newLabel.trim()) {
+                notify('Label cannot be empty', 'error');
+                return;
+            }
+            try {
+                await api('/api/admin/mattermost/update', 'POST', { id, label: newLabel });
+                notify('Label updated successfully!');
+                renderMattermost(document.getElementById('content-area'));
+            } catch (e) {
+                notify('Failed to update label: ' + e.message, 'error');
+            }
+        }
+
 
         async function triggerBroadcastNow() {
             try {
@@ -1080,7 +1097,7 @@
                         html += data.targets.mattermost.map(t => `
                             <div class="preview-item">
                                 <span class="target-name">${t.label}</span>
-                                <span class="target-id">${t.serverUrl}</span>
+                                <span class="target-id">${t.channelId}</span>
                             </div>
                         `).join('');
                         html += '</div>';

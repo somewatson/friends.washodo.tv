@@ -283,6 +283,12 @@ export class StreamerStateRepository {
         this.db.prepare('DELETE FROM mattermost_configs WHERE id = ?').run(id);
     }
 
+    async updateMattermostLabel(id: number, label: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE mattermost_configs SET label = ? WHERE id = ?')
+            .run(label, id);
+    }
+
     async getBroadcastSettings() {
         throw new Error('Deprecated: Use individual announcement settings instead.');
     }

@@ -560,6 +560,18 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.post('/api/admin/mattermost/update', async (req, res) => {
+            try {
+                const { id, label } = req.body;
+                if (!id || label === undefined) return res.status(400).json({ error: 'ID and label are required' });
+                
+                await this.stateRepo.updateMattermostLabel(id, label);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to update label', details: error.message });
+            }
+        });
+
         this.app.post('/api/admin/discord/test/:guildId', async (req, res) => {
             try {
                 const integration = await this.stateRepo.getDiscordIntegration(req.params.guildId);
