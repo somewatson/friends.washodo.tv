@@ -400,9 +400,14 @@ export class ApiServer {
 
         this.app.post('/api/admin/announcements', async (req, res) => {
             try {
-                await this.stateRepo.saveAnnouncement(req.body);
+                const announcement = req.body;
+                if (!announcement.text) {
+                    return res.status(400).json({ error: 'Announcement text is required' });
+                }
+                await this.stateRepo.saveAnnouncement(announcement);
                 res.json({ success: true });
             } catch (error: any) {
+                console.error('[Admin API] Failed to save announcement:', error);
                 res.status(500).json({ error: 'Failed to save announcement', details: error.message });
             }
         });
