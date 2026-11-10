@@ -67,7 +67,9 @@ class WashodoWardApp {
             this.broadcastJobs.clear();
 
             for (const ann of announcements) {
-                if (!ann.is_active || !ann.cron_schedule) continue;
+                // Ensure we check both is_active AND that at least one platform is enabled
+                const hasTarget = ann.discord_enabled || ann.mattermost_enabled || ann.twitch_enabled;
+                if (!ann.is_active || !ann.cron_schedule || !hasTarget) continue;
 
                 try {
                     const job = cron.schedule(ann.cron_schedule, () => {

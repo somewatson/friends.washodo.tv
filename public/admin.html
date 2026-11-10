@@ -279,6 +279,33 @@
             flex-direction: column;
             gap: 20px;
         }
+        .preview-modal-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .preview-section {
+            background: #3a3a3a;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .preview-section h4 {
+            margin: 0 0 10px 0;
+            color: var(--secondary-color);
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+        .preview-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.9em;
+            border-bottom: 1px solid #444;
+        }
+        .preview-item:last-child { border-bottom: none; }
+        .preview-item .target-name { font-weight: bold; }
+        .preview-item .target-id { color: #888; font-family: monospace; font-size: 0.8em; }
         .modal-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -423,18 +450,7 @@
             <h3>Edit Announcement</h3>
             <div class="modal-grid">
                 <div class="editor-container">
-                    <div class="toolbar">
-                        <button onclick="insertText('**', '**')"><b>B</b></button>
-                        <button onclick="insertText('*', '*')"><i>I</i></button>
-                        <button onclick="insertText('[', '](https://)')">Link</button>
-                        <button onclick="insertText('{{today}}', '')">Date</button>
-                        <button onclick="insertText('{{streamer_count}}', '')">Count</button>
-                    </div>
-                    <textarea id="ann-text" style="width: 100%; height: 300px; background: #222; color: white; border: 1px solid #555; border-radius: 4px; padding: 10px; font-family: monospace;" oninput="updatePreview()"></textarea>
-                </div>
-                <div class="preview-container">
-                    <div class="preview-label">Discord / Mattermost Preview</div>
-                    <div id="ann-preview" class="preview-box"></div>
+                    <textarea id="ann-text" style="width: 100%; height: 300px; background: #222; color: white; border: 1px solid #555; border-radius: 4px; padding: 10px; font-family: monospace;"></textarea>
                 </div>
             </div>
             <div class="modal-form-section">
@@ -466,6 +482,19 @@
             <div class="modal-footer">
                 <button class="btn-danger" onclick="closeModal()">Cancel</button>
                 <button class="btn-primary" onclick="saveAnnouncement()">Save Announcement</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="broadcast-preview-modal" class="modal">
+        <div class="modal-content">
+            <h3>📢 Broadcast Preview</h3>
+            <div class="preview-modal-content" id="preview-targets-list">
+                <!-- Targets injected here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-danger" onclick="closePreviewModal()">Close</button>
+                <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Confirm & Send All</button>
             </div>
         </div>
     </div>
@@ -719,17 +748,13 @@
         async function renderBroadcasts(container) {
             container.innerHTML = `
                 <div class="card">
-                    <h3 style="margin-top:0">Global Control</h3>
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="broadcast-enabled"> 
-                            <label for="broadcast-enabled">Enable all scheduled broadcasts</label>
-                        </div>
-                        <button class="btn-primary" onclick="saveBroadcastSettings()">Save Settings</button>
-                    </div>
+                    <h3 style="margin-top:0">Broadcasts</h3>
                     <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-                        <small style="color: #aaa;">Individual announcements have their own schedules below.</small>
-                        <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send All Active Now</button>
+                        <small style="color: #aaa;">Manual trigger for all active announcements.</small>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-primary" onclick="previewBroadcast()">👁️ Preview Targets</button>
+                            <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send All Active Now</button>
+                        </div>
                     </div>
                 </div>
 
@@ -755,9 +780,6 @@
                 </div>
             `;
             try {
-                const bSettings = await api('/api/admin/broadcast-settings');
-                document.getElementById('broadcast-enabled').checked = !!bSettings.is_enabled;
-                
                 const data = await api('/api/admin/announcements');
                 const tbody = document.querySelector('#announcements-table tbody');
                 tbody.innerHTML = data.map(a => `
@@ -890,6 +912,7 @@
             try {
                 await api('/api/admin/streamers/toggle-notify', 'POST', { username, enabled });
                 notify('Notification preference updated!');
+                renderStreamers(document.getElementById('content-area'));
             } catch (e) {
                 notify('Failed to update notification preference: ' + e.message, 'error');
             }
@@ -899,6 +922,7 @@
             try {
                 await api('/api/admin/streamers/toggle-show', 'POST', { username, visible });
                 notify('Visibility preference updated!');
+                renderStreamers(document.getElementById('content-area'));
             } catch (e) {
                 notify('Failed to update visibility preference: ' + e.message, 'error');
             }
@@ -1003,14 +1027,60 @@
             }
         }
 
-        async function saveBroadcastSettings() {
-            const enabled = document.getElementById('broadcast-enabled').checked;
+        async function previewBroadcast() {
             try {
-                await api('/api/admin/broadcast-settings', 'POST', { is_enabled: enabled, cron_schedule: '' });
-                notify('Global settings saved successfully!');
+                const data = await api('/api/admin/broadcast-preview');
+                const list = document.getElementById('preview-targets-list');
+                
+                if (data.announcements.length === 0) {
+                    list.innerHTML = '<div style="text-align:center; padding: 20px;">No active announcements to broadcast.</div>';
+                } else {
+                    let html = '<div class="preview-section"><h4>📢 Active Announcements</h4>';
+                    html += data.announcements.map(a => `
+                        <div class="preview-item">
+                            <span class="target-name">${a.text.substring(0, 60)}${a.text.length > 60 ? '...' : ''}</span>
+                            <span class="target-id">D:${a.discord_enabled ? '✅' : '❌'} M:${a.mattermost_enabled ? '✅' : '❌'} T:${a.twitch_enabled ? '✅' : '❌'}</span>
+                        </div>
+                    `).join('');
+                    html += '</div>';
+
+                    if (data.targets.discord.length > 0) {
+                        html += '<div class="preview-section"><h4>💬 Discord Targets</h4>';
+                        html += data.targets.discord.map(t => `
+                            <div class="preview-item">
+                                <span class="target-name">${t.guildName} / ${t.channelName}</span>
+                                <span class="target-id">${t.channelId}</span>
+                            </div>
+                        `).join('');
+                        html += '</div>';
+                    }
+
+                    if (data.targets.mattermost.length > 0) {
+                        html += '<div class="preview-section"><h4>🏢 Mattermost Targets</h4>';
+                        html += data.targets.mattermost.map(t => `
+                            <div class="preview-item">
+                                <span class="target-name">${t.label}</span>
+                                <span class="target-id">${t.serverUrl}</span>
+                            </div>
+                        `).join('');
+                        html += '</div>';
+                    }
+
+                    if (data.targets.discord.length === 0 && data.targets.mattermost.length === 0) {
+                        html += '<div class="preview-section"><h4>⚠️ No active notification targets configured.</h4></div>';
+                    }
+
+                    list.innerHTML = html;
+                }
+                
+                document.getElementById('broadcast-preview-modal').style.display = 'flex';
             } catch (e) {
-                notify('Failed to save settings: ' + e.message, 'error');
+                notify('Failed to fetch preview: ' + e.message, 'error');
             }
+        }
+
+        function closePreviewModal() {
+            document.getElementById('broadcast-preview-modal').style.display = 'none';
         }
 
         // Announcement Logic
@@ -1034,7 +1104,6 @@
                             document.getElementById('ann-cron').value = ann.cron_schedule || '';
                             updateCronPreview();
                         }
-                        updatePreview();
                     }
                 });
             } else {
@@ -1045,7 +1114,6 @@
                 document.getElementById('ann-twitch').checked = false;
                 document.getElementById('ann-start').value = '';
                 document.getElementById('ann-end').value = '';
-                updatePreview();
             }
         }
 
@@ -1054,28 +1122,11 @@
         }
 
         function insertText(start, end) {
-            const textarea = document.getElementById('ann-text');
-            const startPos = textarea.selectionStart;
-            const endPos = textarea.selectionEnd;
-            const text = textarea.value;
-            textarea.value = text.substring(0, startPos) + start + text.substring(startPos, endPos) + end + text.substring(endPos);
-            textarea.selectionStart = startPos + start.length;
-            textarea.selectionEnd = endPos + start.length;
-            updatePreview();
-            textarea.focus();
+            // Removed rich text insertion as it is no longer supported by the UI
         }
 
         function updatePreview() {
-            const text = document.getElementById('ann-text').value;
-            const preview = document.getElementById('ann-preview');
-            let html = text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" style="color:var(--secondary-color)">$1</a>')
-                .replace(/{{today}}/g, '<span style="color:var(--accent-color)">[Today\'s Date]</span>')
-                .replace(/{{streamer_count}}/g, '<span style="color:var(--accent-color)">[Count]</span>')
-                .replace(/{{team_link}}/g, '<span style="color:var(--accent-color)">[Team Link]</span>');
-            preview.innerHTML = html;
+            // Removed rich text preview as it is no longer supported by the UI
         }
 
         async function saveAnnouncement() {

@@ -364,8 +364,14 @@ export class DiscordNotifier {
             return;
         }
 
-        for (const config of this.configs) {
-            if (!config.isActive) continue;
+        // Filter active configs first to ensure we are iterating through only enabled ones
+        const activeConfigs = this.configs.filter(c => c.isActive);
+        if (activeConfigs.length === 0) {
+            console.warn('[DiscordNotifier] No active servers configured for broadcast');
+            return;
+        }
+
+        for (const config of activeConfigs) {
             try {
                 const client = this.clients.get(config.token);
                 if (!client) continue;
@@ -393,5 +399,31 @@ export class DiscordNotifier {
                 console.error(`[DiscordNotifier] Broadcast failed for ${config.channelId}:`, error);
             }
         }
+    }
+
+    async getActiveTargets() {
+        const targets = [];
+        for (const config of this.configs) {
+            if (config.isActive) {
+                const client = this.clients.get(config.token);
+                if (client) {
+                    try {
+                        const channel = await client.channels.fetch(config.channelId);
+                        targets.push({
+                            guildName: channel?.guild?.name || 'Unknown Guild',
+                            channelName: channel?.name || 'Unknown Channel',
+                            channelId: config.channelId
+                        });
+                    } catch (e) {
+                        targets.push({
+                            guildName: 'Error',
+                            channelName: 'Error',
+                            channelId: config.channelId
+                        });
+                    }
+                }
+            }
+        }
+        return targets;
     }
 }

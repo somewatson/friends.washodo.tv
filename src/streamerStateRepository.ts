@@ -284,17 +284,11 @@ export class StreamerStateRepository {
     }
 
     async getBroadcastSettings() {
-        if (!this.db) throw new Error('Database not initialized');
-        return this.db.prepare('SELECT * FROM broadcast_settings WHERE id = 1').get() as any;
+        throw new Error('Deprecated: Use individual announcement settings instead.');
     }
 
     async saveBroadcastSettings(settings: { cron_schedule: string, is_enabled: boolean }) {
-        if (!this.db) throw new Error('Database not initialized');
-        this.db.prepare(`
-            UPDATE broadcast_settings 
-            SET cron_schedule = ?, is_enabled = ? 
-            WHERE id = 1
-        `).run(settings.cron_schedule, settings.is_enabled ? 1 : 0);
+        throw new Error('Deprecated: Use individual announcement settings instead.');
     }
 
     async getAnnouncements() {

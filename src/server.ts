@@ -384,21 +384,11 @@ export class ApiServer {
         });
 
         this.app.get('/api/admin/broadcast-settings', async (req, res) => {
-            try {
-                const settings = await this.stateRepo.getBroadcastSettings();
-                res.json(settings);
-            } catch (error: any) {
-                res.status(500).json({ error: 'Failed to fetch broadcast settings', details: error.message });
-            }
+            res.status(404).json({ error: 'Broadcast settings have been removed. Please use individual announcement toggles.' });
         });
 
         this.app.post('/api/admin/broadcast-settings', async (req, res) => {
-            try {
-                await this.stateRepo.saveBroadcastSettings(req.body);
-                res.json({ success: true });
-            } catch (error: any) {
-                res.status(500).json({ error: 'Failed to save broadcast settings', details: error.message });
-            }
+            res.status(404).json({ error: 'Broadcast settings have been removed. Please use individual announcement toggles.' });
         });
 
         this.app.post('/api/admin/broadcast-now', async (req, res) => {
@@ -409,12 +399,42 @@ export class ApiServer {
                 
                 const app = this.mainApp as any;
                 
-                // We need notifiers from the app. I'll modify bootstrap in index.ts to store them.
                 await app.triggerForcedBroadcast(app.mattermostNotifier, app.discordNotifier, app.twitchChatClient);
                 
                 res.json({ success: true, message: 'Forced broadcast triggered for all active announcements' });
             } catch (error: any) {
                 res.status(500).json({ error: 'Failed to trigger broadcast', details: error.message });
+            }
+        });
+
+        this.app.get('/api/admin/broadcast-preview', async (req, res) => {
+            try {
+                if (!this.mainApp) {
+                    return res.status(500).json({ error: 'Main app reference not initialized' });
+                }
+
+                const app = this.mainApp as any;
+                const announcements = await this.stateRepo.getAnnouncements();
+                const activeAnnouncements = announcements.filter((a: any) => a.is_active);
+
+                const discordTargets = await app.discordNotifier.getActiveTargets();
+                const mattermostTargets = await app.mattermostNotifier.getActiveTargets();
+
+                res.json({
+                    announcements: activeAnnouncements.map((a: any) => ({
+                        id: a.id,
+                        text: a.text,
+                        discord_enabled: a.discord_enabled,
+                        mattermost_enabled: a.mattermost_enabled,
+                        twitch_enabled: a.twitch_enabled
+                    })),
+                    targets: {
+                        discord: discordTargets,
+                        mattermost: mattermostTargets
+                    }
+                });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to generate broadcast preview', details: error.message });
             }
         });
 

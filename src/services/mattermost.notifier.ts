@@ -113,11 +113,17 @@ export class MattermostNotifier {
       return;
     }
 
+    // Filter active servers first to ensure we are iterating through only enabled ones
+    const activeServers = this.servers.filter(s => s.isActive);
+    if (activeServers.length === 0) {
+      console.warn('[MattermostNotifier] No active servers configured for broadcast');
+      return;
+    }
+
     const envPrefix = getEnvPrefix();
     const message = `${envPrefix}📢 **Community Announcement**\n\n${text}`;
 
-    for (const server of this.servers) {
-      if (!server.isActive) continue;
+    for (const server of activeServers) {
       try {
         await withRetry(
           () => axios.post(`${server.serverUrl}/api/v4/posts`, {
@@ -135,5 +141,15 @@ export class MattermostNotifier {
         console.error(`[MattermostNotifier] Broadcast failed for ${server.serverUrl}:`, error);
       }
     }
+  }
+
+  async getActiveTargets() {
+    return this.servers
+      .filter(s => s.isActive)
+      .map(s => ({
+        label: s.label || 'Unnamed Server',
+        channelId: s.channelId,
+        serverUrl: s.serverUrl
+      }));
   }
 }
