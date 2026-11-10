@@ -1258,7 +1258,9 @@
                 const data = await api('/api/admin/announcements');
                 const ann = data.find(a => a.id === id);
                 if (ann) {
-                    await api('/api/admin/announcements', 'POST', { ...ann, [field]: value });
+                    // Convert boolean to 1 or 0 for the database
+                    const updatedValue = value ? 1 : 0;
+                    await api('/api/admin/announcements', 'POST', { ...ann, [field]: updatedValue });
                     notify(`${field} updated!`);
                     renderBroadcasts(document.getElementById('content-area'));
                 }

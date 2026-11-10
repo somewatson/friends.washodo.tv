@@ -121,6 +121,8 @@ class WashodoWardApp {
                     
                     const notifications = [];
                     
+                    // For "Live" notifications, we check if ANY announcement is enabled for the platform
+                    // because the assembler already filters for is_active and date range.
                     if (assembled.mattermost) {
                         notifications.push(mattermostNotifier.notify(streamData, isRecurring, assembled.mattermost));
                     }
