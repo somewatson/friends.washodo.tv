@@ -16,7 +16,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 class WashodoWardApp {
-    private stateRepo!: StreamerStateRepository; // Added to make it accessible to methods
+    private stateRepo!: StreamerStateRepository;
+    private broadcastJobs: Map<number, any> = new Map();
 
     async triggerForcedBroadcast(mattermostNotifier: MattermostNotifier, discordNotifier: DiscordNotifier, twitchChatClient: TwitchChatClient) {
         console.log(`[${new Date().toISOString()}] Manual trigger: Running forced community broadcast...`);
@@ -25,20 +26,7 @@ class WashodoWardApp {
             const activeAnnouncements = announcements.filter(a => a.is_active);
             
             for (const ann of activeAnnouncements) {
-                const assembled = await AnnouncementAssembler.assemble([ann], 0);
-                if (!assembled.discord && !assembled.mattermost && !assembled.twitch) continue;
-                
-                const notifications = [];
-                if (assembled.mattermost && ann.mattermost_enabled) {
-                    notifications.push(mattermostNotifier.broadcast(assembled.mattermost));
-                }
-                if (assembled.discord && ann.discord_enabled) {
-                    notifications.push(discordNotifier.broadcast(assembled.discord));
-                }
-                if (assembled.twitch && ann.twitch_enabled) {
-                    console.log(`[TwitchChatClient] Forced broadcast: ${assembled.twitch}`);
-                }
-                await Promise.allSettled(notifications);
+                await this.executeBroadcast(ann, mattermostNotifier, discordNotifier, twitchChatClient);
             }
             console.log('Forced community broadcast completed.');
         } catch (error) {
@@ -47,46 +35,53 @@ class WashodoWardApp {
         }
     }
 
-    async sendBroadcast(mattermostNotifier: MattermostNotifier, discordNotifier: DiscordNotifier, twitchChatClient: TwitchChatClient, stateRepo: StreamerStateRepository) {
-        this.stateRepo = stateRepo; // Ensure it's set
-        console.log(`[${new Date().toISOString()}] Running community broadcast check...`);
+    private async executeBroadcast(ann: any, mattermostNotifier: MattermostNotifier, discordNotifier: DiscordNotifier, twitchChatClient: TwitchChatClient) {
         try {
-            const announcements = await stateRepo.getAnnouncements();
-            const now = new Date();
+            const assembled = await AnnouncementAssembler.assemble([ann], 0);
+            if (!assembled.discord && !assembled.mattermost && !assembled.twitch) return;
+
+            const notifications = [];
+            if (assembled.mattermost && ann.mattermost_enabled) {
+                notifications.push(mattermostNotifier.broadcast(assembled.mattermost));
+            }
+            if (assembled.discord && ann.discord_enabled) {
+                notifications.push(discordNotifier.broadcast(assembled.discord));
+            }
+            if (assembled.twitch && ann.twitch_enabled) {
+                console.log(`[TwitchChatClient] Broadcast: ${assembled.twitch}`);
+            }
+            await Promise.allSettled(notifications);
+        } catch (error) {
+            console.error(`[Broadcast] Error executing announcement ${ann.id}:`, error);
+        }
+    }
+
+    async scheduleBroadcasts(mattermostNotifier: MattermostNotifier, discordNotifier: DiscordNotifier, twitchChatClient: TwitchChatClient) {
+        console.log(`[${new Date().toISOString()}] Scheduling community broadcasts...`);
+        try {
+            const announcements = await this.stateRepo.getAnnouncements();
             
+            for (const job of this.broadcastJobs.values()) {
+                job.stop();
+            }
+            this.broadcastJobs.clear();
+
             for (const ann of announcements) {
-                if (!ann.is_active) continue;
-                if (!ann.cron_schedule) continue;
+                if (!ann.is_active || !ann.cron_schedule) continue;
 
                 try {
-                    const interval = (cronParser as any).parseExpression(ann.cron_schedule);
-                    const nextDate = interval.next().toDate();
-                    if (Math.abs(nextDate.getTime() - now.getTime()) < 60000) {
-                        console.log(`[Broadcast] Schedule match for announcement ${ann.id}: ${ann.cron_schedule}`);
-                        
-                        const assembled = await AnnouncementAssembler.assemble([ann], 0);
-                        
-                        if (!assembled.discord && !assembled.mattermost && !assembled.twitch) continue;
-        
-                        const notifications = [];
-                        if (assembled.mattermost && ann.mattermost_enabled) {
-                            notifications.push(mattermostNotifier.broadcast(assembled.mattermost));
-                        }
-                        if (assembled.discord && ann.discord_enabled) {
-                            notifications.push(discordNotifier.broadcast(assembled.discord));
-                        }
-                        if (assembled.twitch && ann.twitch_enabled) {
-                            console.log(`[TwitchChatClient] Scheduled broadcast: ${assembled.twitch}`);
-                        }
-                        await Promise.allSettled(notifications);
-                    }
+                    const job = cron.schedule(ann.cron_schedule, () => {
+                        console.log(`[Broadcast] Scheduled trigger for announcement ${ann.id}: ${ann.cron_schedule}`);
+                        this.executeBroadcast(ann, mattermostNotifier, discordNotifier, twitchChatClient);
+                    });
+                    this.broadcastJobs.set(ann.id, job);
                 } catch (err) {
                     console.error(`[Broadcast] Invalid cron expression for announcement ${ann.id}: ${ann.cron_schedule}`);
                 }
             }
-            console.log('Community broadcast check completed.');
+            console.log(`Scheduled ${this.broadcastJobs.size} active community broadcasts.`);
         } catch (error) {
-            console.error('Error during scheduled broadcast:', error);
+            console.error('Error scheduling broadcasts:', error);
         }
     }
 
@@ -184,12 +179,9 @@ class WashodoWardApp {
             const intervalStr = process.env.CHECK_INTERVAL || '*/5 * * * *';
             cron.schedule(intervalStr, () => this.runCheck(twitchClient, mattermostNotifier, discordNotifier, twitchChatClient, stateManager, stateRepo));
 
-            // Set up the community broadcast cron job to run every minute
-            // This will check each announcement's individual schedule
-            cron.schedule('* * * * *', () => this.sendBroadcast(mattermostNotifier, discordNotifier, twitchChatClient, stateRepo));
-            console.log('Community Broadcast checker scheduled to run every minute');
+            // Schedule broadcasts once on bootstrap
+            await this.scheduleBroadcasts(mattermostNotifier, discordNotifier, twitchChatClient);
 
-            // Run immediately on start
             await this.runCheck(twitchClient, mattermostNotifier, discordNotifier, twitchChatClient, stateManager, stateRepo);
 
             console.log(`Twitch Notifier started. Polling every ${intervalStr}`);
