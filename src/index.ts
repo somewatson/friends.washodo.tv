@@ -71,15 +71,22 @@ class WashodoWardApp {
                 const hasTarget = ann.discord_enabled || ann.mattermost_enabled || ann.twitch_enabled;
                 if (!ann.is_active || !ann.cron_schedule || !hasTarget) continue;
 
-                try {
-                    const job = cron.schedule(ann.cron_schedule, () => {
-                        console.log(`[Broadcast] Scheduled trigger for announcement ${ann.id}: ${ann.cron_schedule}`);
-                        this.executeBroadcast(ann, mattermostNotifier, discordNotifier, twitchChatClient);
-                    });
-                    this.broadcastJobs.set(ann.id, job);
-                    const textSnippet = ann.text.substring(0, 30).replace(/\n/g, ' ') + (ann.text.length > 30 ? '...' : '');
-                    console.log(`[Broadcast] Successfully scheduled announcement ${ann.id} ("${textSnippet}") with schedule: ${ann.cron_schedule}`);
-                } catch (err) {
+                    try {
+                        const job = cron.schedule(ann.cron_schedule, () => {
+                            console.log(`[Broadcast] Scheduled trigger for announcement ${ann.id}: ${ann.cron_schedule}`);
+                            this.executeBroadcast(ann, mattermostNotifier, discordNotifier, twitchChatClient);
+                        });
+                        this.broadcastJobs.set(ann.id, job);
+                        
+                        const nextDate = (parser as any).parseExpression(ann.cron_schedule).next().toDate();
+                        const diffMs = nextDate.getTime() - Date.now();
+                        const diffHrs = Math.floor(diffMs / 3600000);
+                        const diffMins = Math.floor((diffMs % 3600000) / 60000);
+                        const relativeTime = diffHrs > 0 ? `${diffHrs}h ${diffMins}m` : `${diffMins}m`;
+
+                        const textSnippet = ann.text.substring(0, 30).replace(/\n/g, ' ') + (ann.text.length > 30 ? '...' : '');
+                        console.log(`[Broadcast] Successfully scheduled announcement ${ann.id} ("${textSnippet}") with schedule: ${ann.cron_schedule} (next event in ${relativeTime})`);
+                    } catch (err) {
                     console.error(`[Broadcast] Invalid cron expression for announcement ${ann.id}: ${ann.cron_schedule}`);
                 }
             }
