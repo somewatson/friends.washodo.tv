@@ -412,14 +412,14 @@ export class ApiServer {
                 if (!this.mainApp) {
                     return res.status(500).json({ error: 'Main app reference not initialized' });
                 }
-
+        
                 const app = this.mainApp as any;
                 const announcements = await this.stateRepo.getAnnouncements();
                 const activeAnnouncements = announcements.filter((a: any) => a.is_active);
-
+        
                 const discordTargets = await app.discordNotifier.getActiveTargets();
                 const mattermostTargets = await app.mattermostNotifier.getActiveTargets();
-
+        
                 res.json({
                     announcements: activeAnnouncements.map((a: any) => ({
                         id: a.id,
@@ -429,8 +429,8 @@ export class ApiServer {
                         twitch_enabled: a.twitch_enabled
                     })),
                     targets: {
-                        discord: discordTargets,
-                        mattermost: mattermostTargets
+                        discord: discordTargets.filter((t: any) => t.guildName !== 'Error'),
+                        mattermost: mattermostTargets.filter((t: any) => t.label !== 'Error')
                     }
                 });
             } catch (error: any) {
