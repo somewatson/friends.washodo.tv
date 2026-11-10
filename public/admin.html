@@ -319,27 +319,7 @@
         </div>
 
         <!-- Bot Settings Panel -->
-        <div id="panel-bot-settings" class="panel">
-            <h3>Bot Notifications & Schedule</h3>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <p>Manage the ordered list of announcements sent with notifications.</p>
-                <button class="btn-primary" onclick="openAnnouncementModal()">+ Add Announcement</button>
-            </div>
-            <table id="announcements-table">
-                <thead>
-                    <tr>
-                        <th>Order</th>
-                        <th>Text Preview</th>
-                        <th>Active</th>
-                        <th>Discord</th>
-                        <th>MM</th>
-                        <th>Twitch</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+        <div id=\"panel-bot-settings\" class=\"panel\">\n            <h3 style=\"margin-bottom: 10px;\">Community Broadcasts</h3>\n            <div style=\"background: #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--accent-color);\">\n                <div style=\"display: flex; justify-content: space-between; align-items: center; gap: 20px;\">\n                    <div style=\"flex: 1;\">\n                        <label style=\"display: block; font-size: 0.9em; margin-bottom: 5px;\">Broadcast Schedule (Cron):</label>\n                        <input type=\"text\" id=\"broadcast-cron\" style=\"width: 100%; background: #222; color: white; border: 1px solid #555; border-radius: 4px; padding: 8px; font-family: monospace;\" placeholder=\"0 12 * * *\">\n                    </div>\n                    <div style=\"display: flex; flex-direction: column; gap: 10px; align-items: center;\">\n                        <label><input type=\"checkbox\" id=\"broadcast-enabled\"> Enabled</label>\n                        <button class=\"btn-primary\" onclick=\"saveBroadcastSettings()\">Save</button>\n                    </div>\n                </div>\n                <div style=\"margin-top: 10px; display: flex; justify-content: space-between; align-items: center;\">\n                    <small style=\"color: #aaa;\">Example: <code>0 12 * * *</code> (Daily at noon)</small>\n                    <button class=\"btn-success\" onclick=\"triggerBroadcastNow()\">🚀 Send Broadcast Now</button>\n                </div>\n            </div>\n\n            <h3 style=\"margin-bottom: 10px;\">Announcement Content</h3>\n            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;\">\n                <p>Manage the ordered list of announcements sent with notifications and broadcasts.</p>\n                <button class=\"btn-primary\" onclick=\"openAnnouncementModal()\">+ Add Announcement</button>\n            </div>\n            <table id=\"announcements-table\">\n                <thead>\n                    <tr>\n                        <th>Order</th>\n                        <th>Text Preview</th>\n                        <th>Active</th>\n                        <th>Discord</th>\n                        <th>MM</th>\n                        <th>Twitch</th>\n                        <th>Actions</th>\n                    </tr>\n                </thead>\n                <tbody></tbody>\n            </table>\n        </div>
 
         <!-- System Panel -->
         <div id="panel-system" class="panel">
@@ -535,6 +515,11 @@
                         </tr>
                     `).join('');
                 } else if (panel === 'bot-settings') {
+                    // Load Broadcast Settings
+                    const bSettings = await api('/api/admin/broadcast-settings');
+                    document.getElementById('broadcast-cron').value = bSettings.cron_schedule || '0 12 * * *';
+                    document.getElementById('broadcast-enabled').checked = !!bSettings.is_enabled;
+
                     const data = await api('/api/admin/announcements');
                     const tbody = document.querySelector('#announcements-table tbody');
                     tbody.innerHTML = data.map(a => `

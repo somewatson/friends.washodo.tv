@@ -51,18 +51,15 @@ export class StreamerStateRepository {
         `);
 
         this.db.exec(`
-            CREATE TABLE IF NOT EXISTS announcements (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                text TEXT,
-                order_index INTEGER DEFAULT 0,
-                is_active INTEGER DEFAULT 1,
-                discord_enabled INTEGER DEFAULT 1,
-                mattermost_enabled INTEGER DEFAULT 1,
-                twitch_enabled INTEGER DEFAULT 0,
-                start_date TEXT,
-                end_date TEXT
+            CREATE TABLE IF NOT EXISTS broadcast_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                cron_schedule TEXT DEFAULT '0 12 * * *',
+                is_enabled INTEGER DEFAULT 0
             )
         `);
+        
+        // Initialize default settings if not present
+        this.db.prepare('INSERT OR IGNORE INTO broadcast_settings (id, cron_schedule, is_enabled) VALUES (1, \'0 12 * * *\', 0)').run();
 
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS tracked_entities (
@@ -229,6 +226,20 @@ export class StreamerStateRepository {
     async removeMattermostConfig(id: number) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare('DELETE FROM mattermost_configs WHERE id = ?').run(id);
+    }
+
+    async getBroadcastSettings() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM broadcast_settings WHERE id = 1').get() as any;
+    }
+
+    async saveBroadcastSettings(settings: { cron_schedule: string, is_enabled: boolean }) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(`
+            UPDATE broadcast_settings 
+            SET cron_schedule = ?, is_enabled = ? 
+            WHERE id = 1
+        `).run(settings.cron_schedule, settings.is_enabled ? 1 : 0);
     }
 
     async getAnnouncements() {

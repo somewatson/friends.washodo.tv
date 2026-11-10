@@ -13,6 +13,40 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 class WashodoWardApp {
+    async sendBroadcast(mattermostNotifier: MattermostNotifier, discordNotifier: DiscordNotifier, twitchChatClient: TwitchChatClient, stateRepo: StreamerStateRepository) {
+        console.log(`[${new Date().toISOString()}] Running scheduled community broadcast...`);
+        try {
+            const announcements = await stateRepo.getAnnouncements();
+            const assembled = await AnnouncementAssembler.assemble(announcements, 0); // streamerCount 0 for general broadcast
+
+            if (!assembled.discord && !assembled.mattermost && !assembled.twitch) {
+                console.log('No active announcements for any platform. Skipping broadcast.');
+                return;
+            }
+
+            const notifications = [];
+
+            if (assembled.mattermost) {
+                // Use a generic 'System' or 'Community' identity for standalone broadcasts
+                notifications.push(mattermostNotifier.notify({ user_name: 'Washodo Ward', user_login: 'washodo' }, false, assembled.mattermost));
+            }
+            if (assembled.discord) {
+                notifications.push(discordNotifier.notify({ user_name: 'Washodo Ward', user_login: 'washodo' }, false, assembled.discord));
+            }
+            if (assembled.twitch) {
+                // For Twitch, we can't send to a specific "global" channel easily without a target.
+                // We might send it to the main hub channel if configured, or skip if no target is set.
+                // For now, let's log that it would be sent to a hub channel.
+                console.log(`[TwitchChatClient] Scheduled broadcast: ${assembled.twitch}`);
+            }
+
+            await Promise.allSettled(notifications);
+            console.log('Scheduled community broadcast sent.');
+        } catch (error) {
+            console.error('Error during scheduled broadcast:', error);
+        }
+    }
+
     async runCheck(
         twitchClient: TwitchClient, 
         mattermostNotifier: MattermostNotifier, 
@@ -98,6 +132,13 @@ class WashodoWardApp {
             // Set up the cron job with the initialized services
             const intervalStr = process.env.CHECK_INTERVAL || '*/5 * * * *';
             cron.schedule(intervalStr, () => this.runCheck(twitchClient, mattermostNotifier, discordNotifier, twitchChatClient, stateManager, stateRepo));
+
+            // Set up the community broadcast cron job
+            const broadcastSettings = await stateRepo.getBroadcastSettings();
+            if (broadcastSettings && broadcastSettings.is_enabled) {
+                cron.schedule(broadcastSettings.cron_schedule, () => this.sendBroadcast(mattermostNotifier, discordNotifier, twitchChatClient, stateRepo));
+                console.log(`Community Broadcast scheduled: ${broadcastSettings.cron_schedule}`);
+            }
 
             // Run immediately on start
             await this.runCheck(twitchClient, mattermostNotifier, discordNotifier, twitchChatClient, stateManager, stateRepo);

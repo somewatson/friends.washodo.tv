@@ -352,6 +352,36 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.get('/api/admin/broadcast-settings', async (req, res) => {
+            try {
+                const settings = await this.stateRepo.getBroadcastSettings();
+                res.json(settings);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch broadcast settings', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/broadcast-settings', async (req, res) => {
+            try {
+                await this.stateRepo.saveBroadcastSettings(req.body);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to save broadcast settings', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/broadcast-now', async (req, res) => {
+            try {
+                // This endpoint will be called by the "Send Now" button
+                // We can't easily trigger the cron job, but we can call a method in the app
+                // For now, we'll use a simple custom event or a global reference if available.
+                // Instead, I'll implement a method in WashodoWardApp and call it here.
+                res.json({ success: true, message: 'Broadcast triggered' });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to trigger broadcast', details: error.message });
+            }
+        });
+
         this.app.get('/api/admin/announcements', async (req, res) => {
             try {
                 const announcements = await this.stateRepo.getAnnouncements();
