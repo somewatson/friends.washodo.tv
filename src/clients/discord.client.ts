@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, PermissionFlagsBits, ChannelType, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, PermissionFlagsBits, ChannelType, TextChannel, NewsChannel } from 'discord.js';
 
 export class DiscordClient {
     public get client(): Client {
@@ -109,8 +109,8 @@ export class DiscordClient {
             if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
             
             const channel = await guild.channels.fetch(integration.channel_id);
-            if (!channel || !(channel instanceof TextChannel)) {
-                throw new Error('Notification channel not found or is not a text channel');
+            if (!channel || (!(channel instanceof TextChannel) && !(channel instanceof NewsChannel))) {
+                throw new Error('Notification channel not found or is not a valid text/announcement channel');
             }
             
             const env = process.env.APP_ENV;
