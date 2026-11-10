@@ -27,13 +27,13 @@ class WashodoWardApp {
             for (const ann of activeAnnouncements) {
                 const assembled = await AnnouncementAssembler.assemble([ann], 0);
                 if (!assembled.discord && !assembled.mattermost && !assembled.twitch) continue;
-
+                
                 const notifications = [];
                 if (assembled.mattermost && ann.mattermost_enabled) {
-                    notifications.push(mattermostNotifier.notify({ user_name: 'Washodo Ward', user_login: 'washodo' }, false, assembled.mattermost));
+                    notifications.push(mattermostNotifier.broadcast(assembled.mattermost));
                 }
                 if (assembled.discord && ann.discord_enabled) {
-                    notifications.push(discordNotifier.notify({ user_name: 'Washodo Ward', user_login: 'washodo' }, false, assembled.discord));
+                    notifications.push(discordNotifier.broadcast(assembled.discord));
                 }
                 if (assembled.twitch && ann.twitch_enabled) {
                     console.log(`[TwitchChatClient] Forced broadcast: ${assembled.twitch}`);
@@ -70,10 +70,10 @@ class WashodoWardApp {
         
                         const notifications = [];
                         if (assembled.mattermost && ann.mattermost_enabled) {
-                            notifications.push(mattermostNotifier.notify({ user_name: 'Washodo Ward', user_login: 'washodo' }, false, assembled.mattermost));
+                            notifications.push(mattermostNotifier.broadcast(assembled.mattermost));
                         }
                         if (assembled.discord && ann.discord_enabled) {
-                            notifications.push(discordNotifier.notify({ user_name: 'Washodo Ward', user_login: 'washodo' }, false, assembled.discord));
+                            notifications.push(discordNotifier.broadcast(assembled.discord));
                         }
                         if (assembled.twitch && ann.twitch_enabled) {
                             console.log(`[TwitchChatClient] Scheduled broadcast: ${assembled.twitch}`);

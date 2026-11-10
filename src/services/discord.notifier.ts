@@ -259,7 +259,7 @@ export class DiscordNotifier {
             const stream = liveStreams[0];
 
             if (stream) {
-                await message.reply(`🔴 **${stream.user_name}** is currently LIVE!\nTitle: ${stream.title}\nLink: https://twitch.tv/${stream.user_login}`);
+                await message.reply(`🔴 **${stream.user_name}** is currently LIVE!\nTitle: ${stream.title || 'No title provided'}\nLink: https://twitch.tv/${stream.user_login}`);
             } else {
                 await message.reply(`⚪ **${username}** is currently offline.`);
             }
@@ -309,7 +309,7 @@ export class DiscordNotifier {
                         const embed = new EmbedBuilder()
                             .setColor(0xFF0000)
                             .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
-                            .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}\n\n${scheduleText}`)
+                            .setDescription(`**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}\n\n${scheduleText}`)
                             .setThumbnail(thumbnail || null)
                             .setTimestamp();
 
@@ -354,10 +354,39 @@ export class DiscordNotifier {
         }
     }
 
-    async stop(): Promise<void> {
-        for (const client of this.clients.values()) {
-            client.destroy();
+    async broadcast(text: string): Promise<void> {
+        if (this.configs.length === 0) {
+            console.warn('[DiscordNotifier] No servers configured for broadcast');
+            return;
         }
-        this.clients.clear();
+
+        for (const config of this.configs) {
+            try {
+                const client = this.clients.get(config.token);
+                if (!client) continue;
+
+                await withRetry(
+                    async () => {
+                        const channel = await client.channels.fetch(config.channelId);
+                        if (!channel || !channel.isTextBased()) {
+                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
+                        }
+
+                        const embed = new EmbedBuilder()
+                            .setColor(0xa970ff) // Washodo Purple
+                            .setTitle(`${getEnvPrefix()}📢 Community Announcement`)
+                            .setDescription(text)
+                            .setTimestamp();
+
+                        await (channel as any).send({ embeds: [embed] });
+                    },
+                    3,
+                    1000,
+                    (err, attempt) => console.log(`[DiscordNotifier] Broadcast retry ${attempt} for ${config.channelId}: ${err.message}`)
+                );
+            } catch (error: any) {
+                console.error(`[DiscordNotifier] Broadcast failed for ${config.channelId}:`, error);
+            }
+        }
     }
 }
