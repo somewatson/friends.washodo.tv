@@ -165,12 +165,58 @@
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
         .modal-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
-            margin-bottom: 20px;
+        }
+        .modal-form-section {
+            background: #3a3a3a;
+            padding: 20px;
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            align-items: center;
+        }
+        .modal-form-section label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .cron-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            grid-column: 1 / -1;
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #555;
+        }
+        .cron-presets {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            grid-column: 1 / -1;
+        }
+        .btn-preset {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            background: #444;
+            border: 1px solid #666;
+            color: #ccc;
+        }
+        .btn-preset:hover {
+            background: var(--accent-color);
+            color: white;
         }
         .editor-container, .preview-container {
             display: flex;
@@ -262,6 +308,8 @@
                         <th>Username</th>
                         <th>Category</th>
                         <th>Followers</th>
+                        <th>Notify</th>
+                        <th>Show</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -287,6 +335,7 @@
                         <th>Channel ID</th>
                         <th>Members</th>
                         <th>Owner</th>
+                        <th>Active</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -311,6 +360,7 @@
                         <th>Label</th>
                         <th>URL</th>
                         <th>Channel</th>
+                        <th>Active</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -394,7 +444,7 @@
                     <div id="ann-preview" class="preview-box"></div>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="modal-form-section">
                 <label><input type="checkbox" id="ann-active" checked> Active</label>
                 <label><input type="checkbox" id="ann-discord" checked> Discord</label>
                 <label><input type="checkbox" id="ann-mattermost" checked> Mattermost</label>
@@ -407,10 +457,17 @@
                     <label>End:</label>
                     <input type="date" id="ann-end">
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                    <label>Schedule (Cron):</label>
-                    <input type="text" id="ann-cron" style="flex: 1; background: #222; color: white; border: 1px solid #555; border-radius: 4px; padding: 8px; font-family: monospace;" placeholder="0 12 * * *">
-                    <div id="cron-preview" style="font-size: 0.8em; min-width: 150px;"></div>
+                <div class="cron-input-group">
+                    <label style="white-space: nowrap;">Schedule (Cron):</label>
+                    <input type="text" id="ann-cron" style="flex: 1; background: transparent; color: white; border: none; outline: none; font-family: monospace;" placeholder="0 12 * * *">
+                    <div id="cron-preview" style="font-size: 0.8em; min-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                </div>
+                <div class="cron-presets">
+                    <button class="btn-preset" onclick="applyCronPreset('hourly')">Hourly</button>
+                    <button class="btn-preset" onclick="applyCronPreset('daily_noon')">Daily Noon</button>
+                    <button class="btn-preset" onclick="applyCronPreset('daily_midnight')">Daily Midnight</button>
+                    <button class="btn-preset" onclick="applyCronPreset('weekly_mon')">Weekly Mon</button>
+                    <button class="btn-preset" onclick="applyCronPreset('every_6h')">Every 6h</button>
                 </div>
             </div>
             <div class="modal-footer">
@@ -530,6 +587,8 @@
                             </td>
                             <td><span class="status-pill pill-${s.category}">${s.category}</span></td>
                             <td>${s.followerCount.toLocaleString()}</td>
+                            <td><input type="checkbox" ${s.notify_enabled ? 'checked' : ''} onchange="toggleStreamerNotify('${s.username}', this.checked)"></td>
+                            <td><input type="checkbox" ${s.show_on_page ? 'checked' : ''} onchange="toggleStreamerShow('${s.username}', this.checked)"></td>
                             <td><button class="btn-danger" onclick="removeStreamer('${s.username}')">Remove</button></td>
                         </tr>
                     `).join('');
@@ -564,6 +623,7 @@
                             <td>${d.channel_id}</td>
                             <td style="text-align: center">${d.memberCount.toLocaleString()}</td>
                             <td>${d.owner_id || 'System'}</td>
+                            <td><input type="checkbox" ${d.is_active ? 'checked' : ''} onchange="toggleDiscord('${d.guild_id}', this.checked)"></td>
                             <td>
                                 <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
                                 <button class="btn-primary" onclick="syncDiscord('${d.guild_id}')">Sync</button>
@@ -579,6 +639,7 @@
                             <td>${m.label}</td>
                             <td>${m.server_url}</td>
                             <td>${m.channel_id}</td>
+                            <td><input type="checkbox" ${m.is_active ? 'checked' : ''} onchange="toggleMattermost(${m.id}, this.checked)"></td>
                             <td>
                                 <button class="btn-success" onclick="testMattermost(${m.id})">Test</button>
                                 <button class="btn-danger" onclick="removeMattermost(${m.id})">Remove</button>
@@ -632,6 +693,24 @@
             }
         }
 
+        async function toggleStreamerNotify(username, enabled) {
+            try {
+                await api('/api/admin/streamers/toggle-notify', 'POST', { username, enabled });
+                notify('Notification preference updated!');
+            } catch (e) {
+                notify('Failed to update notification preference: ' + e.message, 'error');
+            }
+        }
+
+        async function toggleStreamerShow(username, visible) {
+            try {
+                await api('/api/admin/streamers/toggle-show', 'POST', { username, visible });
+                notify('Visibility preference updated!');
+            } catch (e) {
+                notify('Failed to update visibility preference: ' + e.message, 'error');
+            }
+        }
+
         async function addStreamer() {
             const username = document.getElementById('streamer-user').value;
             const category = document.getElementById('streamer-cat').value;
@@ -675,6 +754,24 @@
             }
         }
 
+        async function toggleDiscord(guildId, active) {
+            try {
+                await api('/api/admin/discord/toggle', 'POST', { guildId, active });
+                notify('Discord integration status updated!');
+            } catch (e) {
+                notify('Failed to update Discord status: ' + e.message, 'error');
+            }
+        }
+
+        async function toggleMattermost(id, active) {
+            try {
+                await api('/api/admin/mattermost/toggle', 'POST', { id, active });
+                notify('Mattermost configuration status updated!');
+            } catch (e) {
+                notify('Failed to update Mattermost status: ' + e.message, 'error');
+            }
+        }
+        
         async function testDiscord(guildId) {
             try {
                 await api(`/api/admin/discord/test/${guildId}`, 'POST');
@@ -738,9 +835,10 @@
                         document.getElementById('ann-twitch').checked = !!ann.twitch_enabled;
                         document.getElementById('ann-start').value = ann.start_date || '';
                         document.getElementById('ann-end').value = ann.end_date || '';
-                        if (document.getElementById('ann-cron')) {
-                            document.getElementById('ann-cron').value = ann.cron_schedule || '';
-                        }
+                if (document.getElementById('ann-cron')) {
+                    document.getElementById('ann-cron').value = ann.cron_schedule || '';
+                    updateCronPreview();
+                }
                         updatePreview();
                     }
                 });
@@ -851,14 +949,14 @@
                 'weekly_mon': '0 0 * * 1',
                 'every_6h': '0 */6 * * *',
             };
-            const cronInput = document.getElementById('ann-cron');
-            if (cronInput && presets[presetKey]) {
-                cronInput.value = presets[presetKey];
-                updateCronPreview();
-            }
+                const cronInput = document.getElementById('ann-cron');
+                if (cronInput) {
+                    cronInput.value = presets[presetKey];
+                    updateCronPreview();
+                }
         }
 
-        async function updateCronPreview() {
+        function updateCronPreview() {
             const cronInput = document.getElementById('ann-cron');
             const previewDiv = document.getElementById('cron-preview');
             if (!cronInput || !previewDiv) return;
@@ -869,15 +967,27 @@
                 return;
             }
 
-            try {
-                // In a real app, we'd call a backend API that uses cron-parser
-                // For now, we'll provide a basic local hint or just say "Validating..."
-                previewDiv.textContent = 'Schedule: ' + cron + ' (Check validity on save)';
-                previewDiv.style.color = 'var(--secondary-color)';
-            } catch (e) {
-                previewDiv.textContent = 'Invalid cron expression';
-                previewDiv.style.color = 'var(--danger-color)';
-            }
+            const translation = translateCron(cron);
+            previewDiv.textContent = `${cron} → ${translation}`;
+            previewDiv.style.color = 'var(--secondary-color)';
+        }
+
+        function translateCron(cron) {
+            const parts = cron.split(' ');
+            if (parts.length !== 5) return 'Custom schedule';
+
+            const [min, hour, dom, month, dow] = parts;
+
+            if (min === '0' && hour === '0' && dom === '*' && month === '*' && dow === '*') return 'Daily at Midnight';
+            if (min === '0' && hour === '12' && dom === '*' && month === '*' && dow === '*') return 'Daily at Noon';
+            if (min === '0' && hour === '*' && dom === '*' && month === '*' && dow === '*') return 'Hourly';
+            if (min === '0' && hour === '0' && dom === '*' && month === '*' && dow === '1') return 'Weekly on Monday';
+            if (min === '0' && hour === '*/6' && dom === '*' && month === '*' && dow === '*') return 'Every 6 hours';
+            
+            if (min === '0' && hour === '*' && dom === '*' && month === '*' && (dow === '0' || dow === '6' || dow === '0,6')) return 'Weekends';
+            if (min === '0' && hour === '*' && dom === '*' && month === '*' && dow === '1-5') return 'Weekdays';
+
+            return 'Custom schedule';
         }
 
         async function exportDb() {

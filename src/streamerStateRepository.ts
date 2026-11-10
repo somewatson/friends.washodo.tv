@@ -46,7 +46,8 @@ export class StreamerStateRepository {
                 webhook_token TEXT,
                 bot_token TEXT,
                 channel_id TEXT,
-                label TEXT
+                label TEXT,
+                is_active INTEGER DEFAULT 1
             )
         `);
 
@@ -67,6 +68,8 @@ export class StreamerStateRepository {
                 platform TEXT DEFAULT 'twitch',
                 category TEXT,
                 is_active INTEGER DEFAULT 1,
+                notify_enabled INTEGER DEFAULT 1,
+                show_on_page INTEGER DEFAULT 1,
                 order_index INTEGER DEFAULT 0
             )
         `);
@@ -120,6 +123,21 @@ export class StreamerStateRepository {
             console.log('[StreamerStateRepository] Migrating: Adding order_index column to tracked_entities...');
             this.db.exec('ALTER TABLE tracked_entities ADD COLUMN order_index INTEGER DEFAULT 0');
         }
+        if (!trackedColumnNames.includes('notify_enabled')) {
+            console.log('[StreamerStateRepository] Migrating: Adding notify_enabled column to tracked_entities...');
+            this.db.exec('ALTER TABLE tracked_entities ADD COLUMN notify_enabled INTEGER DEFAULT 1');
+        }
+        if (!trackedColumnNames.includes('show_on_page')) {
+            console.log('[StreamerStateRepository] Migrating: Adding show_on_page column to tracked_entities...');
+            this.db.exec('ALTER TABLE tracked_entities ADD COLUMN show_on_page INTEGER DEFAULT 1');
+        }
+
+        const mmColumns = this.db.prepare('PRAGMA table_info(mattermost_configs)').all() as any[];
+        const mmColumnNames = mmColumns.map(col => col.name);
+        if (!mmColumnNames.includes('is_active')) {
+            console.log('[StreamerStateRepository] Migrating: Adding is_active column to mattermost_configs...');
+            this.db.exec('ALTER TABLE mattermost_configs ADD COLUMN is_active INTEGER DEFAULT 1');
+        }
 
     }
 
@@ -166,10 +184,10 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM tracked_entities ORDER BY order_index ASC').all() as any[];
     }
 
-    async getEntitiesByCategory(category: string): Promise<string[]> {
+    async getEntitiesByCategory(category: string): Promise<any[]> {
         if (!this.db) throw new Error('Database not initialized');
-        const rows = this.db.prepare('SELECT username FROM tracked_entities WHERE category = ? AND is_active = 1 ORDER BY order_index ASC').all(category) as { username: string }[];
-        return rows.map(row => row.username);
+        const rows = this.db.prepare('SELECT * FROM tracked_entities WHERE category = ? AND is_active = 1 ORDER BY order_index ASC').all(category) as any[];
+        return rows;
     }
 
     async addTrackedEntity(username: string, category: string) {
@@ -188,6 +206,18 @@ export class StreamerStateRepository {
     async removeTrackedEntity(username: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare('DELETE FROM tracked_entities WHERE username = ?').run(username.toLowerCase());
+    }
+
+    async toggleStreamerNotification(username: string, enabled: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE tracked_entities SET notify_enabled = ? WHERE username = ?')
+            .run(enabled ? 1 : 0, username.toLowerCase());
+    }
+
+    async toggleStreamerVisibility(username: string, visible: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE tracked_entities SET show_on_page = ? WHERE username = ?')
+            .run(visible ? 1 : 0, username.toLowerCase());
     }
 
     async updateStreamerOrder(updates: {username: string, orderIndex: number}[]) {
@@ -225,7 +255,7 @@ export class StreamerStateRepository {
 
     async getDiscordIntegrations() {
         if (!this.db) throw new Error('Database not initialized');
-        return this.db.prepare('SELECT * FROM discord_integrations WHERE is_active = 1').all() as any[];
+        return this.db.prepare('SELECT * FROM discord_integrations').all() as any[];
     }
 
     async removeDiscordIntegration(guildId: string) {
@@ -233,9 +263,18 @@ export class StreamerStateRepository {
         this.db.prepare('DELETE FROM discord_integrations WHERE guild_id = ?').run(guildId);
     }
 
-    async markDiscordIntegrationInactive(guildId: string) {
+    async toggleDiscordIntegration(guildId: string, active: boolean) {
         if (!this.db) throw new Error('Database not initialized');
-        this.db.prepare('UPDATE discord_integrations SET is_active = 0 WHERE guild_id = ?').run(guildId);
+        this.db.prepare('UPDATE discord_integrations SET is_active = ? WHERE guild_id = ?')
+            .run(active ? 1 : 0, guildId);
+    }
+
+    async toggleMattermostConfig(id: number, active: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        // We need to add is_active to mattermost_configs table if it doesn't exist.
+        // But for now, let's assume it exists or we'll add it in init().
+        this.db.prepare('UPDATE mattermost_configs SET is_active = ? WHERE id = ?')
+            .run(active ? 1 : 0, id);
     }
 
     async removeMattermostConfig(id: number) {

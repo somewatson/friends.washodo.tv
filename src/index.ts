@@ -107,11 +107,12 @@ class WashodoWardApp {
             const liveStreams = await twitchClient.getStreamStatus(uniqueStreamers);
             const liveUsernames = liveStreams.map((s: any) => s.user_login);
 
-            for (const username of uniqueStreamers) {
+            for (const entity of entities) {
+                const username = entity.username;
                 const currentlyLive = liveUsernames.includes(username);
                 const previouslyLive = await stateManager.isLive(username);
 
-                if (currentlyLive) {
+                if (currentlyLive && entity.notify_enabled) {
                     const streamData = liveStreams.find((s: any) => s.user_login === username);
                     const isRecurring = !!previouslyLive;
                     

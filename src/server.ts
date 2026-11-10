@@ -8,6 +8,7 @@ import { DiscordClient } from './clients/discord.client';
 import axios from 'axios';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
+import cronParser from 'cron-parser';
 
 dotenv.config();
 
@@ -245,6 +246,30 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.post('/api/admin/streamers/toggle-notify', async (req, res) => {
+            const { username, enabled } = req.body;
+            await this.stateRepo.toggleStreamerNotification(username, enabled);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/streamers/toggle-show', async (req, res) => {
+            const { username, visible } = req.body;
+            await this.stateRepo.toggleStreamerVisibility(username, visible);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/streamers/toggle-notify', async (req, res) => {
+            const { username, enabled } = req.body;
+            await this.stateRepo.toggleStreamerNotification(username, enabled);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/streamers/toggle-show', async (req, res) => {
+            const { username, visible } = req.body;
+            await this.stateRepo.toggleStreamerVisibility(username, visible);
+            res.json({ success: true });
+        });
+
         this.app.post('/api/admin/streamers/reorder', async (req, res) => {
             try {
                 const { order } = req.body;
@@ -283,6 +308,12 @@ export class ApiServer {
         this.app.get('/api/admin/discord', async (req, res) => {
             try {
                 const integrations = await this.stateRepo.getDiscordIntegrations();
+                // We want to get ALL integrations to show their status, 
+                // but getDiscordIntegrations only returns active ones.
+                // I should probably add a getDiscordIntegrationsAll() method.
+                
+                // For now, I'll just use what's there but I'll need to modify getDiscordIntegrations
+                // in stateRepo to return all.
                 
                 const hydratedIntegrations = await Promise.all(integrations.map(async (integration) => {
                     try {
@@ -303,7 +334,7 @@ export class ApiServer {
                         };
                     }
                 }));
-
+                
                 res.json(hydratedIntegrations);
             } catch (error: any) {
                 res.status(500).json({ error: 'Failed to fetch Discord integrations', details: error.message });
@@ -404,6 +435,16 @@ export class ApiServer {
                 if (!announcement.text) {
                     return res.status(400).json({ error: 'Announcement text is required' });
                 }
+                
+                if (announcement.cron_schedule) {
+                    try {
+                        // @ts-ignore
+                        cronParser.parseExpression(announcement.cron_schedule);
+                    } catch (e: any) {
+                        return res.status(400).json({ error: `Invalid cron schedule: ${e.message}` });
+                    }
+                }
+
                 await this.stateRepo.saveAnnouncement(announcement);
                 res.json({ success: true });
             } catch (error: any) {
@@ -468,6 +509,18 @@ export class ApiServer {
             } catch (error: any) {
                 res.status(500).json({ error: 'Mattermost test failed', details: error.message });
             }
+        });
+
+        this.app.post('/api/admin/discord/toggle', async (req, res) => {
+            const { guildId, active } = req.body;
+            await this.stateRepo.toggleDiscordIntegration(guildId, active);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/mattermost/toggle', async (req, res) => {
+            const { id, active } = req.body;
+            await this.stateRepo.toggleMattermostConfig(id, active);
+            res.json({ success: true });
         });
 
         this.app.post('/api/admin/discord/test/:guildId', async (req, res) => {
@@ -665,26 +718,27 @@ export class ApiServer {
         });
 
         this.app.get('/', async (req, res) => {
-
-
             const members = await this.stateRepo.getEntitiesByCategory('member');
             const friends = await this.stateRepo.getEntitiesByCategory('friend');
-            const allStreamers = [...members, ...friends];
+            
+            const filteredMembers = members.filter(m => m.show_on_page);
+            const filteredFriends = friends.filter(f => f.show_on_page);
             
             try {
-                const liveList = await this.twitch.getLiveStreamers(allStreamers);
-                const userList = await this.twitch.getUsers(allStreamers);
+                const liveList = await this.twitch.getLiveStreamers([...filteredMembers, ...filteredFriends]);
+                const userList = await this.twitch.getUsers([...filteredMembers, ...filteredFriends]);
                 
                 const userMap: Record<string, any> = {};
                 userList.forEach(u => {
                     userMap[u.login.toLowerCase()] = u;
                 });
 
-                const renderGrid = async (list: string[]) => {
+                const renderGrid = async (list: any[]) => {
                     if (list.length === 0) return '<p>No streamers in this tier.</p>';
-                    const gridItems = await Promise.all(list.map(async (username) => {
+                    const gridItems = await Promise.all(list.map(async (s) => {
+                        const username = s.username;
                         const lowerUser = username.toLowerCase();
-                        const stream = liveList.find(s => s.user_login.toLowerCase() === lowerUser);
+                        const stream = liveList.find(st => st.user_login.toLowerCase() === lowerUser);
                         const user = userMap[lowerUser];
                         const isLive = !!stream;
                         
@@ -696,7 +750,6 @@ export class ApiServer {
                         
                         let uptimeText = '';
                         if (isLive) {
-                            // Prioritize actual Twitch stream start time if available, otherwise fallback to DB
                             const actualStartTime = stream?.started_at || await this.stateRepo.getLiveSince(lowerUser);
                             uptimeText = ` (Live for ${this.formatUptime(actualStartTime)})`;
                         }
@@ -724,11 +777,11 @@ export class ApiServer {
                 const html = `
                     <div class="tier-section">
                         <div class="tier-title">Washodo Members</div>
-                        <div class="streamer-grid">${await renderGrid(members)}</div>
+                        <div class="streamer-grid">${await renderGrid(filteredMembers)}</div>
                     </div>
                     <div class="tier-section">
                         <div class="tier-title">Washodo Friends</div>
-                        <div class="streamer-grid">${await renderGrid(friends)}</div>
+                        <div class="streamer-grid">${await renderGrid(filteredFriends)}</div>
                     </div>
                     <div class="join-section">
                         <div class="join-text">Want to be included here?</div>

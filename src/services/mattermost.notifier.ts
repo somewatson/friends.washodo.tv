@@ -7,6 +7,7 @@ interface ServerConfig {
   serverUrl: string;
   botToken: string;
   channelId: string;
+  isActive: boolean;
 }
 
 export class MattermostNotifier {
@@ -20,20 +21,21 @@ export class MattermostNotifier {
 
   private async initializeServers(): Promise<void> {
     // 1. Try loading from Database (Preferred)
-    try {
-      const dbConfigs = await this.stateRepo.getMattermostConfigs();
-      if (dbConfigs && dbConfigs.length > 0) {
-        this.servers = dbConfigs.map((cfg: any) => ({
-          webhookToken: cfg.webhook_token,
-          serverUrl: cfg.server_url,
-          botToken: cfg.bot_token,
-          channelId: cfg.channel_id,
-        }));
-        return;
+      try {
+        const dbConfigs = await this.stateRepo.getMattermostConfigs();
+        if (dbConfigs && dbConfigs.length > 0) {
+          this.servers = dbConfigs.map((cfg: any) => ({
+            webhookToken: cfg.webhook_token,
+            serverUrl: cfg.server_url,
+            botToken: cfg.bot_token,
+            channelId: cfg.channel_id,
+            isActive: Boolean(cfg.is_active)
+          }));
+          return;
+        }
+      } catch (err) {
+        console.error(`[MattermostNotifier] Error loading configs from DB: ${err}`);
       }
-    } catch (err) {
-      console.error(`[MattermostNotifier] Error loading configs from DB: ${err}`);
-    }
 
     // 2. Fallback to Environment Variable
     const botsEnv = process.env.MATTERMOST_BOTS || '';
@@ -65,6 +67,7 @@ export class MattermostNotifier {
 
     // Process servers sequentially to avoid unbounded concurrency and DB pressure
     for (const server of this.servers) {
+      if (!server.isActive) continue;
       try {
         const cooldown = isRecurring 
           ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
@@ -114,6 +117,7 @@ export class MattermostNotifier {
     const message = `${envPrefix}📢 **Community Announcement**\n\n${text}`;
 
     for (const server of this.servers) {
+      if (!server.isActive) continue;
       try {
         await withRetry(
           () => axios.post(`${server.serverUrl}/api/v4/posts`, {

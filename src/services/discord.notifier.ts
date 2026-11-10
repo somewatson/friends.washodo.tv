@@ -6,6 +6,7 @@ import { getEnvPrefix } from '../utils/env';
 interface DiscordConfig {
     token: string;
     channelId: string;
+    isActive: boolean;
 }
 
 export class DiscordNotifier {
@@ -27,7 +28,8 @@ export class DiscordNotifier {
             if (integrations && integrations.length > 0) {
                 this.configs = integrations.map((i: any) => ({
                     token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
-                    channelId: i.channel_id
+                    channelId: i.channel_id,
+                    isActive: Boolean(i.is_active)
                 })).filter((c: any) => c.token && c.channelId);
                 
                 if (this.configs.length > 0) {
@@ -59,7 +61,8 @@ export class DiscordNotifier {
         // Map DB integrations to the config format
         const dbConfigs = integrations.map((i: any) => ({
             token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
-            channelId: i.channel_id
+            channelId: i.channel_id,
+            isActive: Boolean(i.is_active)
         })).filter((c: any) => c.token && c.channelId);
 
         // Combine with existing configs (removing duplicates by channelId OR token)
@@ -282,6 +285,7 @@ export class DiscordNotifier {
 
         // Process configs sequentially to avoid unbounded concurrency
         for (const config of this.configs) {
+            if (!config.isActive) continue;
             try {
                 const cooldown = isRecurring 
                     ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
@@ -361,6 +365,7 @@ export class DiscordNotifier {
         }
 
         for (const config of this.configs) {
+            if (!config.isActive) continue;
             try {
                 const client = this.clients.get(config.token);
                 if (!client) continue;
