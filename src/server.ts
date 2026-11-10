@@ -517,12 +517,24 @@ export class ApiServer {
             }
         });
 
-        this.app.get('/api/admin/bot-settings', async (req, res) => {
-            res.json({ message: 'Use /api/admin/announcements for managing schedule rows' });
+        this.app.get('/api/admin/system/time', (req, res) => {
+            const now = new Date();
+            res.json({
+                serverTime: now.toISOString(),
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                localString: now.toString()
+            });
         });
 
-        this.app.post('/api/admin/bot-settings', async (req, res) => {
-            res.status(400).json({ error: 'Use /api/admin/announcements for managing schedule rows' });
+        this.app.get('/api/admin/cron-next', async (req, res) => {
+            const { schedule } = req.query;
+            if (!schedule) return res.status(400).json({ error: 'Schedule is required' });
+            try {
+                const interval = (cronParser as any).parseExpression(schedule as string);
+                res.json({ next: interval.next().toString() });
+            } catch (e: any) {
+                res.status(400).json({ error: e.message });
+            }
         });
 
         this.app.get('/api/admin/mattermost', async (req, res) => {

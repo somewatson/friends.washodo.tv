@@ -790,40 +790,48 @@
         }
 
         async function renderBroadcasts(container) {
-            container.innerHTML = `
-                <div class="card">
-                    <h3 style="margin-top:0">Broadcasts</h3>
-                    <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-                        <small style="color: #aaa;">Manual trigger for all active announcements.</small>
-                        <div style="display: flex; gap: 10px;">
-                            <button class="btn-primary" onclick="previewBroadcast()">👁️ Preview Targets</button>
-                            <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send All Active Now</button>
+            try {
+                const timeData = await api('/api/admin/system/time');
+                const serverTimeStr = new Date(timeData.serverTime).toLocaleString();
+                const timezoneStr = timeData.timezone;
+
+                container.innerHTML = `
+                    <div class="card">
+                        <h3 style="margin-top:0">Broadcasts</h3>
+                        <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <small style="color: #aaa;">Manual trigger for all active announcements.</small>
+                                <small style="color: var(--secondary-color); font-weight: bold;">Server Time: ${serverTimeStr} (${timezoneStr})</small>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-primary" onclick="previewBroadcast()">👁️ Preview Targets</button>
+                                <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Send All Active Now</button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin:0">Announcements</h3>
-                        <button class="btn-primary" onclick="openAnnouncementModal()">+ Add Announcement</button>
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin:0">Announcements</h3>
+                            <button class="btn-primary" onclick="openAnnouncementModal()">+ Add Announcement</button>
+                        </div>
+                        <table id="announcements-table">
+                            <thead>
+                                <tr>
+                                    <th>Order</th>
+                                    <th>Text Preview</th>
+                                    <th>Active</th>
+                                    <th>Discord</th>
+                                    <th>MM</th>
+                                    <th>Twitch</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
-                    <table id="announcements-table">
-                        <thead>
-                            <tr>
-                                <th>Order</th>
-                                <th>Text Preview</th>
-                                <th>Active</th>
-                                <th>Discord</th>
-                                <th>MM</th>
-                                <th>Twitch</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            `;
-            try {
+                `;
+
                 const data = await api('/api/admin/announcements');
                 const tbody = document.querySelector('#announcements-table tbody');
                 tbody.innerHTML = data.map(a => `
@@ -1284,7 +1292,7 @@
             }
         }
 
-        function updateCronPreview() {
+        async function updateCronPreview() {
             const cronInput = document.getElementById('ann-cron');
             const previewDiv = document.getElementById('cron-preview');
             if (!cronInput || !previewDiv) return;
@@ -1294,7 +1302,15 @@
                 return;
             }
             const translation = translateCron(cron);
-            previewDiv.textContent = `${cron} → ${translation}`;
+            
+            try {
+                const res = await api(`/api/admin/cron-next?schedule=${encodeURIComponent(cron)}`);
+                const nextDate = new Date(res.next);
+                const nextStr = nextDate.toLocaleString();
+                previewDiv.textContent = `${cron} → ${translation} (Next: ${nextStr})`;
+            } catch (e) {
+                previewDiv.textContent = `${cron} → ${translation}`;
+            }
             previewDiv.style.color = 'var(--secondary-color)';
         }
 
