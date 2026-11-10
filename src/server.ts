@@ -457,14 +457,18 @@ export class ApiServer {
                 if (announcement.cron_schedule) {
                     try {
                         const cronParserAny = cronParser as any;
-                        if (typeof cronParserAny.parseExpression === 'function') {
-                            cronParserAny.parseExpression(announcement.cron_schedule);
-                        } else if (cronParserAny.default && typeof cronParserAny.default.parseExpression === 'function') {
-                            cronParserAny.default.parseExpression(announcement.cron_schedule);
+                        if (typeof cronParserAny.parse === 'function') {
+                            cronParserAny.parse(announcement.cron_schedule);
+                        } else if (cronParserAny.default && typeof cronParserAny.default.parse === 'function') {
+                            cronParserAny.default.parse(announcement.cron_schedule);
                         } else {
                             // Fallback for different import styles
                             const cp = require('cron-parser');
-                            (cp.parseExpression || cp.default?.parseExpression)(announcement.cron_schedule);
+                            const parseFn = cp.parse || cp.default?.parse || cp.CronExpressionParser?.parse;
+                            if (typeof parseFn !== 'function') {
+                                throw new Error('cron-parser method .parse() not found');
+                            }
+                            parseFn(announcement.cron_schedule);
                         }
                     } catch (e: any) {
                         return res.status(400).json({ error: `Invalid cron schedule: ${e.message}` });
