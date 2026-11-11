@@ -132,12 +132,12 @@ export class StreamerStateRepository {
             this.db.exec('ALTER TABLE tracked_entities ADD COLUMN show_on_page INTEGER DEFAULT 1');
         }
 
-        const announcementColumns = this.db.prepare('PRAGMA table_info(announcements)').all() as any[];
-        const announcementColumnNames = announcementColumns.map(col => col.name);
+        const mattermostColumns = this.db.prepare('PRAGMA table_info(mattermost_configs)').all() as any[];
+        const mattermostColumnNames = mattermostColumns.map(col => col.name);
 
-        if (!announcementColumnNames.includes('cron_schedule')) {
-            console.log('[StreamerStateRepository] Migrating: Adding cron_schedule column to announcements...');
-            this.db.exec('ALTER TABLE announcements ADD COLUMN cron_schedule TEXT');
+        if (!mattermostColumnNames.includes('is_active')) {
+            console.log('[StreamerStateRepository] Migrating: Adding is_active column to mattermost_configs...');
+            this.db.exec('ALTER TABLE mattermost_configs ADD COLUMN is_active INTEGER DEFAULT 1');
         }
 
     }
