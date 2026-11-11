@@ -1337,7 +1337,7 @@
             if (diffDays < 1) return `in ${diffHrs}h ${diffMins % 60}m`;
             return `in ${diffDays}d ${diffHrs % 24}h`;
         }
-        
+        function translateCron(cron) {
             const parts = cron.split(' ');
             if (parts.length !== 5) return 'Custom schedule';
             const [min, hour, dom, month, dow] = parts;
