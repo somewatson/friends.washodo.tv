@@ -13,6 +13,8 @@
             --secondary-color: #38bdf8;
             --danger-color: #ef4444;
             --success-color: #22c55e;
+            --sidebar-width: 260px;
+            --sidebar-collapsed-width: 70px;
         }
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -22,31 +24,66 @@
             padding: 0;
             display: flex;
             min-height: 100vh;
+            overflow-x: hidden;
         }
         
         /* Sidebar Navigation */
         .sidebar {
-            width: 260px;
+            width: var(--sidebar-width);
             background-color: #111;
             border-right: 1px solid #333;
             display: flex;
             flex-direction: column;
             position: fixed;
             height: 100vh;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
         }
         .sidebar-header {
             padding: 20px;
             text-align: center;
             border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            overflow: hidden;
+            white-space: nowrap;
         }
         .sidebar-header h1 {
             font-size: 1.2rem;
             color: var(--accent-color);
             margin: 0;
+            transition: opacity 0.2s;
+        }
+        .sidebar.collapsed .sidebar-header h1 {
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+        }
+        .collapse-btn {
+            background: #222;
+            color: var(--text-color);
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            min-width: 30px;
+        }
+        .collapse-btn:hover {
+            background: var(--accent-color);
+            color: white;
         }
         .nav-menu {
             flex: 1;
             padding: 20px 0;
+            overflow-x: hidden;
         }
         .nav-item {
             display: flex;
@@ -57,6 +94,8 @@
             transition: 0.2s;
             font-weight: 500;
             border-left: 4px solid transparent;
+            white-space: nowrap;
+            overflow: hidden;
         }
         .nav-item:hover {
             background: #222;
@@ -70,10 +109,27 @@
         .nav-item span {
             margin-right: 10px;
             font-size: 1.1rem;
+            min-width: 24px;
+            text-align: center;
+        }
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+        .sidebar.collapsed .nav-item span {
+            margin-right: 0;
+        }
+        .sidebar.collapsed .nav-item {
+            font-size: 0;
+        }
+        .sidebar.collapsed .nav-item span {
+            font-size: 1.1rem;
         }
         .sidebar-footer {
             padding: 20px;
             border-top: 1px solid #333;
+            text-align: center;
+            overflow: hidden;
         }
         .btn-home {
             display: block;
@@ -85,24 +141,40 @@
             border-radius: 5px;
             font-size: 0.9rem;
             transition: 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar.collapsed .btn-home {
+            font-size: 0;
+            padding: 10px 0;
+        }
+        .sidebar.collapsed .btn-home::before {
+            content: '🏠';
+            font-size: 1.1rem;
         }
         .btn-home:hover {
             background: var(--accent-color);
         }
-
+        
         /* Main Content Area */
         .main-content {
-            margin-left: 260px;
+            margin-left: var(--sidebar-width);
             flex: 1;
             padding: 40px;
             display: flex;
             flex-direction: column;
             align-items: center;
             box-sizing: border-box;
-            width: calc(100% - 260px);
+            width: calc(100% - var(--sidebar-width));
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .main-content.expanded {
+            margin-left: var(--sidebar-collapsed-width);
+            width: calc(100% - var(--sidebar-collapsed-width));
         }
         .container {
-            max-width: 1000px;
+            max-width: 1280px;
             width: 100%;
             box-sizing: border-box;
         }
@@ -110,7 +182,7 @@
             margin-bottom: 30px;
             text-align: left;
             width: 100%;
-            max-width: 1000px;
+            max-width: 1280px;
         }
 
         @media (max-width: 768px) {
@@ -487,7 +559,10 @@
 <body>
     <div class="sidebar">
         <div class="sidebar-header">
-            <h1>⚙️ Washodo Ward</h1>
+            <h1 id="sidebar-title">⚙️ Washodo Ward</h1>
+            <button class="collapse-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+                <span>◀</span>
+            </button>
         </div>
         <div class="nav-menu">
             <a href="/warden/streamers" class="nav-item" id="nav-streamers"><span>👥</span> Streamers</a>
@@ -588,6 +663,21 @@
             const res = await fetch(`${BASE_URL}${path}`, options);
             if (!res.ok) throw new Error(await res.text());
             return res.json();
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const btn = document.querySelector('.collapse-btn span');
+            
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                btn.textContent = '▶';
+            } else {
+                btn.textContent = '◀';
+            }
         }
 
         function notify(message, type = 'success') {
