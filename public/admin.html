@@ -98,16 +98,42 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            box-sizing: border-box;
+            width: calc(100% - 260px);
         }
         .container {
             max-width: 1000px;
             width: 100%;
+            box-sizing: border-box;
         }
         .page-header {
             margin-bottom: 30px;
             text-align: left;
             width: 100%;
             max-width: 1000px;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px;
+            }
+            .container {
+                max-width: 100%;
+            }
+            .page-header {
+                max-width: 100%;
+            }
+            .form-group {
+                grid-template-columns: 1fr !important;
+            }
+            .modal-grid {
+                grid-template-columns: 1fr !important;
+            }
         }
         .page-header h2 {
             color: var(--accent-color);
@@ -136,10 +162,16 @@
             background: #444;
         }
 
+        /* Responsive Table Wrapper */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 20px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
         }
         th, td {
             text-align: left;
@@ -618,19 +650,21 @@
                         </select>
                         <button class="btn-primary" onclick="addStreamer()">Add / Update</button>
                     </div>
-                    <table id="streamers-table">
-                        <thead>
-                            <tr>
-                                <th>Username</th>
-                                <th>Category</th>
-                                <th>Followers</th>
-                                <th>Notify</th>
-                                <th>Show</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table id="streamers-table">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Category</th>
+                                    <th>Followers</th>
+                                    <th>Notify</th>
+                                    <th>Show</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             `;
             try {
@@ -690,19 +724,21 @@
                         <input type="text" id="discord-owner" placeholder="Owner ID (Optional)">
                         <button class="btn-primary" onclick="addDiscord()">Add Integration</button>
                     </div>
-                    <table id="discord-table">
-                        <thead>
-                            <tr>
-                                <th>Server</th>
-                                <th>Channel ID</th>
-                                <th>Members</th>
-                                <th>Owner</th>
-                                <th>Active</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table id="discord-table">
+                            <thead>
+                                <tr>
+                                    <th>Server</th>
+                                    <th>Channel ID</th>
+                                    <th>Members</th>
+                                    <th>Owner</th>
+                                    <th>Active</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             `;
             try {
@@ -746,18 +782,20 @@
                         <input type="text" id="mm-channel" placeholder="Channel ID">
                         <button class="btn-primary" onclick="addMattermost()">Add Config</button>
                     </div>
-                    <table id="mm-table">
-                        <thead>
-                            <tr>
-                                <th>Label</th>
-                                <th>URL</th>
-                                <th>Channel</th>
-                                <th>Active</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table id="mm-table">
+                            <thead>
+                                <tr>
+                                    <th>Label</th>
+                                    <th>URL</th>
+                                    <th>Channel</th>
+                                    <th>Active</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             `;
             try {
@@ -816,21 +854,23 @@
                             <h3 style="margin:0">Announcements</h3>
                             <button class="btn-primary" onclick="openAnnouncementModal()">+ Add Announcement</button>
                         </div>
-                        <table id="announcements-table">
-                            <thead>
-                                <tr>
-                                    <th>Order</th>
-                                    <th>Text Preview</th>
-                                    <th>Active</th>
-                                    <th>Discord</th>
-                                    <th>MM</th>
-                                    <th>Twitch</th>
-                                    <th>Next Run</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table id="announcements-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order</th>
+                                        <th>Text Preview</th>
+                                        <th>Active</th>
+                                        <th>Discord</th>
+                                        <th>MM</th>
+                                        <th>Twitch</th>
+                                        <th>Next Run</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 `;
 

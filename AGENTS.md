@@ -63,7 +63,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Verification**: Always run `npm run build` and verify it succeeds before performing any `git commit`.
 - **File Size Limit**: Cap source code files at 1,000 lines. When a file exceeds this limit, reorganize and break it into smaller files based on responsibility (e.g., extract logic into services, move types to a dedicated file, or use feature-based folder structures).
 - **UI/UX**: Follow `washodo_style_guide.md` for the status page (Dark Mode, Washodo Purple `#a970ff`, Sky Blue `#38bdf8`).
-- **Admin UI**: Maintain consistent table layouts. Use `.col-toggle` and `.text-center` for toggle columns to prevent layout shifting.
+- **Admin UI**: Maintain consistent table layouts. Use `.col-toggle` and `.text-center` for toggle columns to prevent layout shifting. Ensure layouts are responsive and prevent horizontal scrolling, especially in the admin panel.
 - **Destructive Actions**: All destructive actions (e.g., "Remove" or "Delete" buttons) must be preceded by a confirmation dialog to prevent accidental data loss.
 - **Notifications**: Do not use browser `alert()` calls to notify users. Use in-page, stylized notification elements (toasts, banners, or status messages) to provide feedback.
 - **Modals**: Avoid using modals for complex forms or previews. Prefer dedicated pages or in-page expandable sections to improve accessibility, readability, and maintainability. Modals should be dismissible by clicking on the backdrop.
