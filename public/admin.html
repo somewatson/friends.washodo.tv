@@ -187,12 +187,39 @@
 
         @media (max-width: 768px) {
             .sidebar {
+                width: var(--sidebar-collapsed-width);
+            }
+            .sidebar:not(.collapsed) {
+                width: var(--sidebar-collapsed-width);
+            }
+            .sidebar-header h1 {
                 display: none;
             }
+            .nav-item {
+                justify-content: center;
+                padding: 12px 0;
+                font-size: 0;
+            }
+            .nav-item span {
+                margin-right: 0;
+                font-size: 1.1rem;
+            }
+            .sidebar-footer .btn-home {
+                font-size: 0;
+                padding: 10px 0;
+            }
+            .sidebar-footer .btn-home::before {
+                content: '🏠';
+                font-size: 1.1rem;
+            }
             .main-content {
-                margin-left: 0;
-                width: 100%;
+                margin-left: var(--sidebar-collapsed-width);
+                width: calc(100% - var(--sidebar-collapsed-width));
                 padding: 20px;
+            }
+            .main-content.expanded {
+                margin-left: var(--sidebar-collapsed-width);
+                width: calc(100% - var(--sidebar-collapsed-width));
             }
             .container {
                 max-width: 100%;
