@@ -42,11 +42,15 @@ export class TwitchClient {
   }
 
   async getUsers(usernames: string[]): Promise<any[]> {
+    const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
+    if (filteredUsernames.length === 0) {
+      return [];
+    }
     const token = await this.fetchAccessToken();
     try {
       const response = await axios.get('https://api.twitch.tv/helix/users', {
         params: {
-          login: usernames,
+          login: filteredUsernames,
         },
         headers: {
           'Client-ID': this.config.clientId,
@@ -61,11 +65,15 @@ export class TwitchClient {
   }
 
   async getLiveStreamers(usernames: string[]): Promise<any[]> {
+    const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
+    if (filteredUsernames.length === 0) {
+      return [];
+    }
     const token = await this.fetchAccessToken();
     try {
       const response = await axios.get('https://api.twitch.tv/helix/streams', {
         params: {
-          user_login: usernames,
+          user_login: filteredUsernames,
         },
         headers: {
           'Client-ID': this.config.clientId,
@@ -76,7 +84,11 @@ export class TwitchClient {
       const streams = response.data.data;
       if (!streams || streams.length === 0) return [];
 
-      const userIds = streams.map((s: any) => s.user_id);
+      const userIds = streams.map((s: any) => s.user_id).filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
+      if (userIds.length === 0) {
+        return [];
+      }
+
       const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
         params: {
           id: userIds,
@@ -86,13 +98,13 @@ export class TwitchClient {
           'Authorization': `Bearer ${token}`,
         },
       });
-
+      
       const users = userResponse.data.data;
       const userMap: Record<string, any> = {};
       users.forEach((u: any) => {
         userMap[u.id] = u;
       });
-
+      
       return streams.map((s: any) => ({
         ...s,
         profile_image_url: userMap[s.user_id]?.profile_image_url || '',

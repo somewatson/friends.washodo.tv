@@ -46,9 +46,21 @@ export class StreamerStateRepository {
                 webhook_token TEXT,
                 bot_token TEXT,
                 channel_id TEXT,
-                label TEXT
+                label TEXT,
+                is_active INTEGER DEFAULT 1
             )
         `);
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS broadcast_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                cron_schedule TEXT DEFAULT '0 12 * * *',
+                is_enabled INTEGER DEFAULT 0
+            )
+        `);
+        
+        // Initialize default settings if not present
+        this.db.prepare('INSERT OR IGNORE INTO broadcast_settings (id, cron_schedule, is_enabled) VALUES (1, \'0 12 * * *\', 0)').run();
 
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS tracked_entities (
@@ -56,7 +68,24 @@ export class StreamerStateRepository {
                 platform TEXT DEFAULT 'twitch',
                 category TEXT,
                 is_active INTEGER DEFAULT 1,
+                notify_enabled INTEGER DEFAULT 1,
+                show_on_page INTEGER DEFAULT 1,
                 order_index INTEGER DEFAULT 0
+            )
+        `);
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT,
+                order_index INTEGER DEFAULT 0,
+                is_active INTEGER DEFAULT 1,
+                discord_enabled INTEGER DEFAULT 1,
+                mattermost_enabled INTEGER DEFAULT 1,
+                twitch_enabled INTEGER DEFAULT 0,
+                start_date TEXT,
+                end_date TEXT,
+                cron_schedule TEXT
             )
         `);
 
@@ -93,6 +122,22 @@ export class StreamerStateRepository {
         if (!trackedColumnNames.includes('order_index')) {
             console.log('[StreamerStateRepository] Migrating: Adding order_index column to tracked_entities...');
             this.db.exec('ALTER TABLE tracked_entities ADD COLUMN order_index INTEGER DEFAULT 0');
+        }
+        if (!trackedColumnNames.includes('notify_enabled')) {
+            console.log('[StreamerStateRepository] Migrating: Adding notify_enabled column to tracked_entities...');
+            this.db.exec('ALTER TABLE tracked_entities ADD COLUMN notify_enabled INTEGER DEFAULT 1');
+        }
+        if (!trackedColumnNames.includes('show_on_page')) {
+            console.log('[StreamerStateRepository] Migrating: Adding show_on_page column to tracked_entities...');
+            this.db.exec('ALTER TABLE tracked_entities ADD COLUMN show_on_page INTEGER DEFAULT 1');
+        }
+
+        const announcementColumns = this.db.prepare('PRAGMA table_info(announcements)').all() as any[];
+        const announcementColumnNames = announcementColumns.map(col => col.name);
+
+        if (!announcementColumnNames.includes('cron_schedule')) {
+            console.log('[StreamerStateRepository] Migrating: Adding cron_schedule column to announcements...');
+            this.db.exec('ALTER TABLE announcements ADD COLUMN cron_schedule TEXT');
         }
 
     }
@@ -140,10 +185,10 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM tracked_entities ORDER BY order_index ASC').all() as any[];
     }
 
-    async getEntitiesByCategory(category: string): Promise<string[]> {
+    async getEntitiesByCategory(category: string): Promise<any[]> {
         if (!this.db) throw new Error('Database not initialized');
-        const rows = this.db.prepare('SELECT username FROM tracked_entities WHERE category = ? AND is_active = 1 ORDER BY order_index ASC').all(category) as { username: string }[];
-        return rows.map(row => row.username);
+        const rows = this.db.prepare('SELECT * FROM tracked_entities WHERE category = ? AND is_active = 1 ORDER BY order_index ASC').all(category) as any[];
+        return rows;
     }
 
     async addTrackedEntity(username: string, category: string) {
@@ -162,6 +207,18 @@ export class StreamerStateRepository {
     async removeTrackedEntity(username: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare('DELETE FROM tracked_entities WHERE username = ?').run(username.toLowerCase());
+    }
+
+    async toggleStreamerNotification(username: string, enabled: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE tracked_entities SET notify_enabled = ? WHERE username = ?')
+            .run(enabled ? 1 : 0, username.toLowerCase());
+    }
+
+    async toggleStreamerVisibility(username: string, visible: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE tracked_entities SET show_on_page = ? WHERE username = ?')
+            .run(visible ? 1 : 0, username.toLowerCase());
     }
 
     async updateStreamerOrder(updates: {username: string, orderIndex: number}[]) {
@@ -199,7 +256,7 @@ export class StreamerStateRepository {
 
     async getDiscordIntegrations() {
         if (!this.db) throw new Error('Database not initialized');
-        return this.db.prepare('SELECT * FROM discord_integrations WHERE is_active = 1').all() as any[];
+        return this.db.prepare('SELECT * FROM discord_integrations').all() as any[];
     }
 
     async removeDiscordIntegration(guildId: string) {
@@ -207,14 +264,82 @@ export class StreamerStateRepository {
         this.db.prepare('DELETE FROM discord_integrations WHERE guild_id = ?').run(guildId);
     }
 
-    async markDiscordIntegrationInactive(guildId: string) {
+    async toggleDiscordIntegration(guildId: string, active: boolean) {
         if (!this.db) throw new Error('Database not initialized');
-        this.db.prepare('UPDATE discord_integrations SET is_active = 0 WHERE guild_id = ?').run(guildId);
+        this.db.prepare('UPDATE discord_integrations SET is_active = ? WHERE guild_id = ?')
+            .run(active ? 1 : 0, guildId);
+    }
+
+    async toggleMattermostConfig(id: number, active: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        // We need to add is_active to mattermost_configs table if it doesn't exist.
+        // But for now, let's assume it exists or we'll add it in init().
+        this.db.prepare('UPDATE mattermost_configs SET is_active = ? WHERE id = ?')
+            .run(active ? 1 : 0, id);
     }
 
     async removeMattermostConfig(id: number) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare('DELETE FROM mattermost_configs WHERE id = ?').run(id);
+    }
+
+    async updateMattermostLabel(id: number, label: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE mattermost_configs SET label = ? WHERE id = ?')
+            .run(label, id);
+    }
+
+    async getBroadcastSettings() {
+        throw new Error('Deprecated: Use individual announcement settings instead.');
+    }
+
+    async saveBroadcastSettings(settings: { cron_schedule: string, is_enabled: boolean }) {
+        throw new Error('Deprecated: Use individual announcement settings instead.');
+    }
+
+    async getAnnouncements() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM announcements ORDER BY order_index ASC').all() as any[];
+    }
+
+    async saveAnnouncement(announcement: { id?: number, text: string, order_index: number, is_active: boolean, discord_enabled: boolean, mattermost_enabled: boolean, twitch_enabled: boolean, start_date: string | null, end_date: string | null, cron_schedule?: string | null }) {
+        if (!this.db) throw new Error('Database not initialized');
+        if (announcement.id) {
+            this.db.prepare(`
+                UPDATE announcements 
+                SET text = ?, order_index = ?, is_active = ?, discord_enabled = ?, mattermost_enabled = ?, twitch_enabled = ?, start_date = ?, end_date = ?, cron_schedule = ?
+                WHERE id = ?
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date ?? null, announcement.end_date ?? null, announcement.cron_schedule ?? null, announcement.id);
+        } else {
+            this.db.prepare(`
+                INSERT INTO announcements (text, order_index, is_active, discord_enabled, mattermost_enabled, twitch_enabled, start_date, end_date, cron_schedule) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(announcement.text, announcement.order_index, announcement.is_active ? 1 : 0, announcement.discord_enabled ? 1 : 0, announcement.mattermost_enabled ? 1 : 0, announcement.twitch_enabled ? 1 : 0, announcement.start_date ?? null, announcement.end_date ?? null, announcement.cron_schedule ?? null);
+        }
+    }
+
+    async deleteAnnouncement(id: number) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM announcements WHERE id = ?').run(id);
+    }
+
+    async updateAnnouncementOrder(updates: {id: number, orderIndex: number}[]) {
+        if (!this.db) throw new Error('Database not initialized');
+        for (const update of updates) {
+            this.db.prepare('UPDATE announcements SET order_index = ? WHERE id = ?').run(update.orderIndex, update.id);
+        }
+    }
+
+    async getBotSetting(key: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        // For backward compatibility with the single-setting approach, 
+        // we can return a dummy or handle the migration. 
+        // Since we are moving to 'announcements' table, this is mostly deprecated.
+        return null; 
+    }
+
+    async saveBotSetting(key: string, value: string, discord: boolean, mattermost: boolean, twitch: boolean, expiry: string | null) {
+        // Deprecated in favor of announcements table
     }
 
     async getDiscordIntegration(guildId: string) {

@@ -15,9 +15,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@types/tmi.js": "^1.8.6",
     "axios": "^1.20.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "cron-parser": "^5.10.4",
     "discord.js": "^14.28.1",
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
@@ -25,6 +27,7 @@
     "pino": "^10.4.0",
     "pino-pretty": "^13.2.0",
     "sqlite3": "^6.0.1",
+    "tmi.js": "^1.8.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {

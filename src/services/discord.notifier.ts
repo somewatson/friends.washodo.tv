@@ -6,6 +6,7 @@ import { getEnvPrefix } from '../utils/env';
 interface DiscordConfig {
     token: string;
     channelId: string;
+    isActive: boolean;
 }
 
 export class DiscordNotifier {
@@ -27,7 +28,8 @@ export class DiscordNotifier {
             if (integrations && integrations.length > 0) {
                 this.configs = integrations.map((i: any) => ({
                     token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
-                    channelId: i.channel_id
+                    channelId: i.channel_id,
+                    isActive: Boolean(i.is_active)
                 })).filter((c: any) => c.token && c.channelId);
                 
                 if (this.configs.length > 0) {
@@ -59,7 +61,8 @@ export class DiscordNotifier {
         // Map DB integrations to the config format
         const dbConfigs = integrations.map((i: any) => ({
             token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
-            channelId: i.channel_id
+            channelId: i.channel_id,
+            isActive: Boolean(i.is_active)
         })).filter((c: any) => c.token && c.channelId);
 
         // Combine with existing configs (removing duplicates by channelId OR token)
@@ -154,7 +157,8 @@ export class DiscordNotifier {
         } else if (command === '!status') {
             await message.reply('✅ Bot is active and monitoring streamers!');
         } else if (command === '!schedule') {
-            const schedule = process.env.BOT_SCHEDULE_TEXT || 'No schedule configured.';
+            const setting = await this.stateRepo.getBotSetting('schedule_text');
+            const schedule = setting?.value || 'No schedule configured.';
             await message.reply(`📅 **Current Schedule**\n${schedule}`);
         } else if (command === '!streamers') {
             await this.handleListStreamers(message);
@@ -258,7 +262,7 @@ export class DiscordNotifier {
             const stream = liveStreams[0];
 
             if (stream) {
-                await message.reply(`🔴 **${stream.user_name}** is currently LIVE!\nTitle: ${stream.title}\nLink: https://twitch.tv/${stream.user_login}`);
+                await message.reply(`🔴 **${stream.user_name}** is currently LIVE!\nTitle: ${stream.title || 'No title provided'}\nLink: https://twitch.tv/${stream.user_login}`);
             } else {
                 await message.reply(`⚪ **${username}** is currently offline.`);
             }
@@ -268,7 +272,7 @@ export class DiscordNotifier {
         }
     }
 
-    async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
+    async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured in database or DISCORD_BOTS');
             return;
@@ -281,6 +285,7 @@ export class DiscordNotifier {
 
         // Process configs sequentially to avoid unbounded concurrency
         for (const config of this.configs) {
+            if (!config.isActive) continue;
             try {
                 const cooldown = isRecurring 
                     ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
@@ -308,7 +313,7 @@ export class DiscordNotifier {
                         const embed = new EmbedBuilder()
                             .setColor(0xFF0000)
                             .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
-                            .setDescription(`**Title:** ${streamer.title}\n**Link:** https://twitch.tv/${streamer.user_login}`)
+                            .setDescription(`**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}`)
                             .setThumbnail(thumbnail || null)
                             .setTimestamp();
 
@@ -353,10 +358,98 @@ export class DiscordNotifier {
         }
     }
 
-    async stop(): Promise<void> {
-        for (const client of this.clients.values()) {
-            client.destroy();
+    async broadcast(text: string): Promise<void> {
+        if (this.configs.length === 0) {
+            console.warn('[DiscordNotifier] No servers configured for broadcast');
+            return;
         }
-        this.clients.clear();
+
+        // Ensure configs are up-to-date from the database before broadcasting
+        await this.syncConfigsFromDb();
+
+        // Filter active configs first to ensure we are iterating through only enabled ones
+        const activeConfigs = this.configs.filter(c => c.isActive);
+        if (activeConfigs.length === 0) {
+            console.warn('[DiscordNotifier] No active servers configured for broadcast');
+            return;
+        }
+
+        for (const config of activeConfigs) {
+            try {
+                const client = this.clients.get(config.token);
+                if (!client) {
+                    console.error(`[DiscordNotifier] No client found for token used in channel ${config.channelId}. Attempting to login...`);
+                    
+                    // Attempt a lazy login if the client is missing
+                    try {
+                        const newClient = new Client({
+                            intents: [
+                                GatewayIntentBits.Guilds,
+                                GatewayIntentBits.GuildMessages,
+                                GatewayIntentBits.MessageContent
+                            ]
+                        });
+                        await newClient.login(config.token);
+                        this.clients.set(config.token, newClient);
+                    } catch (loginErr) {
+                        console.error(`[DiscordNotifier] Lazy login failed for ${config.channelId}:`, loginErr);
+                        continue;
+                    }
+                }
+
+                const activeClient = this.clients.get(config.token);
+                if (!activeClient) continue;
+
+                await withRetry(
+                    async () => {
+                        const channel = await activeClient.channels.fetch(config.channelId);
+                        if (!channel || !channel.isTextBased()) {
+                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
+                        }
+
+                        const embed = new EmbedBuilder()
+                            .setColor(0xa970ff) // Washodo Purple
+                            .setTitle(`${getEnvPrefix()}📢 Community Announcement`)
+                            .setDescription(text)
+                            .setTimestamp();
+
+                        await (channel as any).send({ embeds: [embed] });
+                    },
+                    3,
+                    1000,
+                    (err, attempt) => console.log(`[DiscordNotifier] Broadcast retry ${attempt} for ${config.channelId}: ${err.message}`)
+                );
+            } catch (error: any) {
+                console.error(`[DiscordNotifier] Broadcast failed for ${config.channelId}:`, error);
+            }
+        }
+    }
+
+    async getActiveTargets() {
+        // Ensure configs are up-to-date from the database before returning targets
+        await this.syncConfigsFromDb();
+        const targets = [];
+        for (const config of this.configs) {
+            if (config.isActive) {
+                const client = this.clients.get(config.token);
+                if (client) {
+                    try {
+                        const channel = await client.channels.fetch(config.channelId);
+                        targets.push({
+                            guildName: (channel as any)?.guild?.name || 'Unknown Guild',
+                            channelName: (channel as any)?.name || 'Unknown Channel',
+                            channelId: config.channelId
+                        });
+                    } catch (e) {
+                        targets.push({
+                            guildName: 'Error',
+                            channelName: 'Error',
+                            channelId: config.channelId
+                        });
+                    }
+                }
+            }
+        }
+        return targets;
     }
 }

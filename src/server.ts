@@ -8,6 +8,7 @@ import { DiscordClient } from './clients/discord.client';
 import axios from 'axios';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
+import cronParser from 'cron-parser';
 
 dotenv.config();
 
@@ -25,9 +26,11 @@ export class ApiServer {
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
     private server: any;
+    private mainApp: any;
 
-    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any) {
+    constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any, mainApp?: any) {
         this.stateRepo = stateRepo;
+        this.mainApp = mainApp;
         this.setupMiddleware();
         this.setupRoutes(interactiveReceiver?.getApp());
     }
@@ -44,7 +47,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/warden/') || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback')) {
                 return next();
             }
             
@@ -58,6 +61,28 @@ export class ApiServer {
         // Move static middleware AFTER the root route handler in setupRoutes
         // We'll actually remove it from here and put it at the end of setupRoutes 
         // or just after the dynamic routes.
+    }
+
+    private injectEnvBanner(template: string): string {
+        const env = process.env.APP_ENV;
+        if (!env || env === 'production') return template;
+
+        const bannerHtml = `
+            <div id="env-banner" style="position: fixed; top: 0; left: 0; width: 100%; background: #a970ff; color: white; text-align: center; padding: 5px 0; font-size: 0.75rem; font-weight: bold; z-index: 1000; text-transform: uppercase; letter-spacing: 0.1em; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+                Running in ${env.toUpperCase()} mode
+            </div>
+            <style>
+                body { padding-top: 25px !important; }
+            </style>
+        `;
+
+        if (template.includes('<body style="position: relative;">')) {
+            return template.replace('<body style="position: relative;">', `<body style="position: relative;">${bannerHtml}`);
+        } else if (template.includes('<body>')) {
+            return template.replace('<body>', `<body>${bannerHtml}`);
+        }
+        
+        return template;
     }
 
     private formatUptime(startTime: string | null): string {
@@ -152,15 +177,13 @@ export class ApiServer {
         });
 
         // Warden Interface
-        this.app.get('/warden-access', (req, res) => {
+        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system'], (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
-
-
-
+            
             let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
             template = template.replace('{{API_KEY}}', this.apiKey || '');
-            res.send(template);
+            res.send(this.injectEnvBanner(template));
         });
 
         // Admin APIs
@@ -221,6 +244,30 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.post('/api/admin/streamers/toggle-notify', async (req, res) => {
+            const { username, enabled } = req.body;
+            await this.stateRepo.toggleStreamerNotification(username, enabled);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/streamers/toggle-show', async (req, res) => {
+            const { username, visible } = req.body;
+            await this.stateRepo.toggleStreamerVisibility(username, visible);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/streamers/toggle-notify', async (req, res) => {
+            const { username, enabled } = req.body;
+            await this.stateRepo.toggleStreamerNotification(username, enabled);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/streamers/toggle-show', async (req, res) => {
+            const { username, visible } = req.body;
+            await this.stateRepo.toggleStreamerVisibility(username, visible);
+            res.json({ success: true });
+        });
+
         this.app.post('/api/admin/streamers/reorder', async (req, res) => {
             try {
                 const { order } = req.body;
@@ -259,6 +306,12 @@ export class ApiServer {
         this.app.get('/api/admin/discord', async (req, res) => {
             try {
                 const integrations = await this.stateRepo.getDiscordIntegrations();
+                // We want to get ALL integrations to show their status, 
+                // but getDiscordIntegrations only returns active ones.
+                // I should probably add a getDiscordIntegrationsAll() method.
+                
+                // For now, I'll just use what's there but I'll need to modify getDiscordIntegrations
+                // in stateRepo to return all.
                 
                 const hydratedIntegrations = await Promise.all(integrations.map(async (integration) => {
                     try {
@@ -279,7 +332,7 @@ export class ApiServer {
                         };
                     }
                 }));
-
+                
                 res.json(hydratedIntegrations);
             } catch (error: any) {
                 res.status(500).json({ error: 'Failed to fetch Discord integrations', details: error.message });
@@ -330,6 +383,174 @@ export class ApiServer {
             res.json({ success: true });
         });
 
+        this.app.get('/api/admin/broadcast-settings', async (req, res) => {
+            res.status(404).json({ error: 'Broadcast settings have been removed. Please use individual announcement toggles.' });
+        });
+
+        this.app.post('/api/admin/broadcast-settings', async (req, res) => {
+            res.status(404).json({ error: 'Broadcast settings have been removed. Please use individual announcement toggles.' });
+        });
+
+        this.app.post('/api/admin/broadcast-now', async (req, res) => {
+            try {
+                if (!this.mainApp) {
+                    return res.status(500).json({ error: 'Main app reference not initialized' });
+                }
+                
+                const app = this.mainApp as any;
+                
+                await app.triggerForcedBroadcast(app.mattermostNotifier, app.discordNotifier, app.twitchChatClient);
+                
+                res.json({ success: true, message: 'Forced broadcast triggered for all active announcements' });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to trigger broadcast', details: error.message });
+            }
+        });
+
+        this.app.get('/api/admin/broadcast-preview', async (req, res) => {
+            try {
+                if (!this.mainApp) {
+                    return res.status(500).json({ error: 'Main app reference not initialized' });
+                }
+        
+                const app = this.mainApp as any;
+                const announcements = await this.stateRepo.getAnnouncements();
+                const activeAnnouncements = announcements.filter((a: any) => a.is_active);
+
+                const hasDiscord = activeAnnouncements.some((a: any) => a.discord_enabled);
+                const hasMattermost = activeAnnouncements.some((a: any) => a.mattermost_enabled);
+
+                const discordTargets = hasDiscord 
+                    ? await app.discordNotifier.getActiveTargets() 
+                    : [];
+                const mattermostTargets = hasMattermost 
+                    ? await app.mattermostNotifier.getActiveTargets() 
+                    : [];
+
+                res.json({
+                    announcements: activeAnnouncements.map((a: any) => ({
+                        id: a.id,
+                        text: a.text,
+                        discord_enabled: a.discord_enabled,
+                        mattermost_enabled: a.mattermost_enabled,
+                        twitch_enabled: a.twitch_enabled
+                    })),
+                    targets: {
+                        discord: discordTargets.filter((t: any) => t.guildName !== 'Error'),
+                        mattermost: mattermostTargets.filter((t: any) => t.label !== 'Error')
+                    }
+                });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to generate broadcast preview', details: error.message });
+            }
+        });
+
+        this.app.get('/api/admin/announcements', async (req, res) => {
+            try {
+                const announcements = await this.stateRepo.getAnnouncements();
+                
+                const hydratedAnnouncements = await Promise.all(announcements.map(async (a) => {
+                    let nextRun = null;
+                    if (a.cron_schedule) {
+                        try {
+                            const interval = cronParser.parse(a.cron_schedule);
+                            nextRun = interval.next().toString();
+                        } catch (e) {
+                            nextRun = null;
+                        }
+                    }
+                    return { ...a, next_run: nextRun };
+                }));
+
+                res.json(hydratedAnnouncements);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch announcements', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/announcements', async (req, res) => {
+            try {
+                const announcement = req.body;
+                if (!announcement.text) {
+                    return res.status(400).json({ error: 'Announcement text is required' });
+                }
+                
+                if (announcement.cron_schedule) {
+                    try {
+                        const cronParserAny = cronParser as any;
+                        if (typeof cronParserAny.parse === 'function') {
+                            cronParserAny.parse(announcement.cron_schedule);
+                        } else if (cronParserAny.default && typeof cronParserAny.default.parse === 'function') {
+                            cronParserAny.default.parse(announcement.cron_schedule);
+                        } else {
+                            // Fallback for different import styles
+                            const cp = require('cron-parser');
+                            const parseFn = cp.parse || cp.default?.parse || cp.CronExpressionParser?.parse;
+                            if (typeof parseFn !== 'function') {
+                                throw new Error('cron-parser method .parse() not found');
+                            }
+                            parseFn(announcement.cron_schedule);
+                        }
+                    } catch (e: any) {
+                        return res.status(400).json({ error: `Invalid cron schedule: ${e.message}` });
+                    }
+                }
+                
+                await this.stateRepo.saveAnnouncement(announcement);
+
+                // Trigger reschedule in the main app if available
+                if (this.mainApp && typeof this.mainApp.scheduleBroadcasts === 'function') {
+                    const app = this.mainApp as any;
+                    await app.scheduleBroadcasts(app.mattermostNotifier, app.discordNotifier, app.twitchChatClient);
+                }
+
+                res.json({ success: true });
+            } catch (error: any) {
+                console.error('[Admin API] Failed to save announcement:', error);
+                res.status(500).json({ error: 'Failed to save announcement', details: error.message });
+            }
+        });
+
+        this.app.delete('/api/admin/announcements/:id', async (req, res) => {
+            try {
+                await this.stateRepo.deleteAnnouncement(parseInt(req.params.id));
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to delete announcement', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/announcements/reorder', async (req, res) => {
+            try {
+                const { order } = req.body;
+                if (!Array.isArray(order)) return res.status(400).json({ error: 'Invalid order format' });
+                await this.stateRepo.updateAnnouncementOrder(order);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to update order', details: error.message });
+            }
+        });
+
+        this.app.get('/api/admin/system/time', (req, res) => {
+            const now = new Date();
+            res.json({
+                serverTime: now.toISOString(),
+                timezone: 'UTC',
+                localString: now.toUTCString()
+            });
+        });
+
+        this.app.get('/api/admin/cron-next', async (req, res) => {
+            const { schedule } = req.query;
+            if (!schedule) return res.status(400).json({ error: 'Schedule is required' });
+            try {
+                const interval = cronParser.parse(schedule as string);
+                res.json({ next: interval.next().toString() });
+            } catch (e: any) {
+                res.status(400).json({ error: e.message });
+            }
+        });
+
         this.app.get('/api/admin/mattermost', async (req, res) => {
             res.json(await this.stateRepo.getMattermostConfigs());
         });
@@ -357,6 +578,30 @@ export class ApiServer {
                 res.json({ success: true });
             } catch (error: any) {
                 res.status(500).json({ error: 'Mattermost test failed', details: error.message });
+            }
+        });
+
+        this.app.post('/api/admin/discord/toggle', async (req, res) => {
+            const { guildId, active } = req.body;
+            await this.stateRepo.toggleDiscordIntegration(guildId, active);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/mattermost/toggle', async (req, res) => {
+            const { id, active } = req.body;
+            await this.stateRepo.toggleMattermostConfig(id, active);
+            res.json({ success: true });
+        });
+
+        this.app.post('/api/admin/mattermost/update', async (req, res) => {
+            try {
+                const { id, label } = req.body;
+                if (!id || label === undefined) return res.status(400).json({ error: 'ID and label are required' });
+                
+                await this.stateRepo.updateMattermostLabel(id, label);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to update label', details: error.message });
             }
         });
 
@@ -546,8 +791,8 @@ export class ApiServer {
                 const path = require('path');
                 let template = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
                 template = template.replace('<!-- CONTENT_PLACEHOLDER -->', html);
-
-                res.send(template);
+                
+                res.send(this.injectEnvBanner(template));
             } catch (error) {
                 console.error(`Error rendering status page for ${username}:`, error);
                 res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1>');
@@ -555,26 +800,28 @@ export class ApiServer {
         });
 
         this.app.get('/', async (req, res) => {
-
-
             const members = await this.stateRepo.getEntitiesByCategory('member');
             const friends = await this.stateRepo.getEntitiesByCategory('friend');
-            const allStreamers = [...members, ...friends];
+            
+            const filteredMembers = members.filter(m => m.show_on_page);
+            const filteredFriends = friends.filter(f => f.show_on_page);
             
             try {
-                const liveList = await this.twitch.getLiveStreamers(allStreamers);
-                const userList = await this.twitch.getUsers(allStreamers);
+                const usernames = [...filteredMembers, ...filteredFriends].map(s => s.username);
+                const liveList = await this.twitch.getLiveStreamers(usernames);
+                const userList = await this.twitch.getUsers(usernames);
                 
                 const userMap: Record<string, any> = {};
                 userList.forEach(u => {
                     userMap[u.login.toLowerCase()] = u;
                 });
 
-                const renderGrid = async (list: string[]) => {
+                const renderGrid = async (list: any[]) => {
                     if (list.length === 0) return '<p>No streamers in this tier.</p>';
-                    const gridItems = await Promise.all(list.map(async (username) => {
+                    const gridItems = await Promise.all(list.map(async (s) => {
+                        const username = s.username;
                         const lowerUser = username.toLowerCase();
-                        const stream = liveList.find(s => s.user_login.toLowerCase() === lowerUser);
+                        const stream = liveList.find(st => st.user_login.toLowerCase() === lowerUser);
                         const user = userMap[lowerUser];
                         const isLive = !!stream;
                         
@@ -586,7 +833,6 @@ export class ApiServer {
                         
                         let uptimeText = '';
                         if (isLive) {
-                            // Prioritize actual Twitch stream start time if available, otherwise fallback to DB
                             const actualStartTime = stream?.started_at || await this.stateRepo.getLiveSince(lowerUser);
                             uptimeText = ` (Live for ${this.formatUptime(actualStartTime)})`;
                         }
@@ -614,11 +860,11 @@ export class ApiServer {
                 const html = `
                     <div class="tier-section">
                         <div class="tier-title">Washodo Members</div>
-                        <div class="streamer-grid">${await renderGrid(members)}</div>
+                        <div class="streamer-grid">${await renderGrid(filteredMembers)}</div>
                     </div>
                     <div class="tier-section">
                         <div class="tier-title">Washodo Friends</div>
-                        <div class="streamer-grid">${await renderGrid(friends)}</div>
+                        <div class="streamer-grid">${await renderGrid(filteredFriends)}</div>
                     </div>
                     <div class="join-section">
                         <div class="join-text">Want to be included here?</div>
@@ -631,7 +877,7 @@ export class ApiServer {
                 let template = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
                 template = template.replace('<!-- CONTENT_PLACEHOLDER -->', html);
                 
-                res.send(template);
+                res.send(this.injectEnvBanner(template));
             } catch (error) {
                 console.error('Error rendering status page:', error);
                 res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1><p style="color:white; background:#333; padding:20px;">Failed to fetch streamer status.</p>');
@@ -698,8 +944,11 @@ export class ApiServer {
         });
 
         // Add a simple redirect from /discord-setup to the HTML file for convenience
-        this.app.get('/discord-setup', (req, res) => {
-            res.sendFile(path.join(__dirname, '../public/discord-setup.html'));
+        this.app.get('/discord-setup', async (req, res) => {
+            const path = require('path');
+            const fs = require('fs');
+            let template = fs.readFileSync(path.join(__dirname, '../public/discord-setup.html'), 'utf8');
+            res.send(this.injectEnvBanner(template));
         });
 
         this.app.get('/api/thumbnail/:username', async (req, res) => {

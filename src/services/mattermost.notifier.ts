@@ -7,6 +7,8 @@ interface ServerConfig {
   serverUrl: string;
   botToken: string;
   channelId: string;
+  isActive: boolean;
+  label?: string;
 }
 
 export class MattermostNotifier {
@@ -20,20 +22,22 @@ export class MattermostNotifier {
 
   private async initializeServers(): Promise<void> {
     // 1. Try loading from Database (Preferred)
-    try {
-      const dbConfigs = await this.stateRepo.getMattermostConfigs();
-      if (dbConfigs && dbConfigs.length > 0) {
-        this.servers = dbConfigs.map((cfg: any) => ({
-          webhookToken: cfg.webhook_token,
-          serverUrl: cfg.server_url,
-          botToken: cfg.bot_token,
-          channelId: cfg.channel_id,
-        }));
-        return;
+      try {
+        const dbConfigs = await this.stateRepo.getMattermostConfigs();
+        if (dbConfigs && dbConfigs.length > 0) {
+          this.servers = dbConfigs.map((cfg: any) => ({
+            webhookToken: cfg.webhook_token,
+            serverUrl: cfg.server_url,
+            botToken: cfg.bot_token,
+            channelId: cfg.channel_id,
+            isActive: Boolean(cfg.is_active),
+            label: cfg.label
+          }));
+          return;
+        }
+      } catch (err) {
+        console.error(`[MattermostNotifier] Error loading configs from DB: ${err}`);
       }
-    } catch (err) {
-      console.error(`[MattermostNotifier] Error loading configs from DB: ${err}`);
-    }
 
     // 2. Fallback to Environment Variable
     const botsEnv = process.env.MATTERMOST_BOTS || '';
@@ -49,7 +53,7 @@ export class MattermostNotifier {
     }).filter((s): s is ServerConfig => s !== null);
   }
 
-  async notify(streamer: any, isRecurring: boolean = false): Promise<void> {
+  async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
     if (this.servers.length === 0) {
       console.warn('[MattermostNotifier] No servers configured in database or MATTERMOST_BOTS');
       return;
@@ -65,6 +69,7 @@ export class MattermostNotifier {
 
     // Process servers sequentially to avoid unbounded concurrency and DB pressure
     for (const server of this.servers) {
+      if (!server.isActive) continue;
       try {
         const cooldown = isRecurring 
           ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
@@ -79,7 +84,7 @@ export class MattermostNotifier {
 
         if (!shouldNotify) continue;
 
-        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title}\nLink: https://twitch.tv/${streamer.user_login}`;
+        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title || 'No title provided'}\nLink: https://twitch.tv/${streamer.user_login}`;
 
         await withRetry(
           () => axios.post(`${server.serverUrl}/api/v4/posts`, {
@@ -102,5 +107,56 @@ export class MattermostNotifier {
         }
       }
     }
+  }
+
+  async broadcast(text: string): Promise<void> {
+    // Ensure servers are up-to-date from the database before broadcasting
+    await this.initializeServers();
+
+    if (this.servers.length === 0) {
+      console.warn('[MattermostNotifier] No servers configured for broadcast');
+      return;
+    }
+    
+    // Filter active servers first to ensure we are iterating through only enabled ones
+    const activeServers = this.servers.filter(s => s.isActive);
+    if (activeServers.length === 0) {
+      console.warn('[MattermostNotifier] No active servers configured for broadcast');
+      return;
+    }
+    
+    const envPrefix = getEnvPrefix();
+    const message = `${envPrefix}📢 **Community Announcement**\n\n${text}`;
+    
+    for (const server of activeServers) {
+      try {
+        await withRetry(
+          () => axios.post(`${server.serverUrl}/api/v4/posts`, {
+            channel_id: server.channelId,
+            message: message,
+          }, {
+            headers: { 'Authorization': `Bearer ${server.botToken}` },
+            timeout: 10000
+          }),
+          3,
+          1000,
+          (err, attempt) => console.log(`[MattermostNotifier] Broadcast retry ${attempt} for ${server.serverUrl}: ${err.message}`)
+        );
+      } catch (error: any) {
+        console.error(`[MattermostNotifier] Broadcast failed for ${server.serverUrl}:`, error);
+      }
+    }
+  }
+
+  async getActiveTargets() {
+    // Ensure servers are up-to-date from the database before returning targets
+    await this.initializeServers();
+    return this.servers
+      .filter(s => s.isActive)
+      .map(s => ({
+        label: s.label || 'Unnamed Server',
+        channelId: s.channelId,
+        serverUrl: s.serverUrl
+      }));
   }
 }
