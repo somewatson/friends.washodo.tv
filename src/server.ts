@@ -453,7 +453,7 @@ export class ApiServer {
                     let nextRun = null;
                     if (a.cron_schedule) {
                         try {
-                            const interval = (cronParser as any).parseExpression(a.cron_schedule);
+                            const interval = cronParser.parse(a.cron_schedule);
                             nextRun = interval.next().toString();
                         } catch (e) {
                             nextRun = null;
@@ -544,7 +544,7 @@ export class ApiServer {
             const { schedule } = req.query;
             if (!schedule) return res.status(400).json({ error: 'Schedule is required' });
             try {
-                const interval = (cronParser as any).parseExpression(schedule as string);
+                const interval = cronParser.parse(schedule as string);
                 res.json({ next: interval.next().toString() });
             } catch (e: any) {
                 res.status(400).json({ error: e.message });
