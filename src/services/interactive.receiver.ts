@@ -166,14 +166,17 @@ export class InteractiveReceiver {
       return;
     }
 
-    const members = (await this.stateRepo.getEntitiesByCategory('member')).filter(Boolean);
-    const friends = (await this.stateRepo.getEntitiesByCategory('friend')).filter(Boolean);
+    const members = (await this.stateRepo.getEntitiesByCategory('member'))
+      .filter(Boolean)
+      .map((s: any) => (typeof s === 'object' && s !== null && s.username) ? String(s.username) : String(s));
+
+    const friends = (await this.stateRepo.getEntitiesByCategory('friend'))
+      .filter(Boolean)
+      .map((s: any) => (typeof s === 'object' && s !== null && s.username) ? String(s.username) : String(s));
+
     const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
 
-    const allStreamers = [...new Set([...members, ...friends, ...others])].map(s => {
-      if (typeof s === 'object' && s !== null && (s as any).username) return String((s as any).username);
-      return String(s || '');
-    });
+    const allStreamers = [...new Set([...members, ...friends, ...others])];
 
     if (allStreamers.length === 0) {
       await this.sendResponse(channelId, 'No streamers are currently being tracked.', serverConfig, rootId, false);
