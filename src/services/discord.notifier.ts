@@ -215,10 +215,16 @@ export class DiscordNotifier {
             return;
         }
 
-        const members = (await this.stateRepo.getEntitiesByCategory('member')).filter(Boolean);
-        const friends = (await this.stateRepo.getEntitiesByCategory('friend')).filter(Boolean);
+        const members = (await this.stateRepo.getEntitiesByCategory('member'))
+            .filter(Boolean)
+            .map((s: any) => (typeof s === 'object' && s !== null && s.username) ? String(s.username) : String(s));
+
+        const friends = (await this.stateRepo.getEntitiesByCategory('friend'))
+            .filter(Boolean)
+            .map((s: any) => (typeof s === 'object' && s !== null && s.username) ? String(s.username) : String(s));
+
         const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
-        const allStreamers = [...new Set([...members, ...friends, ...others])].map(s => String(s));
+        const allStreamers = [...new Set([...members, ...friends, ...others])];
 
         if (allStreamers.length === 0) {
             await message.reply('No streamers are currently being tracked.');
