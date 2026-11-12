@@ -177,7 +177,11 @@ class WashodoWardApp {
             (this as any).discordNotifier = discordNotifier;
             (this as any).twitchChatClient = twitchChatClient;
 
-            await discordNotifier.start();
+            // Start Discord in the background so it doesn't block Mattermost/Twitch bootstrap
+            discordNotifier.start().catch(err => {
+                console.error(`[Bootstrap] Discord startup encountered a critical error: ${err.message}`);
+                console.log('Continuing bootstrap for other services...');
+            });
 
             const stateManager = new StateManager();
             await stateManager.load();

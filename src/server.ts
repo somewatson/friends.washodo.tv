@@ -581,6 +581,24 @@ export class ApiServer {
             }
         });
 
+        // Discord Notifier Status
+        this.app.get('/api/admin/discord/status', async (req, res) => {
+            if (!this.mainApp) return res.status(500).json({ error: 'Main app not initialized' });
+            const discordNotifier = (this.mainApp as any).discordNotifier;
+            res.json(discordNotifier.getStatus());
+        });
+
+        this.app.post('/api/admin/discord/retry', async (req, res) => {
+            if (!this.mainApp) return res.status(500).json({ error: 'Main app not initialized' });
+            try {
+                const discordNotifier = (this.mainApp as any).discordNotifier;
+                await discordNotifier.forceRetry();
+                res.json({ success: true, message: 'Discord login retry triggered' });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Retry failed', details: error.message });
+            }
+        });
+
         this.app.post('/api/admin/discord/toggle', async (req, res) => {
             const { guildId, active } = req.body;
             await this.stateRepo.toggleDiscordIntegration(guildId, active);

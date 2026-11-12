@@ -14,6 +14,9 @@ export class DiscordNotifier {
     private configs: DiscordConfig[] = [];
     private stateRepo: any; // Will be StreamerStateRepository
     private twitchClient: any; // Will be TwitchClient
+    private isDisabledDueToFailure = false;
+    private lastFailureTime = 0;
+    private readonly COOLDOWN_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
 
     constructor(stateRepo: any, twitchClient?: any) {
         this.stateRepo = stateRepo;
@@ -83,12 +86,27 @@ export class DiscordNotifier {
     }
 
 
+    private lastFailureError: string = '';
+
     async start(): Promise<void> {
         await this.syncConfigsFromDb();
+
+        if (this.isDisabledDueToFailure) {
+            const now = Date.now();
+            if (now - this.lastFailureTime < this.COOLDOWN_PERIOD) {
+                console.warn(`[DiscordNotifier] Service is in cooldown due to previous failures. Skipping login attempts until ${new Date(this.lastFailureTime + this.COOLDOWN_PERIOD).toISOString()}.`);
+                return;
+            }
+            console.log(`[DiscordNotifier] Cooldown period expired. Attempting fresh login...`);
+            this.isDisabledDueToFailure = false;
+        }
+
         console.log(`[DiscordNotifier] Starting login for ${this.configs.length} bots...`);
         
         const loginPromises = this.configs.map(async (config) => {
             if (this.clients.has(config.token)) return;
+
+
 
             try {
                 const client = new Client({
@@ -114,8 +132,12 @@ export class DiscordNotifier {
 
                 this.clients.set(config.token, client);
                 console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
-            } catch (error) {
-                console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}:`, error);
+            } catch (error: any) {
+                const errMsg = error.response?.data?.message || error.message || 'Unknown error';
+                console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
+                this.isDisabledDueToFailure = true;
+                this.lastFailureTime = Date.now();
+                this.lastFailureError = errMsg;
             }
         });
 
@@ -282,7 +304,35 @@ export class DiscordNotifier {
         }
     }
 
+    public getStatus() {
+        return {
+            connected: this.clients.size > 0 && !this.isDisabledDueToFailure,
+            disabled: this.isDisabledDueToFailure,
+            lastError: this.lastFailureError,
+            lastFailureTime: this.lastFailureTime,
+            botCount: this.clients.size,
+            totalConfigs: this.configs.length
+        };
+    }
+
+    async forceRetry(): Promise<void> {
+        this.isDisabledDueToFailure = false;
+        this.lastFailureTime = 0;
+        this.lastFailureError = '';
+        this.clients.clear();
+        await this.start();
+    }
+
     async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
+        if (this.isDisabledDueToFailure) {
+            const now = Date.now();
+            if (now - this.lastFailureTime < this.COOLDOWN_PERIOD) {
+                return; // Silent return during cooldown
+            }
+            // Cooldown expired, we can try to resume (though start() usually handles this)
+            this.isDisabledDueToFailure = false;
+        }
+
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured in database or DISCORD_BOTS');
             return;
@@ -369,6 +419,15 @@ export class DiscordNotifier {
     }
 
     async broadcast(text: string): Promise<void> {
+        if (this.isDisabledDueToFailure) {
+            const now = Date.now();
+            if (now - this.lastFailureTime < this.COOLDOWN_PERIOD) {
+                console.warn(`[DiscordNotifier] Broadcast skipped: Service is in cooldown due to login failures.`);
+                return;
+            }
+            this.isDisabledDueToFailure = false;
+        }
+
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured for broadcast');
             return;
