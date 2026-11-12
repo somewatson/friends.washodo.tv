@@ -1,6 +1,6 @@
 import { TwitchClient } from './twitch.client';
 import tmi from 'tmi.js';
-import { StreamerStateRepository } from './streamerStateRepository';
+import { StreamerStateRepository } from '../streamerStateRepository';
  
 export class TwitchChatClient {
     private clients: Map<string, tmi.Client> = new Map();
@@ -73,7 +73,7 @@ export class TwitchChatClient {
  
         console.log(`[TwitchChatClient] Command ${cmd} from ${user} in ${channel}`);
  
-        switch (cmd.toLowerCase()) {
+        switch (cmd?.toLowerCase()) {
             case '!washodo':
                 const blurbs = [
                     'Washodo is the ultimate hub for community stream tracking! 🚀',

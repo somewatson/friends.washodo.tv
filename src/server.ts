@@ -804,14 +804,13 @@ export class ApiServer {
                 // Save the bot credentials to integration_configs
                 await this.stateRepo.saveIntegrationConfig({
                     platform: 'twitch_bot',
-                    config_key: 'bot_credentials',
-                    config_value: JSON.stringify({
-                        access_token,
-                        refresh_token,
-                        expires_in,
-                        updated_at: new Date().toISOString()
-                    }),
-                    updated_at: new Date().toISOString()
+                    client_id: process.env.TWITCH_CLIENT_ID || '',
+                    client_secret: process.env.TWITCH_CLIENT_SECRET || '',
+                    bot_username: 'WashodoWardBot',
+                    bot_token: access_token,
+                    refresh_token: refresh_token,
+                    base_url: process.env.BASE_URL || '',
+                    is_broadcast_enabled: true
                 });
 
                 res.send(layout('✅ Twitch Bot Connected!', 'The bot has been successfully authorized. You can now use it for broadcasts and community commands.'));

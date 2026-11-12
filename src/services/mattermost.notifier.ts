@@ -109,7 +109,7 @@ export class MattermostNotifier {
     }
   }
 
-  async broadcast(text: string): Promise<void> {
+  async broadcast(text: string, targetId?: string): Promise<void> {
     // Ensure servers are up-to-date from the database before broadcasting
     await this.initializeServers();
 

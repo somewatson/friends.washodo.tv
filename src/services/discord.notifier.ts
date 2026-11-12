@@ -366,7 +366,7 @@ export class DiscordNotifier {
         }
     }
 
-    async broadcast(text: string): Promise<void> {
+    async broadcast(text: string, targetId?: string): Promise<void> {
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured for broadcast');
             return;

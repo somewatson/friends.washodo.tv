@@ -76,7 +76,7 @@ class WashodoWardApp {
                 const twitchTargets = targets.filter((t: any) => t.platform === 'twitch' && t.is_enabled === 1);
                 
                 const streamers = await this.stateRepo.getStreamers();
-                const liveStreamers = streamers.filter((s: any) => s.is_//live);
+                const liveStreamers = streamers.filter((s: any) => s.is_live);
                 
                 for (const s of liveStreamers) {
                     if (twitchTargets.length === 0 || twitchTargets.some((t: any) => t.target_id === s.username)) {
