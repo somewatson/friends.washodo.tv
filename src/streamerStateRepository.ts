@@ -89,6 +89,13 @@ export class StreamerStateRepository {
             )
         `);
 
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS discord_global_state (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        `);
+
 
         // Migration: Ensure necessary columns exist for existing databases
 
@@ -337,17 +344,21 @@ export class StreamerStateRepository {
         }
     }
 
-    async getBotSetting(key: string) {
+    async getGlobalState(key: string): Promise<string | null> {
         if (!this.db) throw new Error('Database not initialized');
-        // For backward compatibility with the single-setting approach, 
-        // we can return a dummy or handle the migration. 
-        // Since we are moving to 'announcements' table, this is mostly deprecated.
-        return null; 
+        const row = this.db.prepare('SELECT value FROM discord_global_state WHERE key = ?').get(key) as { value: string } | undefined;
+        return row ? row.value : null;
     }
 
-    async saveBotSetting(key: string, value: string, discord: boolean, mattermost: boolean, twitch: boolean, expiry: string | null) {
-        // Deprecated in favor of announcements table
+    async setGlobalState(key: string, value: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('INSERT INTO discord_global_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
     }
+
+    async clearDiscordRateLimit() {
+        await this.setGlobalState('discord_rate_limit_until', '0');
+    }
+
 
     async getDiscordIntegration(guildId: string) {
         if (!this.db) throw new Error('Database not initialized');

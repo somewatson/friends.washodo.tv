@@ -304,10 +304,15 @@ export class DiscordNotifier {
         }
     }
 
-    public getStatus() {
+    async getStatus() {
+        const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
+        const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
+
         return {
-            connected: this.clients.size > 0 && !this.isDisabledDueToFailure,
+            connected: this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited,
             disabled: this.isDisabledDueToFailure,
+            rateLimited: isRateLimited,
+            rateLimitUntil: isRateLimited ? new Date(parseInt(rateLimitUntil)).toISOString() : null,
             lastError: this.lastFailureError,
             lastFailureTime: this.lastFailureTime,
             botCount: this.clients.size,
@@ -316,6 +321,7 @@ export class DiscordNotifier {
     }
 
     async forceRetry(): Promise<void> {
+        await this.stateRepo.clearDiscordRateLimit();
         this.isDisabledDueToFailure = false;
         this.lastFailureTime = 0;
         this.lastFailureError = '';

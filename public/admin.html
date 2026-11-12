@@ -729,11 +729,14 @@
                 titleEl.textContent = 'Manage Streamers';
                 descEl.textContent = 'Add and organize tracked community members and friends.';
                 renderStreamers(contentArea);
-            } else if (path === '/warden/discord') {
+            // Update Discord status in the UI
+            if (path === '/warden/discord') {
                 document.getElementById('nav-discord').classList.add('active');
                 titleEl.textContent = 'Discord Integrations';
                 descEl.textContent = 'Configure announcement channels for Discord servers.';
                 renderDiscord(contentArea);
+                updateDiscordGlobalStatus();
+            } else if (path === '/warden/mattermost') {
             } else if (path === '/warden/mattermost') {
                 document.getElementById('nav-mattermost').classList.add('active');
                 titleEl.textContent = 'Mattermost Configs';
@@ -832,6 +835,15 @@
 
         async function renderDiscord(container) {
             container.innerHTML = `
+                <div class="card" id="discord-global-status-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div>
+                            <h3 style="margin: 0;">Global Connection Status</h3>
+                            <div id="global-status-text" style="font-weight: bold; margin-top: 5px;">Checking...</div>
+                        </div>
+                        <button id="force-retry-btn" class="btn-primary" style="display: none;" onclick="forceRetryDiscord()">Force Retry Login</button>
+                    </div>
+                </div>
                 <div class="card">
                     <p>Integrated servers creating the #📯-ward-bot channel.</p>
                     <div class="form-group">
@@ -885,6 +897,42 @@
                 `).join('');
             } catch (e) {
                 notify('Error loading Discord: ' + e.message, 'error');
+            }
+        }
+
+        async function updateDiscordGlobalStatus() {
+            try {
+                const status = await api('/api/admin/discord/status');
+                const statusTextEl = document.getElementById('global-status-text');
+                const retryBtn = document.getElementById('force-retry-btn');
+                
+                if (!statusTextEl || !retryBtn) return;
+
+                if (status.rateLimited) {
+                    statusTextEl.innerHTML = `🔴 <span style="color: var(--danger-color)">Rate Limited</span> - Retry after ${status.rateLimitUntil}`;
+                    retryBtn.style.display = 'block';
+                } else if (status.disabled) {
+                    statusTextEl.innerHTML = `🟡 <span style="color: #fbbf24">Disabled/Cooldown</span> - ${status.lastError || 'Unknown error'}`;
+                    retryBtn.style.display = 'block';
+                } else if (status.connected) {
+                    statusTextEl.innerHTML = `🟢 <span style="color: var(--success-color)">Operational</span> - ${status.botCount} bots connected`;
+                    retryBtn.style.display = 'none';
+                } else {
+                    statusTextEl.innerHTML = `⚪ <span style="color: #888">Disconnected</span>`;
+                    retryBtn.style.display = 'block';
+                }
+            } catch (e) {
+                console.error('Error updating Discord status:', e);
+            }
+        }
+
+        async function forceRetryDiscord() {
+            try {
+                await api('/api/admin/discord/retry', 'POST');
+                notify('Discord login retry triggered!');
+                updateDiscordGlobalStatus();
+            } catch (e) {
+                notify('Retry failed: ' + e.message, 'error');
             }
         }
 

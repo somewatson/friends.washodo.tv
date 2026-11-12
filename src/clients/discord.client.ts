@@ -20,13 +20,38 @@ export class DiscordClient {
     /**
      * Initializes the client connection to Discord.
      */
-    public async login(): Promise<void> {
+    public async login(stateRepo: any): Promise<void> {
         const token = process.env.DISCORD_BOT_TOKEN;
         if (!token) {
             throw new Error('DISCORD_BOT_TOKEN not configured in environment');
         }
-        await this._client.login(token);
-        console.log('[Discord Client] Logged in successfully');
+
+        // Pre-check: Abort if rate-limited
+        const rateLimitUntil = await stateRepo.getGlobalState('discord_rate_limit_until');
+        if (rateLimitUntil && parseInt(rateLimitUntil) > Date.now()) {
+            const waitTime = Math.ceil((parseInt(rateLimitUntil) - Date.now()) / 1000 / 60);
+            console.warn(`[Discord Client] Login aborted: Rate limited until ${new Date(parseInt(rateLimitUntil)).toISOString()}. Retry in ${waitTime} minutes.`);
+            throw new Error(`Rate limited until ${new Date(parseInt(rateLimitUntil)).toISOString()}`);
+        }
+
+        try {
+            await this._client.login(token);
+            console.log('[Discord Client] Logged in successfully');
+        } catch (error: any) {
+            // Catch 429 errors or Cloudflare 1015
+            const isRateLimit = error.status === 429 || error.message?.includes('1015') || error.message?.includes('rate limit');
+            
+            if (isRateLimit) {
+                const retryAfter = error.response?.headers?.get('retry-after');
+                const seconds = retryAfter ? parseInt(retryAfter) : 3600; // Default to 1 hour if not specified
+                const expiry = Date.now() + (seconds * 1000);
+                
+                await stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
+                console.error(`[Discord Client] Rate limit detected! Ban until ${new Date(expiry).toISOString()}`);
+                throw new Error(`Discord Rate Limit: retry after ${seconds}s`);
+            }
+            throw error;
+        }
 
         // Log only messages that mention the bot
         this._client.on('messageCreate', (message) => {
