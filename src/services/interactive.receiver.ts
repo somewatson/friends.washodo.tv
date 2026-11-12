@@ -166,11 +166,14 @@ export class InteractiveReceiver {
       return;
     }
 
-    const members = await this.stateRepo.getEntitiesByCategory('member');
-    const friends = await this.stateRepo.getEntitiesByCategory('friend');
+    const members = (await this.stateRepo.getEntitiesByCategory('member')).filter(Boolean);
+    const friends = (await this.stateRepo.getEntitiesByCategory('friend')).filter(Boolean);
     const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
 
-    const allStreamers = [...new Set([...members, ...friends, ...others])];
+    const allStreamers = [...new Set([...members, ...friends, ...others])].map(s => {
+      if (typeof s === 'object' && s !== null && (s as any).username) return String((s as any).username);
+      return String(s || '');
+    });
 
     if (allStreamers.length === 0) {
       await this.sendResponse(channelId, 'No streamers are currently being tracked.', serverConfig, rootId, false);
@@ -187,18 +190,9 @@ export class InteractiveReceiver {
         if (list.length === 0) return '';
         let groupText = `\n**${title}**\n`;
         list.forEach(user => {
-          let userStr = '';
-          if (typeof user === 'string') {
-            userStr = user;
-          } else if (user && typeof user === 'object' && (user as any).username) {
-            userStr = String((user as any).username);
-          } else {
-            userStr = String(user || '');
-          }
-
-          const isLive = liveUsernames.includes(userStr.toLowerCase());
+          const isLive = liveUsernames.includes(user.toLowerCase());
           const status = isLive ? '🔴 Live' : '⚪ Offline';
-          groupText += `- ${userStr}: ${status}\n`;
+          groupText += `- ${user}: ${status}\n`;
         });
         return groupText;
       };
