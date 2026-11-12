@@ -127,6 +127,136 @@ export class ApiServer {
         return parts.join(' ');
     }
 
+    private getDiscordDocs(): string {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Discord Integration Guide</title>
+                <style>
+                    body { background: #121212; color: #f3f4f6; font-family: 'Inter', sans-serif; line-height: 1.6; padding: 40px; max-width: 800px; margin: 0 auto; }
+                    h1 { color: #a970ff; border-bottom: 2px solid #a970ff; padding-bottom: 10px; }
+                    h2 { color: #38bdf8; margin-top: 30px; }
+                    .step { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
+                    .step-number { background: #a970ff; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; font-weight: bold; margin-right: 10px; }
+                    code { background: #000; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+                    .btn { display: inline-block; background: #a970ff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <h1>Discord Integration Guide</h1>
+                <p>Follow these steps to connect your Discord server to Washodo Ward.</p>
+                
+                <div class="step">
+                    <h2><span class="step-number">1</span> Create an Application</h2>
+                    <p>Visit the <a href="https://discord.com/developers/applications" target="_blank" style="color: #a970ff;">Discord Developer Portal</a> and click "New Application".</p>
+                </div>
+                
+                <div class="step">
+                    <h2><span class="step-number">2</span> Setup the Bot</h2>
+                    <p>Navigate to the <strong>Bot</strong> tab and click "Reset Token" to obtain your <code>Bot Token</code>. Ensure <strong>Message Content Intent</strong> is enabled.</p>
+                </div>
+                
+                <div class="step">
+                    <h2><span class="step-number">3</span> OAuth2 Configuration</h2>
+                    <p>Go to the <strong>OAuth2</strong> tab and copy your <code>Client ID</code> and <code>Client Secret</code>.</p>
+                </div>
+                
+                <div class="step">
+                    <h2><span class="step-number">4</span> Finalize in Warden</h2>
+                    <p>Enter these values into the Discord Configuration page in the Admin Panel.</p>
+                </div>
+                
+                <a href="/warden/discord" class="btn">Go to Configuration</a>
+                <a href="/warden-access" style="color: #9ca3af; margin-left: 20px; text-decoration: none;">← Back to Dashboard</a>
+            </body>
+            </html>
+        `;
+    }
+
+    private getMattermostDocs(): string {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Mattermost Integration Guide</title>
+                <style>
+                    body { background: #121212; color: #f3f4f6; font-family: 'Inter', sans-serif; line-height: 1.6; padding: 40px; max-width: 800px; margin: 0 auto; }
+                    h1 { color: #a970ff; border-bottom: 2px solid #a970ff; padding-bottom: 10px; }
+                    h2 { color: #38bdf8; margin-top: 30px; }
+                    .step { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
+                    .step-number { background: #a970ff; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; font-weight: bold; margin-right: 10px; }
+                    code { background: #000; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+                    .btn { display: inline-block; background: #a970ff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <h1>Mattermost Integration Guide</h1>
+                <p>Follow these steps to connect your Mattermost server to Washodo Ward.</p>
+                
+                <div class="step">
+                    <h2><span class="step-number">1</span> Incoming Webhooks</h2>
+                    <p>Go to <strong>Main Menu</strong> $\\rightarrow$ <strong>Integrations</strong> $\\rightarrow$ <strong>Incoming Webhooks</strong> and create a new webhook for your target channel.</p>
+                </div>
+                
+                <div class="step">
+                    <h2><span class="step-number">2</span> Bot Accounts</h2>
+                    <p>For advanced interactions, create a Bot Account via <strong>Main Menu</strong> $\\rightarrow$ <strong>Integrations</strong> $\\rightarrow$ <strong>Bot Accounts</strong>.</p>
+                </div>
+                
+                <div class="step">
+                    <h2><span class="step-number">3</span> Identifying Channel IDs</h2>
+                    <p>Open the target channel in your browser. The Channel ID is the alphanumeric string at the end of the URL.</p>
+                </div>
+                
+                <a href="/warden/mattermost" class="btn">Go to Configuration</a>
+                <a href="/warden-access" style="color: #9ca3af; margin-left: 20px; text-decoration: none;">← Back to Dashboard</a>
+            </body>
+            </html>
+        `;
+    }
+
+    private getTwitchDocs(): string {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Twitch Bot Integration Guide</title>
+                <style>
+                    body { background: #121212; color: #f3f4f6; font-family: 'Inter', sans-serif; line-height: 1.6; padding: 40px; max-width: 800px; margin: 0 auto; }
+                    h1 { color: #a970ff; border-bottom: 2px solid #a970ff; padding-bottom: 10px; }
+                    h2 { color: #38bdf8; margin-top: 30px; }
+                    .step { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
+                    .step-number { background: #a970ff; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; font-weight: bold; margin-right: 10px; }
+                    code { background: #000; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+                    .btn { display: inline-block; background: #a970ff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <h1>Twitch Bot Integration Guide</h1>
+                <p>Set up the Washodo Ward bot to interact with your community chats.</p>
+                
+                <div class="step">
+                    <h2><span class="step-number">1</span> Twitch Developer Portal</h2>
+                    <p>Register your application at the <a href="https://dev.twitch.tv/console" target="_blank" style="color: #a970ff;">Twitch Console</a> to get your <code>Client ID</code> and <code>Client Secret</code>.</p>
+                </div>
+                
+                <div class="step">
+                    <h2><span class="step-number">2</span> Authorization</h2>
+                    <p>Use the <strong>Connect Twitch Bot</strong> button in the admin panel. You will be redirected to Twitch to authorize the bot with <code>chat:edit</code> and <code>chat:read</code> scopes.</p>
+                </div>
+                
+                <div class="step">
+                    <h2><span class="step-number">3</span> Manual Token (Optional)</h2>
+                    <p>If you are a developer, you can manually provide an OAuth token generated via the Twitch CLI or API.</p>
+                </div>
+                
+                <a href="/warden-access" class="btn">Go to Dashboard</a>
+            </body>
+            </html>
+        `;
+    }
+
     private setupRoutes(interactiveApp?: express.Application) {
         const path = require('path');
         if (interactiveApp) {
@@ -181,10 +311,20 @@ export class ApiServer {
         });
 
         // Warden Interface
-        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system'], (req, res) => {
+        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system', '/warden/docs/discord', '/warden/docs/mattermost', '/warden/docs/twitch'], (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
             
+            if (req.path === '/warden/docs/discord') {
+                return res.send(this.injectEnvBanner(this.getDiscordDocs()));
+            }
+            if (req.path === '/warden/docs/mattermost') {
+                return res.send(this.injectEnvBanner(this.getMattermostDocs()));
+            }
+            if (req.path === '/warden/docs/twitch') {
+                return res.send(this.injectEnvBanner(this.getTwitchDocs()));
+            }
+
             let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
             template = template.replace('{{API_KEY}}', this.apiKey || '');
             res.send(this.injectEnvBanner(template));

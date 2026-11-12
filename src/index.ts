@@ -223,6 +223,8 @@ class WashodoWardApp {
             apiServer.start();
 
             // Set up the cron job with the initialized services
+            // Default is 5m (Fast). We can implement a logic to check a global setting or per-streamer if needed.
+            // For now, we use the environment variable or default to '*/5 * * * *'.
             const intervalStr = process.env.CHECK_INTERVAL || '*/5 * * * *';
             cron.schedule(intervalStr, () => this.runCheck(twitchClient, mattermostNotifier, discordNotifier, twitchChatClient, stateManager, stateRepo));
 

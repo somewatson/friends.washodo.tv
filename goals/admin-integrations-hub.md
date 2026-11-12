@@ -1,7 +1,7 @@
 # Goal: Admin Panel Integrations Hub & Twitch Bot Automation
 
 ## Overview
-Transform the current administrative interface into a comprehensive **Integrations Hub**. This involves creating dedicated configuration pages for Discord, Mattermost, and Twitch, providing high-quality onboarding documentation for admins, and implementing an automated promotional system for the Twitch Chat Bot. Additionally, implement a **Lead Generation System** to capture new user signups and a **Webhooks Manager** for internal notifications.
+Transform the current administrative interface into a comprehensive **Integrations Hub**. This involves creating dedicated configuration pages for Discord, Mattermost, and Twitch, providing high-quality onboarding documentation for admins, and implementing an automated promotional system for the Twitch Chat Bot. Additionally, implement a sophisticated **Lead Generation System** to capture new user signups and a **Webhooks Manager** for internal notifications.
 
 ## 1. Admin Panel: Integrations Hub
 The goal is to move away from scattered configuration and create a centralized "Integrations" section in the Warden Admin Panel.
@@ -13,8 +13,9 @@ The goal is to move away from scattered configuration and create a centralized "
     - Client Secret
     - Base URL
 - **Documentation & Guidance**:
+    - **Dedicated Doc Page**: `/warden/docs/discord`
     - **Primary Call-to-Action**: A banner recommending the "Add Bot" OAuth flow from the homepage as the easiest method.
-    - **Manual Setup Guide**: A help section (modal or expandable) detailing:
+    - **Manual Setup Guide**: A step-by-step guide detailing:
         1. Creating an application in the [Discord Developer Portal](https://discord.com/developers/applications).
         2. Obtaining the Bot Token via the "Bot" tab.
         3. Enabling "Message Content Intent".
@@ -27,6 +28,7 @@ The goal is to move away from scattered configuration and create a centralized "
     - Bot Access Token
     - Default Channel ID
 - **Documentation & Guidance**:
+    - **Dedicated Doc Page**: `/warden/docs/mattermost`
     - **Manual Setup Guide**: A step-by-step guide detailing:
         1. **Webhooks**: Main Menu $\rightarrow$ Integrations $\rightarrow$ Incoming Webhooks.
         2. **Bot Accounts**: Main Menu $\rightarrow$ Integrations $\rightarrow$ Bot Accounts.
@@ -47,6 +49,7 @@ The goal is to move away from scattered configuration and create a centralized "
         - **User Flow**: Categorized inline lists (Twitch, Discord, Mattermost) with checkboxes for individual channel/guild selection.
         - **UX**: Include "Select All/None" quick-toggles, an inline search/filter bar for long lists, and a real-time "Current Targets" summary to avoid modals or dialogs.
 - **Documentation & Guidance**:
+    - **Dedicated Doc Page**: `/warden/docs/twitch`
     - Instructions on generating a User OAuth Token with `chat:edit` and `chat:read` scopes.
 
 ---
@@ -78,11 +81,20 @@ Implement a command handler within the `TwitchChatClient` to respond to the foll
 Implementing a "SaaS-Lite" funnel to capture leads and notify the admin in real-time.
 
 ### A. Frontend Conversion Path
-- **Homepage Signup**: Simple form for Name, Email, and Plan selection.
-- **Pricing Page**: A dedicated page featuring three tiers:
-    1. **Free**: Ad-supported, `subdomain.washodo.tv`.
-    2. **Basic ($8/mo)**: Ad-free, `subdomain.washodo.tv`.
-    3. **Professional**: Custom domain, "Contact Us" pricing.
+- **Homepage Pricing Table**:
+    - Replace simple link with a feature-rich pricing table showing tiers.
+    - Clear "Get Started" CTAs leading to `/pricing`.
+    - Highlight a "Recommended" plan using Washodo Purple.
+- **Lead Generation Flow (Onboarding)**:
+    - Transition from a simple form to a multi-step "Partner Onboarding" experience.
+    - **Step 1: Identity**: Twitch username and basic contact.
+    - **Step 2: Preferences**: Notification tier selection (Member vs Friend).
+    - **Step 3: Preview**: Mock-up of their "Streamer Card" on the status page.
+    - **Confirmation**: "What happens next" guide.
+- **Pricing Page**: A dedicated page detailing the tiered plans:
+    - **Free**: Slow polling (10m), ad-supported.
+    - **Pro**: Fast polling (5m), ad-free.
+    - **Enterprise**: Custom polling/features, "Contact Us".
 
 ### B. Backend Lead Capture
 - **Persistence**: A new `signups` table in SQLite (`full_name`, `email`, `selected_plan`, `created_at`, `status`).
@@ -99,6 +111,7 @@ Implementing a "SaaS-Lite" funnel to capture leads and notify the admin in real-
 
 ### Phase 1: Backend & Persistence
 - **Schema**: Update `streamerStateRepository.ts` to create/manage tables for `integration_configs`, `bot_commands`, `signups`, and `internal_webhooks`.
+- **Polling Logic**: Implement tiered polling intervals (5m for Pro, 10m for Free) in the main check loop.
 - **API**: Create new endpoints in `src/server.ts` for:
     - Loading/saving integration settings.
     - Processing signups (`/api/signup`).
@@ -106,7 +119,11 @@ Implementing a "SaaS-Lite" funnel to capture leads and notify the admin in real-
 
 ### Phase 2: Frontend UI
 - **Navigation**: Update the admin sidebar to include "Integrations", "Leads", and "Webhooks".
-- **Pages**: Build the three config pages, the Pricing page, and the Homepage form.
+- **Pages**:
+    - Build the three config pages.
+    - Create dedicated doc pages: `/warden/docs/discord`, `/warden/docs/mattermost`, `/warden/docs/twitch`.
+    - Build the updated Pricing page and Homepage pricing table.
+    - Implement the multi-step onboarding flow on the homepage.
 - **UX**: Ensure compliance with the `washodo_style_guide.md` (Dark Mode, Washodo Purple, responsive layouts).
 
 ### Phase 3: Bot Logic & Notification Integration

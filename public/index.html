@@ -385,10 +385,128 @@
             text-decoration: underline;
         }
         @keyframes pulse {
-
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
+        }
+
+        /* Pricing Section Styles */
+        .pricing-section {
+            margin-top: 80px;
+            padding: 60px 20px;
+            text-align: center;
+            background: rgba(169, 112, 255, 0.03);
+            border-radius: 32px;
+            border: 1px solid #333;
+        }
+        .pricing-header {
+            margin-bottom: 40px;
+        }
+        .pricing-header h2 {
+            font-size: 2.5rem;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .pricing-header p {
+            color: #9ca3af;
+            font-size: 1.1rem;
+        }
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .pricing-card {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 24px;
+            padding: 40px 30px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+            position: relative;
+        }
+        .pricing-card:hover {
+            transform: translateY(-10px);
+            border-color: #a970ff;
+        }
+        .pricing-card.recommended {
+            border: 2px solid #a970ff;
+            box-shadow: 0 0 20px rgba(169, 112, 255, 0.2);
+        }
+        .pricing-card.recommended::before {
+            content: "Most Popular";
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #a970ff;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .plan-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .plan-price {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #a970ff;
+            margin-bottom: 20px;
+        }
+        .plan-price span {
+            font-size: 1rem;
+            color: #9ca3af;
+            font-weight: 400;
+        }
+        .plan-features {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 30px 0;
+            text-align: left;
+            flex-grow: 1;
+        }
+        .plan-features li {
+            padding: 10px 0;
+            border-bottom: 1px solid #2a2a2a;
+            color: #ccc;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .plan-features li::before {
+            content: "✓";
+            color: #a970ff;
+            font-weight: bold;
+        }
+        .plan-button {
+            background: #a970ff;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            transition: background 0.2s ease;
+        }
+        .plan-button:hover {
+            background: #c49cff;
+        }
+        .plan-button.secondary {
+            background: #333;
+        }
+        .plan-button.secondary:hover {
+            background: #444;
         }
     </style>
 </head>
@@ -401,26 +519,95 @@
     <div class="container">
         <!-- CONTENT_PLACEHOLDER -->
     </div>
+
+    <div class="pricing-section">
+        <div class="pricing-header">
+            <h2>Ready to get noticed?</h2>
+            <p>Choose a plan that fits your streaming goals</p>
+        </div>
+        <div class="pricing-grid">
+            <!-- Free Plan -->
+            <div class="pricing-card">
+                <div class="plan-name">Free</div>
+                <div class="plan-price">$0<span>/mo</span></div>
+                <ul class="plan-features">
+                    <li>Standard Tracking</li>
+                    <li>Slow Polling (10m)</li>
+                    <li>Community List Inclusion</li>
+                    <li>Basic Notifications</li>
+                </ul>
+                <a href="/pricing" class="plan-button secondary">Choose Free</a>
+            </div>
+            <!-- Pro Plan -->
+            <div class="pricing-card recommended">
+                <div class="plan-name">Pro</div>
+                <div class="plan-price">$8<span>/mo</span></div>
+                <ul class="plan-features">
+                    <li>Priority Tracking</li>
+                    <li>Fast Polling (5m)</li>
+                    <li>Ad-free Experience</li>
+                    <li>Priority Notifications</li>
+                </ul>
+                <a href="/pricing" class="plan-button">Get Pro</a>
+            </div>
+            <!-- Enterprise Plan -->
+            <div class="pricing-card">
+                <div class="plan-name">Enterprise</div>
+                <div class="plan-price">Custom<span>/mo</span></div>
+                <ul class="plan-features">
+                    <li>Custom Intervals</li>
+                    <li>Custom Domain Support</li>
+                    <li>Dedicated Support</li>
+                    <li>API Access</li>
+                </ul>
+                <a href="/pricing" class="plan-button secondary">Contact Us</a>
+            </div>
+        </div>
+    </div>
+
     <div class="join-section">
         <div class="join-text">Want to be included here?</div>
         <button onclick="openSignupModal()" class="join-button" style="cursor: pointer; border: none; font-family: inherit;">Sign Up Now</button>
     </div>
     <div id="signupModal" class="signup-modal">
         <div class="modal-content">
-            <h2>Join the Community</h2>
-            <p style="color: #ccc; font-size: 0.9rem; margin-bottom: 20px;">Sign up to get your stream tracked and notified!</p>
+            <h2 id="modalTitle">Join the Community</h2>
+            <p id="modalSubtitle" style="color: #ccc; font-size: 0.9rem; margin-bottom: 20px;">Sign up to get your stream tracked and notified!</p>
             <form id="signupForm">
-                <input type="text" id="full_name" placeholder="Full Name" required>
-                <input type="email" id="email" placeholder="Email Address" required>
-                <select id="selected_plan" required>
-                    <option value="" disabled selected>Select a Plan</option>
-                    <option value="Free">Free (Ad-supported)</option>
-                    <option value="Basic">Basic ($8/mo, Ad-free)</option>
-                    <option value="Professional">Professional (Custom Domain)</option>
-                </select>
-                <button type="submit" id="signupSubmit">Complete Signup</button>
-                <button type="button" class="close-btn" onclick="closeSignupModal()">Cancel</button>
+                <!-- Step 1: Identity -->
+                <div id="step1">
+                    <input type="text" id="full_name" placeholder="Full Name" required>
+                    <input type="email" id="email" placeholder="Email Address" required>
+                    <input type="text" id="twitch_username" placeholder="Twitch Username" required>
+                    <button type="button" onclick="nextStep(2)" class="join-button" style="width: 100%; border: none; font-family: inherit; cursor: pointer; margin-top: 10px;">Next</button>
+                </div>
+                <!-- Step 2: Preferences -->
+                <div id="step2" style="display: none;">
+                    <p style="text-align: center; font-size: 0.9rem; color: #ccc; margin-bottom: 15px;">Which notification tier do you prefer?</p>
+                    <select id="selected_plan" required>
+                        <option value="" disabled selected>Select a Plan</option>
+                        <option value="Free">Free (Slow Polling - 10m)</option>
+                        <option value="Basic">Basic (Fast Polling - 5m)</option>
+                        <option value="Professional">Professional (Custom)</option>
+                    </select>
+                    <button type="button" onclick="nextStep(1)" style="width: 100%; background: #333; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 10px;">Back</button>
+                    <button type="button" onclick="nextStep(3)" class="join-button" style="width: 100%; border: none; font-family: inherit; cursor: pointer; margin-top: 10px;">Next</button>
+                </div>
+                <!-- Step 3: Preview & Confirmation -->
+                <div id="step3" style="display: none;">
+                    <p style="text-align: center; font-size: 0.9rem; color: #ccc; margin-bottom: 15px;">Here is how your card will look:</p>
+                    <div id="cardPreview" style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: left; font-size: 0.85rem; color: #fff;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div style="width: 30px; height: 30px; border-radius: 50%; background: #333; border: 1px solid #a970ff; display: inline-block;"></div>
+                            <div id="previewUsername" style="font-weight: 600;"></div>
+                        </div>
+                        <div id="previewPlan" style="color: #9ca3af; font-size: 0.75rem;"></div>
+                    </div>
+                    <button type="submit" id="signupSubmit" class="join-button" style="width: 100%; border: none; font-family: inherit; cursor: pointer; margin-top: 10px;">Complete Signup</button>
+                    <button type="button" onclick="nextStep(2)" style="width: 100%; background: #333; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 10px;">Back</button>
+                </div>
             </form>
+            <button type="button" class="close-btn" onclick="closeSignupModal()">Cancel</button>
         </div>
     </div>
     <footer class="site-footer">
@@ -442,6 +629,24 @@
             document.getElementById('signupModal').style.display = 'none';
         }
 
+        function nextStep(step) {
+            const currentStep = document.getElementById('step1').style.display === 'none' 
+                ? (document.getElementById('step2').style.display === 'none' ? 3 : 2) 
+                : (document.getElementById('step2').style.display === 'none' ? 2 : 3);
+            
+            // Correct the logic for showing steps
+            document.getElementById('step1').style.display = (step === 1) ? 'block' : 'none';
+            document.getElementById('step2').style.display = (step === 2) ? 'block' : 'none';
+            document.getElementById('step3').style.display = (step === 3) ? 'block' : 'none';
+
+            if (step === 3) {
+                const username = document.getElementById('twitch_username').value || 'YourUsername';
+                const plan = document.getElementById('selected_plan').value || 'Free';
+                document.getElementById('previewUsername').innerText = username;
+                document.getElementById('previewPlan').innerText = 'Plan: ' + plan;
+            }
+        }
+
         document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const submitBtn = document.getElementById('signupSubmit');
@@ -450,6 +655,7 @@
             const data = {
                 full_name: document.getElementById('full_name').value,
                 email: document.getElementById('email').value,
+                twitch_username: document.getElementById('twitch_username').value,
                 selected_plan: document.getElementById('selected_plan').value
             };
 
@@ -465,7 +671,7 @@
 
                 if (response.ok) {
                     const result = await response.json();
-                    alert(result.message);
+                    alert(result.message || 'Your application has been submitted! Our team will review it and notify you via email.');
                     closeSignupModal();
                     document.getElementById('signupForm').reset();
                 } else {
@@ -473,37 +679,10 @@
                     alert('Error: ' + (err.error || 'Something went wrong'));
                 }
             } catch (error) {
-                alert('Network error. Please try again.');
+                alert('Network error. Please try again');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerText = originalText;
-            }
-        });
-
-        document.addEventListener('click', function(e) {
-            const target = e.target.closest('a');
-            if (!target) return;
-
-
-            // Track Streamer Card clicks (Main Grid)
-            if (target.classList.contains('streamer-card')) {
-                const username = target.getAttribute('href').split('/').pop();
-                if (username && window.umami) {
-                    window.umami.track('Streamer Click', { name: username });
-                }
-            } 
-            // Track "Watch on Twitch" clicks (Detail Page)
-            else if (target.classList.contains('detail-watch-button')) {
-                const username = window.location.pathname.split('/').pop();
-                if (username && window.umami) {
-                    window.umami.track('Watch Click', { name: username });
-                }
-            }
-            // Track Join Button clicks
-            else if (target.classList.contains('join-button')) {
-                if (window.umami) {
-                    window.umami.track('Join Click');
-                }
             }
         });
     </script>
