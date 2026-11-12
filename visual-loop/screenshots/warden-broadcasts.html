@@ -1,0 +1,812 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Washodo Ward Admin</title>
+    <style>
+        #env-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #a970ff;
+            color: white;
+            text-align: center;
+            padding: 5px 0;
+            font-size: 0.75rem;
+            font-weight: bold;
+            z-index: 2000;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: none;
+        }
+    </style>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-color: #a970ff;
+            --secondary-color: #38bdf8;
+            --danger-color: #ef4444;
+            --success-color: #22c55e;
+            --sidebar-width: 260px;
+            --sidebar-collapsed-width: 70px;
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: #111;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+        }
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .sidebar-header h1 {
+            font-size: 1.2rem;
+            color: var(--accent-color);
+            margin: 0;
+            transition: opacity 0.2s;
+        }
+        .sidebar.collapsed .sidebar-header h1 {
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+        }
+        .collapse-btn {
+            background: #222;
+            color: var(--text-color);
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            min-width: 30px;
+        }
+        .collapse-btn:hover {
+            background: var(--accent-color);
+            color: white;
+        }
+        .nav-menu {
+            flex: 1;
+            padding: 20px 0;
+            overflow-x: hidden;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: 0.2s;
+            font-weight: 500;
+            border-left: 4px solid transparent;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .nav-item:hover {
+            background: #222;
+            color: var(--accent-color);
+        }
+        .nav-item.active {
+            background: #222;
+            color: var(--accent-color);
+            border-left-color: var(--accent-color);
+        }
+        .nav-item span {
+            margin-right: 10px;
+            font-size: 1.1rem;
+            min-width: 24px;
+            text-align: center;
+        }
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+        .sidebar.collapsed .nav-item span {
+            margin-right: 0;
+        }
+        .sidebar.collapsed .nav-item {
+            font-size: 0;
+        }
+        .sidebar.collapsed .nav-item span {
+            font-size: 1.1rem;
+        }
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid #333;
+            text-align: center;
+            overflow: hidden;
+        }
+        .btn-home {
+            display: block;
+            text-align: center;
+            padding: 10px;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar.collapsed .btn-home {
+            font-size: 0;
+            padding: 10px 0;
+        }
+        .sidebar.collapsed .btn-home::before {
+            content: '🏠';
+            font-size: 1.1rem;
+        }
+        .btn-home:hover {
+            background: var(--accent-color);
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 40px;
+            display: block;
+            box-sizing: border-box;
+            width: calc(100% - var(--sidebar-width));
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-x: hidden;
+            text-align: left;
+        }
+        .main-content.expanded {
+            margin-left: var(--sidebar-collapsed-width);
+            width: calc(100% - var(--sidebar-collapsed-width));
+        }
+        .container {
+            max-width: 1280px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+        }
+        .page-header {
+            margin-bottom: 30px;
+            text-align: left;
+            width: 100%;
+            max-width: 1280px;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: var(--sidebar-collapsed-width);
+            }
+            .sidebar:not(.collapsed) {
+                width: var(--sidebar-collapsed-width);
+            }
+            .sidebar-header h1 {
+                display: none;
+            }
+            .nav-item {
+                justify-content: center;
+                padding: 12px 0;
+                font-size: 0;
+            }
+            .nav-item span {
+                margin-right: 0;
+                font-size: 1.1rem;
+            }
+            .sidebar-footer .btn-home {
+                font-size: 0;
+                padding: 10px 0;
+            }
+            .sidebar-footer .btn-home::before {
+                content: '🏠';
+                font-size: 1.1rem;
+            }
+            .main-content {
+                margin-left: var(--sidebar-collapsed-width);
+                width: calc(100% - var(--sidebar-collapsed-width));
+                padding: 20px;
+            }
+            .main-content.expanded {
+                margin-left: var(--sidebar-collapsed-width);
+                width: calc(100% - var(--sidebar-collapsed-width));
+            }
+            .container {
+                max-width: 100%;
+            }
+            .page-header {
+                max-width: 100%;
+            }
+            .form-group {
+                grid-template-columns: 1fr !important;
+            }
+            .modal-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        .page-header h2 {
+            color: var(--accent-color);
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        .page-header p {
+            color: #888;
+            margin: 5px 0 0 0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+        }
+        
+        .guild-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 10px;
+            background: #444;
+        }
+
+        /* Responsive Table Wrapper */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #444;
+        }
+        th { color: var(--secondary-color); }
+        
+        .text-center { text-align: center !important; }
+        .col-toggle { width: 80px; text-align: center; }
+        
+        .form-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #3a3a3a;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        input, select {
+            padding: 8px;
+            background: #222;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-primary { background: var(--accent-color); color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-success { background: var(--success-color); color: white; }
+        button:hover { opacity: 0.8; }
+        
+        .status-pill {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+        }
+        
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #444;
+            transition: background 0.2s;
+        }
+        .search-result-item:hover {
+            background: #3a3a3a;
+        }
+        .search-result-item strong {
+            color: #fff;
+        }
+        .search-result-item small {
+            color: #888;
+        }
+        
+        .draggable-row {
+            cursor: grab;
+        }
+        .draggable-row:active {
+            cursor: grabbing;
+        }
+        .sortable-ghost {
+            opacity: 0.4;
+            background: var(--accent-color) !important;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #555;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 1100px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .preview-modal-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .preview-section {
+            background: #3a3a3a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #555;
+        }
+        .preview-section h4 {
+            margin: 0 0 15px 0;
+            color: var(--secondary-color);
+            border-bottom: 1px solid #555;
+            padding-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .preview-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            font-size: 1em;
+            border-bottom: 1px solid #444;
+        }
+        .preview-item:last-child { border-bottom: none; }
+        .preview-item .target-name { 
+            font-weight: 500; 
+            color: #fff;
+            max-width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .preview-item .target-id { 
+            color: #aaa; 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 0.85em; 
+            background: #222;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .modal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .modal-form-section {
+            background: #3a3a3a;
+            padding: 20px;
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            align-items: center;
+        }
+        .modal-form-section label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .cron-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            grid-column: 1 / -1;
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #555;
+        }
+        .cron-presets {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            grid-column: 1 / -1;
+        }
+        .btn-preset {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            background: #444;
+            border: 1px solid #666;
+            color: #ccc;
+        }
+        .btn-preset:hover {
+            background: var(--accent-color);
+            color: white;
+        }
+        .editor-container, .preview-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .preview-box {
+            background: #111;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Inter', sans-serif;
+        }
+        .preview-label {
+            font-size: 0.8em;
+            color: var(--secondary-color);
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .toolbar {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+        /* In-place editing styles */
+        .editable-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .editable-text {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .editable-text:hover {
+            color: var(--accent-color);
+        }
+        .editable-input {
+            padding: 4px 8px;
+            background: #111;
+            border: 1px solid var(--accent-color);
+            color: white;
+            border-radius: 4px;
+            font-size: 1em;
+            width: 150px;
+        }
+        .btn-icon {
+            padding: 4px 8px;
+            font-size: 0.8em;
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        #notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateX(200%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 3000;
+        }
+        #notification-toast.show { transform: translateX(0); }
+        .toast-success { background: var(--success-color); }
+        .toast-error { background: var(--danger-color); }
+    </style>
+</head>
+<body>
+    <div id="env-banner"></div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1 id="sidebar-title">⚙️ Washodo Ward</h1>
+            <button class="collapse-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+                <span>◀</span>
+            </button>
+        </div>
+        <div class="nav-menu">
+            <a href="/warden/streamers" class="nav-item" id="nav-streamers"><span>👥</span> Streamers</a>
+            <a href="/warden/integrations" class="nav-item" id="nav-integrations"><span>🔌</span> Integrations</a>
+            <a href="/warden/leads" class="nav-item" id="nav-leads"><span>📈</span> Leads</a>
+            <a href="/warden/webhooks" class="nav-item" id="nav-webhooks"><span>⚓</span> Webhooks</a>
+            <a href="/warden/broadcasts" class="nav-item active" id="nav-broadcasts"><span>📢</span> Broadcasts</a>
+            <a href="/warden/system" class="nav-item" id="nav-system"><span>🛠️</span> System</a>
+        </div>
+        <div class="sidebar-footer">
+            <a href="/" target="_blank" class="btn-home">🏠 Return Home</a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="notification-toast"></div>
+        
+        <div class="container">
+            <div class="page-header">
+                <h2 id="page-title">Community Broadcasts</h2>
+                <p id="page-desc">Manage global settings and scheduled announcements.</p>
+            </div>
+
+            <div id="content-area">
+                <!-- Content dynamically injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Announcement Edit Modal -->
+    <div id="announcement-modal" class="modal">
+        <div class="modal-content">
+            <h3>Edit Announcement</h3>
+            <div class="modal-grid">
+                <div class="editor-container">
+                    <textarea id="ann-text" style="width: 100%; height: 300px; background: rgb(34, 34, 34); color: white; border: 1px solid rgb(85, 85, 85); border-radius: 4px; padding: 10px; font-family: monospace;"></textarea>
+                </div>
+            </div>
+            <div class="modal-form-section">
+                <label><input type="checkbox" id="ann-active" checked="" style=""> Active</label>
+                <label><input type="checkbox" id="ann-discord" checked="" style=""> Discord</label>
+                <label><input type="checkbox" id="ann-mattermost" checked="" style=""> Mattermost</label>
+                <label><input type="checkbox" id="ann-twitch" style=""> Twitch</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label>Start:</label>
+                    <input type="date" id="ann-start" style="">
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label>End:</label>
+                    <input type="date" id="ann-end" style="">
+                </div>
+                <div class="cron-input-group">
+                    <label style="white-space: nowrap;">Schedule (Cron):</label>
+                    <input type="text" id="ann-cron" style="flex: 1 1 0%; background: transparent; color: white; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; outline: none; font-family: monospace;" placeholder="0 12 * * *">
+                    <div id="cron-preview" style="font-size: 0.8em; min-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                </div>
+                <div class="cron-presets">
+                    <button class="btn-preset" onclick="applyCronPreset('hourly')">Hourly</button>
+                    <button class="btn-preset" onclick="applyCronPreset('daily_noon')">Daily Noon</button>
+                    <button class="btn-preset" onclick="applyCronPreset('daily_midnight')">Daily Midnight</button>
+                    <button class="btn-preset" onclick="applyCronPreset('weekly_mon')">Weekly Mon</button>
+                    <button class="btn-preset" onclick="applyCronPreset('every_6h')">Every 6h</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-danger" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveAnnouncement()">Save Announcement</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="broadcast-preview-modal" class="modal">
+        <div class="modal-content">
+            <h3>📢 Broadcast Preview</h3>
+            <div class="preview-modal-content" id="preview-targets-list">
+                <!-- Targets injected here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-danger" onclick="closePreviewModal()">Close</button>
+                <button class="btn-success" onclick="triggerBroadcastNow()">🚀 Confirm &amp; Send All</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            fetch('/api/admin/env')
+                .then(res => res.json())
+                .then(data => {
+                    const env = data.env;
+                    if (env && env !== 'production') {
+                        const banner = document.getElementById('env-banner');
+                        if (banner) {
+                            banner.innerText = `Running in ${env.toUpperCase()} mode`;
+                            banner.style.display = 'block';
+                            document.body.style.paddingTop = '25px';
+                        }
+                    }
+                })
+                .catch(() => {});
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="/admin/js/utils.js"></script>
+    <script src="/admin/js/integrations.js"></script>
+    <script src="/admin/js/leads.js"></script>
+    <script src="/admin/js/webhooks.js"></script>
+    <script src="/admin/js/discord.js"></script>
+    <script src="/admin/js/mattermost.js"></script>
+    <script src="/admin/js/broadcasts.js"></script>
+    <script src="/admin/js/streamers.js"></script>
+    <script src="/admin/js/system.js"></script>
+    <script>
+        async function handlePageLoad() {
+            const path = window.location.pathname;
+            const contentArea = document.getElementById('content-area');
+            const titleEl = document.getElementById('page-title');
+            const descEl = document.getElementById('page-desc');
+
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            
+            if (path === '/warden-access') {
+                const urlParams = new URLSearchParams(window.location.search);
+                const page = urlParams.get('page');
+
+                if (page === 'leads') {
+                    document.getElementById('nav-leads').classList.add('active');
+                    titleEl.textContent = 'Lead Generation';
+                    descEl.textContent = 'Manage new user signups and prospective customers.';
+                    renderLeads(contentArea);
+                } else if (page === 'webhooks') {
+                    document.getElementById('nav-webhooks').classList.add('active');
+                    titleEl.textContent = 'Internal Webhooks';
+                    descEl.textContent = 'Map system events to external notification URLs.';
+                    renderWebhooks(contentArea);
+                } else if (page === 'system') {
+                    document.getElementById('nav-system').classList.add('active');
+                    titleEl.textContent = 'System Tools';
+                    descEl.textContent = 'Database maintenance and portability tools.';
+                    renderSystem(contentArea);
+                } else {
+                    document.getElementById('nav-streamers').classList.add('active'); // Default to streamers
+                    titleEl.textContent = 'Warden Dashboard';
+                    descEl.textContent = 'Welcome to the Washodo Ward admin panel.';
+                    renderStreamers(contentArea);
+                }
+            } else if (path === '/warden/streamers') {
+                document.getElementById('nav-streamers').classList.add('active');
+                titleEl.textContent = 'Manage Streamers';
+                descEl.textContent = 'Add and organize tracked community members and friends.';
+                renderStreamers(contentArea);
+            } else if (path === '/warden/integrations') {
+                document.getElementById('nav-integrations').classList.add('active');
+                titleEl.textContent = 'Integrations Hub';
+                descEl.textContent = 'Centralized configuration for Discord, Mattermost, and Twitch.';
+                renderIntegrations(contentArea);
+            } else if (path === '/warden/leads') {
+                document.getElementById('nav-leads').classList.add('active');
+                titleEl.textContent = 'Lead Generation';
+                descEl.textContent = 'Manage new user signups and prospective customers.';
+                renderLeads(contentArea);
+            } else if (path === '/warden/webhooks') {
+                document.getElementById('nav-webhooks').classList.add('active');
+                titleEl.textContent = 'Internal Webhooks';
+                descEl.textContent = 'Map system events to external notification URLs.';
+                renderWebhooks(contentArea);
+            } else if (path === '/warden/broadcasts') {
+                document.getElementById('nav-broadcasts').classList.add('active');
+                titleEl.textContent = 'Community Broadcasts';
+                descEl.textContent = 'Manage global settings and scheduled announcements.';
+                renderBroadcasts(contentArea);
+            } else if (path === '/warden/system') {
+                document.getElementById('nav-system').classList.add('active');
+                titleEl.textContent = 'System Tools';
+                descEl.textContent = 'Database maintenance and portability tools.';
+                renderSystem(contentArea);
+            } else {
+                window.location.href = '/warden/streamers';
+            }
+        }
+        window.addEventListener('popstate', handlePageLoad);
+        window.onload = handlePageLoad;
+        
+        window.addEventListener('click', e => {
+            if (e.target.classList.contains('modal')) {
+                if (e.target.id === 'announcement-modal') closeModal();
+                if (e.target.id === 'broadcast-preview-modal') closePreviewModal();
+            }
+        });
+        
+        document.addEventListener('click', e => {
+            if (e.target.classList.contains('nav-item')) {
+                e.preventDefault();
+                const href = e.target.getAttribute('href');
+                window.history.pushState({}, '', href);
+                handlePageLoad();
+            }
+        });
+    </script>
+
+</body></html>
