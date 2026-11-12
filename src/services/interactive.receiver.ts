@@ -187,7 +187,15 @@ export class InteractiveReceiver {
         if (list.length === 0) return '';
         let groupText = `\n**${title}**\n`;
         list.forEach(user => {
-          const userStr = String(user || '');
+          let userStr = '';
+          if (typeof user === 'string') {
+            userStr = user;
+          } else if (user && typeof user === 'object' && (user as any).username) {
+            userStr = String((user as any).username);
+          } else {
+            userStr = String(user || '');
+          }
+
           const isLive = liveUsernames.includes(userStr.toLowerCase());
           const status = isLive ? '🔴 Live' : '⚪ Offline';
           groupText += `- ${userStr}: ${status}\n`;
