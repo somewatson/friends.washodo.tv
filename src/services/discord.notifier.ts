@@ -215,14 +215,8 @@ export class DiscordNotifier {
             return;
         }
 
-        const members = (await this.stateRepo.getEntitiesByCategory('member'))
-            .filter(Boolean)
-            .map((s: any) => (typeof s === 'object' && s !== null && s.username) ? String(s.username) : String(s));
-
-        const friends = (await this.stateRepo.getEntitiesByCategory('friend'))
-            .filter(Boolean)
-            .map((s: any) => (typeof s === 'object' && s !== null && s.username) ? String(s.username) : String(s));
-
+        const members = await this.stateRepo.getStreamerUsernamesByCategory('member');
+        const friends = await this.stateRepo.getStreamerUsernamesByCategory('friend');
         const others = (process.env.TRACKED_STREAMERS || '').split(',').filter(Boolean);
         const allStreamers = [...new Set([...members, ...friends, ...others])];
 

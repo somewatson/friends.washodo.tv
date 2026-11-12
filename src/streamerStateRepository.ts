@@ -191,6 +191,13 @@ export class StreamerStateRepository {
         return rows;
     }
 
+    async getStreamerUsernamesByCategory(category: string): Promise<string[]> {
+        const entities = await this.getEntitiesByCategory(category);
+        return entities
+            .filter(Boolean)
+            .map((s: any) => (typeof s === 'object' && s !== null && s.username) ? String(s.username) : String(s));
+    }
+
     async addTrackedEntity(username: string, category: string) {
         if (!this.db) throw new Error('Database not initialized');
         
