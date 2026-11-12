@@ -1,0 +1,70 @@
+<div class="hero-section">
+    <div class="hero-content">
+        <img src="/logo.png" alt="Washodo Logo" class="hero-logo">
+        <div class="social-proof">{{followerCount}}</div>
+        <p class="hero-subtitle">The ultimate hub for tracking your favorite streaming circle. Real-time updates, zero friction.</p>
+    </div>
+</div>
+
+<div class="tier-section">
+    <div class="tier-title">Washodo Members</div>
+    <div class="streamer-grid">{{membersGrid}}</div>
+</div>
+
+<div class="tier-section">
+    <div class="tier-title">Washodo Friends</div>
+    <div class="streamer-grid">{{friendsGrid}}</div>
+</div>
+
+<div class="lead-gen-section">
+    <div class="lg-box">
+        <h2>Ready to get noticed?</h2>
+        <p>Create your own community status page. Host a professional hub like this one to promote your group of streaming friends and grow together. Your brand, your friends, your growth.</p>
+        <a href="/pricing" class="lg-btn">Start Your Own Hub</a>
+    </div>
+</div>
+
+<div class="community-section">
+    <div class="comm-box">
+        <p>Want to join the Washodo creator group? <a href="https://washodo.tv" target="_blank" class="comm-link">Visit Washodo.tv to apply</a> and be included in our official community list.</p>
+    </div>
+</div>
+
+<style>
+    .hero-section { text-align: center; margin: 60px 0 40px; }
+    .hero-logo { max-width: 250px; margin-bottom: 20px; }
+    .social-proof { font-size: 1.2rem; color: #9ca3af; font-weight: 600; margin-bottom: 10px; }
+    .hero-subtitle { font-size: 1.1rem; color: #6b7280; max-width: 600px; margin: 0 auto 40px; }
+    
+    .tier-section { width: 100%; max-width: 1200px; margin-bottom: 60px; }
+    .tier-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 20px; color: #a970ff; border-left: 4px solid #a970ff; padding-left: 15px; }
+    .streamer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    
+    .lead-gen-section { width: 100%; max-width: 800px; margin: 80px 0 40px; text-align: center; }
+    .lg-box { background: linear-gradient(145deg, #1e1e1e, #252525); border: 1px solid #a970ff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 30px rgba(169, 112, 255, 0.1); }
+    .lg-box h2 { font-size: 2rem; color: white; margin-bottom: 15px; }
+    .lg-box p { font-size: 1.1rem; color: #9ca3af; line-height: 1.6; margin-bottom: 30px; }
+    .lg-btn { background: #a970ff; color: white; text-decoration: none; padding: 15px 30px; border-radius: 12px; font-weight: 700; font-size: 1.1rem; transition: transform 0.2s ease; display: inline-block; }
+    .lg-btn:hover { transform: scale(1.05); }
+    
+    .community-section { width: 100%; max-width: 800px; margin-bottom: 60px; text-align: center; }
+    .comm-box { padding: 20px; border-top: 1px solid #333; color: #6b7280; font-size: 0.9rem; }
+    .comm-link { color: #a970ff; text-decoration: none; font-weight: 600; }
+    .comm-link:hover { text-decoration: underline; }
+    
+    /* Re-using existing streamer-card styles from layout or index.html */
+    .streamer-card { background: #1e1e1e; border: 1px solid #333; border-radius: 16px; overflow: hidden; text-decoration: none; color: inherit; transition: all 0.3s ease; display: block; position: relative; }
+    .streamer-card:hover { transform: translateY(-5px); border-color: #a970ff; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
+    .stream-thumbnail { width: 100%; height: 180px; object-fit: cover; }
+    .streamer-info { padding: 15px; }
+    .user-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .profile-pic { width: 40px; height: 40px; border-radius: 50%; }
+    .username { font-weight: 700; font-size: 1.1rem; }
+    .status-box { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .status-indicator { width: 8px; height: 8px; border-radius: 50%; }
+    .status-indicator.live { background: #ff4b4b; box-shadow: 0 0 8px #ff4b4b; }
+    .status-indicator.offline { background: #6b7280; }
+    .status-label { color: white; }
+    .stream-title { font-size: 0.9rem; color: #ccc; margin-bottom: 5px; }
+    .user-tagline { font-size: 0.8rem; color: #6b7280; }
+</style>

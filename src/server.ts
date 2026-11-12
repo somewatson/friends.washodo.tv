@@ -9,6 +9,7 @@ import axios from 'axios';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import cronParser from 'cron-parser';
+import { ViewRenderer } from './services/view.renderer';
 
 dotenv.config();
 
@@ -311,7 +312,7 @@ export class ApiServer {
         });
 
         // Warden Interface
-        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system', '/warden/docs/discord', '/warden/docs/mattermost', '/warden/docs/twitch'], (req, res) => {
+        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system', '/warden/integrations', '/warden/docs/discord', '/warden/docs/mattermost', '/warden/docs/twitch'], (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
             
@@ -324,6 +325,7 @@ export class ApiServer {
             if (req.path === '/warden/docs/twitch') {
                 return res.send(this.injectEnvBanner(this.getTwitchDocs()));
             }
+
 
             let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
             template = template.replace('{{API_KEY}}', this.apiKey || '');
@@ -1123,11 +1125,31 @@ export class ApiServer {
                 const liveList = await this.twitch.getLiveStreamers(usernames);
                 const userList = await this.twitch.getUsers(usernames);
                 
+                // Calculate total followers for social proof
+                let totalFollowers = 0;
+                await Promise.all(usernames.map(async (u) => {
+                    try {
+                        const user = userList.find(user => user.login?.toLowerCase() === u.toLowerCase());
+                        if (user) {
+                            const followers = await axios.get('https://api.twitch.tv/helix/channels/followers', {
+                                params: { broadcaster_id: user.id },
+                                headers: {
+                                    'Client-ID': process.env.TWITCH_CLIENT_ID || 'dummy-id',
+                                    'Authorization': `Bearer ${await this.twitch.getAccessToken()}`,
+                                }
+                            });
+                            totalFollowers += followers.data.total;
+                        }
+                    } catch (e) {
+                        console.error(`[Home] Failed to fetch followers for ${u}:`, e);
+                    }
+                }));
+
                 const userMap: Record<string, any> = {};
                 userList.forEach(u => {
                     userMap[u.login.toLowerCase()] = u;
                 });
-
+                
                 const renderGrid = async (list: any[]) => {
                     if (list.length === 0) return '<p>No streamers in this tier.</p>';
                     const gridItems = await Promise.all(list.map(async (s) => {
@@ -1150,7 +1172,7 @@ export class ApiServer {
                         }
                         
                         return `
-                            <a href="${twitchUrl}" target="_blank" class="streamer-card">
+                            <a href="${twitchUrl}" target="_blank" class="streamer-card" onclick="window.umami?.track('Streamer Click', { name: '${username}' })">
                                 ${isLive ? `<img src="${thumbnail}" class="stream-thumbnail" alt="Live stream thumbnail">` : ''}
                                 <div class="streamer-info">
                                     <div class="user-meta">
@@ -1170,6 +1192,12 @@ export class ApiServer {
                 };
                 
                 const html = `
+                    <div class="header-main" style="text-align: center; margin-bottom: 40px;">
+                        <img src="/logo.png" alt="Washodo Logo" style="max-width: 250px; margin-bottom: 20px;">
+                        <div class="social-proof" style="font-size: 1.2rem; color: #9ca3af; font-weight: 600;">
+                            Over ${totalFollowers.toLocaleString()} Twitch followers for this Washodo Friends group.
+                        </div>
+                    </div>
                     <div class="tier-section">
                         <div class="tier-title">Washodo Members</div>
                         <div class="streamer-grid">${await renderGrid(filteredMembers)}</div>
@@ -1178,21 +1206,15 @@ export class ApiServer {
                         <div class="tier-title">Washodo Friends</div>
                         <div class="streamer-grid">${await renderGrid(filteredFriends)}</div>
                     </div>
-                    <div class="join-section">
-                        <div class="join-text">Want to be included here?</div>
-                        <a href="https://washodo.tv" target="_blank" class="join-button">Apply to join at washodo.tv</a>
-                    </div>
                 `;
                 
-                const fs = require('fs');
-                const path = require('path');
                 let template = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
                 template = template.replace('<!-- CONTENT_PLACEHOLDER -->', html);
                 
                 res.send(this.injectEnvBanner(template));
             } catch (error) {
-                console.error('Error rendering status page:', error);
-                res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1><p style="color:white; background:#333; padding:20px;">Failed to fetch streamer status.</p>');
+                console.error('Error rendering home page:', error);
+                res.status(500).send('<h1 style="color:white; background:#333; padding:20px;">Internal Server Error</h1>');
             }
         });
 
@@ -1256,82 +1278,8 @@ export class ApiServer {
         });
 
         // Add a simple redirect from /discord-setup to the HTML file for convenience
-        this.app.get('/pricing', (req, res) => {
-            res.send(`
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Pricing - Washodo Ward</title>
-                    <style>
-                        body { background: #1a1a1a; color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                        .container { max-width: 1000px; width: 90%; text-align: center; padding: 40px 0; }
-                        h1 { color: #a970ff; font-size: 3rem; margin-bottom: 10px; }
-                        .subtitle { color: #ccc; font-size: 1.2rem; margin-bottom: 50px; }
-                        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-                        .plan-card { background: #2d2d2d; border: 2px solid #3d3d3d; border-radius: 20px; padding: 40px; transition: transform 0.3s, border-color 0.3s; display: flex; flex-direction: column; }
-                        .plan-card:hover { transform: translateY(-10px); border-color: #a970ff; }
-                        .plan-card.featured { border-color: #a970ff; position: relative; }
-                        .featured-tag { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #a970ff; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; }
-                        .plan-name { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; }
-                        .plan-price { font-size: 2.5rem; font-weight: bold; margin-bottom: 20px; }
-                        .plan-price span { font-size: 1rem; color: #888; }
-                        .features-list { list-style: none; padding: 0; margin: 0 0 30px 0; text-align: left; flex-grow: 1; }
-                        .features-list li { margin-bottom: 12px; color: #ccc; display: flex; align-items: center; }
-                        .features-list li::before { content: '✓'; color: #a970ff; margin-right: 10px; font-weight: bold; }
-                        .signup-btn { background: #a970ff; color: white; text-decoration: none; padding: 15px; border-radius: 10px; font-weight: bold; transition: opacity 0.2s; display: block; text-align: center; }
-                        .signup-btn:hover { opacity: 0.9; }
-                        .btn-outline { background: transparent; border: 2px solid #a970ff; color: #a970ff; }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <h1>Choose Your Plan</h1>
-                        <p class="subtitle">Get your community notified instantly. Simple, powerful, and scalable.</p>
-                        <div class="pricing-grid">
-                            <div class="plan-card">
-                                <div class="plan-name">Free</div>
-                                <div class="plan-price">$0<span>/mo</span></div>
-                                <ul class="features-list">
-                                    <li>Ad-supported broadcasts</li>
-                                    <li>subdomain.washodo.tv</li>
-                                    <li>Up to 3 tracked streamers</li>
-                                    <li>1 Discord server</li>
-                                    <li>Standard polling (5m)</li>
-                                </ul>
-                                <a href="/" class="signup-btn btn-outline">Get Started</a>
-                            </div>
-                            <div class="plan-card featured">
-                                <div class="featured-tag">Most Popular</div>
-                                <div class="plan-name">Basic</div>
-                                <div class="plan-price">$8<span>/mo</span></div>
-                                <ul class="features-list">
-                                    <li>100% Ad-Free experience</li>
-                                    <li>subdomain.washodo.tv</li>
-                                    <li>Up to 15 tracked streamers</li>
-                                    <li>Up to 5 Discord servers</li>
-                                    <li>Fast polling (2m)</li>
-                                </ul>
-                                <a href="/" class="signup-btn">Go Basic</a>
-                            </div>
-                            <div class="plan-card">
-                                <div class="plan-name">Professional</div>
-                                <div class="plan-price">Custom</div>
-                                <ul class="features-list">
-                                    <li>White-label Custom Domain</li>
-                                    <li>Unlimited streamers & servers</li>
-                                    <li>Priority 24/7 Support</li>
-                                    <li>Custom API & Webhooks</li>
-                                    <li>Dedicated Instance</li>
-                                </ul>
-                                <a href="mailto:contact@washodo.tv" class="signup-btn btn-outline">Contact Us</a>
-                            </div>
-                        </div>
-                    </div>
-                </body>
-                </html>
-            `);
+        this.app.get('/pricing', async (req, res) => {
+            res.send(await ViewRenderer.render('pricing'));
         });
 
         this.app.post('/api/signup', async (req, res) => {

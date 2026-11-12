@@ -36,7 +36,10 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - `src/server.ts`: API server for external status checks and admin interface.
   - `src/clients/twitch.client.ts`: Wrapper for Twitch API interactions.
 
-- **Route Authentication & Browser Access**:
+- **View Rendering**: 
+  - **Forbidden**: Do not use string-concatenation or raw string injection for HTML layouts in route handlers.
+  - **Required**: Use a centralized View Rendering system (e.g., `src/services/view.renderer.ts`) that wraps page content in a consistent layout template (`public/layout.html`).
+  - **Separation**: Keep page-specific HTML in dedicated files or templates rather than inlining them inside TypeScript logic.
   - **API Routes**: Most `/api/*` routes require the `X-API-KEY` header for authentication.
   - **Browser Routes**: Routes intended to be accessed directly via a browser (e.g., `/`, `/warden-gate`, `/warden/*`, `/discord-setup`) must be added to the bypass list in the API Key Middleware in `src/server.ts`. Otherwise, the server will return a `401 Unauthorized` error because browsers do not send the required `X-API-KEY` header.
   - **Warden Auth**: The `/warden/*` panel uses a separate cookie-based authentication flow (`warden_auth`) which is checked *after* the API Key bypass.
