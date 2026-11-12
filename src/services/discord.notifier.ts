@@ -234,8 +234,16 @@ export class DiscordNotifier {
                 if (list.length === 0) return '';
                 let groupText = `\n**${title}**\n`;
                 list.forEach(user => {
-                    const isLive = liveUsernames.includes(user.toLowerCase());
-                    groupText += `- ${user}: ${isLive ? '🔴 Live' : '⚪ Offline'}\n`;
+                    let userStr = '';
+                    if (typeof user === 'string') {
+                        userStr = user;
+                    } else if (user && typeof user === 'object' && (user as any).username) {
+                        userStr = String((user as any).username);
+                    } else {
+                        userStr = String(user || '');
+                    }
+                    const isLive = liveUsernames.includes(userStr.toLowerCase());
+                    groupText += `- ${userStr}: ${isLive ? '🔴 Live' : '⚪ Offline'}\n`;
                 });
                 return groupText;
             };

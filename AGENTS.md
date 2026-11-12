@@ -61,7 +61,10 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 
 ## 🎨 Style & Conventions
 - **File Edits**: Always read the file in its entirety (or the relevant section) immediately before performing any edit to ensure context is current and minimize errors.
-- **Verification**: Always run `npm run build` and verify it succeeds before performing any `git commit`.
+  - **Handling Large Edits**: To avoid "stop reason: length" (incomplete JSON) when modifying large blocks of text:
+    - Prefer multiple small, precise `edit` calls over one giant replacement.
+    - For massive refactors or file replacements, write a temporary script (Python/Bash) to the filesystem and execute it via `shell` to bypass the output token limit.
+  - **Verification**: Always run `npm run build` and verify it succeeds before performing any `git commit`.
 - **File Size Limit**: Cap source code files at 1,000 lines. When a file exceeds this limit, reorganize and break it into smaller files based on responsibility (e.g., extract logic into services, move types to a dedicated file, or use feature-based folder structures).
 - **UI/UX**: Follow `washodo_style_guide.md` for the status page (Dark Mode, Washodo Purple `#a970ff`, Sky Blue `#38bdf8`).
 - **Admin UI**: Maintain consistent table layouts. Use `.col-toggle` and `.text-center` for toggle columns to prevent layout shifting. Ensure layouts are responsive and prevent horizontal scrolling, especially in the admin panel.

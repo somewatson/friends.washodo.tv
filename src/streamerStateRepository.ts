@@ -52,15 +52,39 @@ export class StreamerStateRepository {
         `);
 
         this.db.exec(`
-            CREATE TABLE IF NOT EXISTS broadcast_settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                cron_schedule TEXT DEFAULT '0 12 * * *',
-                is_enabled INTEGER DEFAULT 0
+            CREATE TABLE IF NOT EXISTS integration_configs (
+                platform TEXT PRIMARY KEY,
+                client_id TEXT,
+                client_secret TEXT,
+                bot_username TEXT,
+                bot_token TEXT,
+                refresh_token TEXT,
+                base_url TEXT,
+                is_broadcast_enabled INTEGER DEFAULT 0
             )
         `);
-        
-        // Initialize default settings if not present
-        this.db.prepare('INSERT OR IGNORE INTO broadcast_settings (id, cron_schedule, is_enabled) VALUES (1, \'0 12 * * *\', 0)').run();
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS signups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT,
+                email TEXT,
+                selected_plan TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'pending'
+            )
+        `);
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS broadcast_targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform TEXT,
+                target_id TEXT,
+                target_name TEXT,
+                is_enabled INTEGER DEFAULT 1,
+                UNIQUE(platform, target_id)
+            )
+        `);
 
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS tracked_entities (
@@ -296,12 +320,88 @@ export class StreamerStateRepository {
             .run(label, id);
     }
 
-    async getBroadcastSettings() {
-        throw new Error('Deprecated: Use individual announcement settings instead.');
+    async getBroadcastTargets() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM broadcast_targets').all() as any[];
     }
 
-    async saveBroadcastSettings(settings: { cron_schedule: string, is_enabled: boolean }) {
-        throw new Error('Deprecated: Use individual announcement settings instead.');
+    async saveBroadcastTarget(platform: string, target_id: string, target_name: string, enabled: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(`
+            INSERT INTO broadcast_targets (platform, target_id, target_name, is_enabled) 
+            VALUES (?, ?, ?, ?) 
+            ON CONFLICT(platform, target_id) DO UPDATE SET 
+                target_name = excluded.target_name, 
+                is_enabled = excluded.is_enabled
+        `).run(platform, target_id, target_name, enabled ? 1 : 0);
+    }
+
+    async toggleBroadcastTarget(id: number, enabled: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE broadcast_targets SET is_enabled = ? WHERE id = ?')
+            .run(enabled ? 1 : 0, id);
+    }
+
+    async removeBroadcastTarget(id: number) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM broadcast_targets WHERE id = ?').run(id);
+    }
+
+    async getIntegrationConfig(platform: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        const row = this.db.prepare('SELECT * FROM integration_configs WHERE platform = ?').get(platform);
+        return row as any;
+    }
+
+    async saveIntegrationConfig(config: { platform: string, client_id: string, client_secret: string, bot_username: string, bot_token: string, refresh_token: string | null, base_url: string, is_broadcast_enabled: boolean }) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(`
+            INSERT INTO integration_configs (platform, client_id, client_secret, bot_username, bot_token, refresh_token, base_url, is_broadcast_enabled) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
+            ON CONFLICT(platform) DO UPDATE SET 
+                client_id = excluded.client_id, 
+                client_secret = excluded.client_secret, 
+                bot_username = excluded.bot_username, 
+                bot_token = excluded.bot_token, 
+                refresh_token = excluded.refresh_token, 
+                base_url = excluded.base_url, 
+                is_broadcast_enabled = excluded.is_broadcast_enabled
+        `).run(config.platform, config.client_id, config.client_secret, config.bot_username, config.bot_token, config.refresh_token, config.base_url, config.is_broadcast_enabled ? 1 : 0);
+    }
+
+    async addSignup(signup: { full_name: string, email: string, selected_plan: string }) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO signups (full_name, email, selected_plan) VALUES (?, ?, ?)'
+        ).run(signup.full_name, signup.email, signup.selected_plan);
+    }
+
+    async getSignups() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM signups ORDER BY created_at DESC').all() as any[];
+    }
+
+    async getInternalWebhooks() {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM internal_webhooks').all() as any[];
+    }
+
+    async addInternalWebhook(event_type: string, target_url: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO internal_webhooks (event_type, target_url) VALUES (?, ?)'
+        ).run(event_type, target_url);
+    }
+
+    async removeInternalWebhook(id: number) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM internal_webhooks WHERE id = ?').run(id);
+    }
+
+    async toggleInternalWebhook(id: number, active: boolean) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('UPDATE internal_webhooks SET is_active = ? WHERE id = ?')
+            .run(active ? 1 : 0, id);
     }
 
     async getAnnouncements() {

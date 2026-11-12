@@ -202,6 +202,53 @@
             background: rgba(169, 112, 255, 0.2);
             border-color: #a970ff;
         }
+        .signup-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #2d2d2d;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #444;
+        }
+        .modal-content h2 { color: #a970ff; margin-top: 0; }
+        .modal-content input, .modal-content select {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .modal-content button {
+            width: 100%;
+            padding: 12px;
+            background: #a970ff;
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .modal-content .close-btn {
+            background: transparent;
+            color: #888;
+            border: 1px solid #444;
+            margin-top: 5px;
+        }
         .footer-credits {
             display: flex;
             flex-wrap: wrap;
@@ -347,11 +394,34 @@
 </head>
 <body style="position: relative;">
     <div class="nav-top">
+        <a href="/pricing" class="nav-link">Pricing</a>
         <a href="/discord-setup" class="nav-link highlight">🤖 Add Bot to Discord</a>
     </div>
     <h1>Streamer Status</h1>
     <div class="container">
         <!-- CONTENT_PLACEHOLDER -->
+    </div>
+    <div class="join-section">
+        <div class="join-text">Want to be included here?</div>
+        <button onclick="openSignupModal()" class="join-button" style="cursor: pointer; border: none; font-family: inherit;">Sign Up Now</button>
+    </div>
+    <div id="signupModal" class="signup-modal">
+        <div class="modal-content">
+            <h2>Join the Community</h2>
+            <p style="color: #ccc; font-size: 0.9rem; margin-bottom: 20px;">Sign up to get your stream tracked and notified!</p>
+            <form id="signupForm">
+                <input type="text" id="full_name" placeholder="Full Name" required>
+                <input type="email" id="email" placeholder="Email Address" required>
+                <select id="selected_plan" required>
+                    <option value="" disabled selected>Select a Plan</option>
+                    <option value="Free">Free (Ad-supported)</option>
+                    <option value="Basic">Basic ($8/mo, Ad-free)</option>
+                    <option value="Professional">Professional (Custom Domain)</option>
+                </select>
+                <button type="submit" id="signupSubmit">Complete Signup</button>
+                <button type="button" class="close-btn" onclick="closeSignupModal()">Cancel</button>
+            </form>
+        </div>
     </div>
     <footer class="site-footer">
         <div class="footer-system">Real-time data provided by Twitch API</div>
@@ -364,9 +434,56 @@
         </div>
     </footer>
     <script>
+        function openSignupModal() {
+            document.getElementById('signupModal').style.display = 'flex';
+        }
+
+        function closeSignupModal() {
+            document.getElementById('signupModal').style.display = 'none';
+        }
+
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('signupSubmit');
+            const originalText = submitBtn.innerText;
+            
+            const data = {
+                full_name: document.getElementById('full_name').value,
+                email: document.getElementById('email').value,
+                selected_plan: document.getElementById('selected_plan').value
+            };
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Sending...';
+                
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(result.message);
+                    closeSignupModal();
+                    document.getElementById('signupForm').reset();
+                } else {
+                    const err = await response.json();
+                    alert('Error: ' + (err.error || 'Something went wrong'));
+                }
+            } catch (error) {
+                alert('Network error. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalText;
+            }
+        });
+
         document.addEventListener('click', function(e) {
             const target = e.target.closest('a');
             if (!target) return;
+
 
             // Track Streamer Card clicks (Main Grid)
             if (target.classList.contains('streamer-card')) {

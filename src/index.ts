@@ -39,16 +39,50 @@ class WashodoWardApp {
         try {
             const assembled = await AnnouncementAssembler.assemble([ann], 0);
             if (!assembled.discord && !assembled.mattermost && !assembled.twitch) return;
-
+ 
             const notifications = [];
+            
+            // Granular Mattermost
             if (assembled.mattermost && ann.mattermost_enabled) {
-                notifications.push(mattermostNotifier.broadcast(assembled.mattermost));
+                const targets = await this.stateRepo.getBroadcastTargets();
+                const mmTargets = targets.filter((t: any) => t.platform === 'mattermost' && t.is_enabled === 1);
+                
+                for (const target of mmTargets) {
+                    notifications.push(mattermostNotifier.broadcast(assembled.mattermost, target.target_id));
+                }
+                
+                if (mmTargets.length === 0) {
+                    notifications.push(mattermostNotifier.broadcast(assembled.mattermost));
+                }
             }
+            
+            // Granular Discord
             if (assembled.discord && ann.discord_enabled) {
-                notifications.push(discordNotifier.broadcast(assembled.discord));
+                const targets = await this.stateRepo.getBroadcastTargets();
+                const discordTargets = targets.filter((t: any) => t.platform === 'discord' && t.is_enabled === 1);
+                
+                for (const target of discordTargets) {
+                    notifications.push(discordNotifier.broadcast(assembled.discord, target.target_id));
+                }
+                
+                if (discordTargets.length === 0) {
+                    notifications.push(discordNotifier.broadcast(assembled.discord));
+                }
             }
+            
+            // Granular Twitch
             if (assembled.twitch && ann.twitch_enabled) {
-                console.log(`[TwitchChatClient] Broadcast: ${assembled.twitch}`);
+                const targets = await this.stateRepo.getBroadcastTargets();
+                const twitchTargets = targets.filter((t: any) => t.platform === 'twitch' && t.is_enabled === 1);
+                
+                const streamers = await this.stateRepo.getStreamers();
+                const liveStreamers = streamers.filter((s: any) => s.is_//live);
+                
+                for (const s of liveStreamers) {
+                    if (twitchTargets.length === 0 || twitchTargets.some((t: any) => t.target_id === s.username)) {
+                        notifications.push(twitchChatClient.sendMessage(s.username, assembled.twitch));
+                    }
+                }
             }
             await Promise.allSettled(notifications);
         } catch (error) {

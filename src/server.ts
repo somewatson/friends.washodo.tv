@@ -12,6 +12,8 @@ import cronParser from 'cron-parser';
 
 dotenv.config();
 
+import { WebhookDispatcher } from './services/webhook.dispatcher';
+
 export class ApiServer {
     private app = express();
     private port = process.env.PORT || 3000;
@@ -25,12 +27,14 @@ export class ApiServer {
     private discord = new DiscordClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
+    private dispatcher: WebhookDispatcher;
     private server: any;
     private mainApp: any;
 
     constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any, mainApp?: any) {
         this.stateRepo = stateRepo;
         this.mainApp = mainApp;
+        this.dispatcher = new WebhookDispatcher(stateRepo);
         this.setupMiddleware();
         this.setupRoutes(interactiveReceiver?.getApp());
     }
@@ -47,7 +51,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/warden/') || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback')) {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path === '/api/streamers' || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/warden/') || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback') || req.path.startsWith('/api/twitch/callback') || req.path === '/api/signup' || req.path === '/pricing') {
                 return next();
             }
             
@@ -531,13 +535,107 @@ export class ApiServer {
             }
         });
 
-        this.app.get('/api/admin/system/time', (req, res) => {
-            const now = new Date();
-            res.json({
-                serverTime: now.toISOString(),
-                timezone: 'UTC',
-                localString: now.toUTCString()
-            });
+        this.app.get('/api/admin/broadcast/targets', async (req, res) => {
+            try {
+                const targets = await this.stateRepo.getBroadcastTargets();
+                res.json(targets);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch broadcast targets' });
+            }
+        });
+
+        this.app.post('/api/admin/broadcast/targets', async (req, res) => {
+            try {
+                const { platform, target_id, target_name, enabled } = req.body;
+                await this.stateRepo.saveBroadcastTarget(platform, target_id, target_name, enabled);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to save broadcast target' });
+            }
+        });
+
+        this.app.post('/api/admin/broadcast/targets/toggle', async (req, res) => {
+            try {
+                const { id, enabled } = req.body;
+                await this.stateRepo.toggleBroadcastTarget(id, enabled);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to toggle broadcast target' });
+            }
+        });
+
+        this.app.delete('/api/admin/broadcast/targets/:id', async (req, res) => {
+            try {
+                await this.stateRepo.removeBroadcastTarget(parseInt(req.params.id));
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to remove broadcast target' });
+            }
+        });
+
+        this.app.get('/api/admin/integrations', async (req, res) => {
+            try {
+                const config = await this.stateRepo.getIntegrationConfig('washodo');
+                res.json(config || { platform: 'washodo' });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch integration config' });
+            }
+        });
+
+        this.app.post('/api/admin/integrations', async (req, res) => {
+            try {
+                await this.stateRepo.saveIntegrationConfig(req.body);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to save integration config' });
+            }
+        });
+
+        this.app.get('/api/admin/leads', async (req, res) => {
+            try {
+                const signups = await this.stateRepo.getSignups();
+                res.json(signups);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch leads' });
+            }
+        });
+
+        this.app.get('/api/admin/webhooks', async (req, res) => {
+            try {
+                const webhooks = await this.stateRepo.getInternalWebhooks();
+                res.json(webhooks);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch webhooks' });
+            }
+        });
+
+        this.app.post('/api/admin/webhooks', async (req, res) => {
+            try {
+                const { event_type, target_url } = req.body;
+                await this.stateRepo.addInternalWebhook(event_type, target_url);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to add webhook' });
+            }
+        });
+
+        this.app.delete('/api/admin/webhooks/:id', async (req, res) => {
+            try {
+                await this.stateRepo.removeInternalWebhook(parseInt(req.params.id));
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to remove webhook' });
+            }
+        });
+
+        this.app.post('/api/admin/webhooks/toggle', async (req, res) => {
+            try {
+                const { id, active } = req.body;
+                await this.stateRepo.toggleInternalWebhook(id, active);
+                res.json({ success: true });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to toggle webhook' });
+            }
         });
 
         this.app.get('/api/admin/cron-next', async (req, res) => {
@@ -645,6 +743,81 @@ export class ApiServer {
             } catch (error: any) {
                 console.error('[DB Import] Error:', error);
                 res.status(500).json({ error: 'Import failed', details: error.message });
+            }
+        });
+
+        this.app.get('/api/twitch/auth', (req, res) => {
+            const scope = 'chat:edit chat:read user:read:email';
+            const redirectUri = process.env.BASE_URL + '/api/twitch/callback';
+            const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
+            res.json({ url: authUrl });
+        });
+
+        this.app.get('/api/twitch/callback', async (req, res) => {
+            const { code, state, error } = req.query as { code?: string, state?: string, error?: string };
+
+            const layout = (title: string, content: string, isError: boolean = false) => `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${title}</title>
+                    <style>
+                        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                        .card { background: #2d2d2d; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 500px; width: 90%; }
+                        h1 { color: ${isError ? '#ef4444' : '#a970ff'}; margin-bottom: 20px; font-size: 2em; }
+                        p { font-size: 1.1em; line-height: 1.6; color: #ccc; margin-bottom: 30px; }
+                        .btn { display: inline-block; padding: 12px 24px; background: #a970ff; color: white; text-decoration: none; font-weight: bold; border-radius: 8px; transition: opacity 0.2s; }
+                        .btn:hover { opacity: 0.8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h1>${title}</h1>
+                        <p>${content}</p>
+                        <a href="/warden-access" class="btn">Return to Admin Panel</a>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            if (error) {
+                return res.send(layout('❌ Twitch Auth Error', `Authorization failed: ${error}`));
+            }
+
+            if (!code) {
+                return res.status(400).send(layout('❌ Setup Error', 'Missing authorization code from Twitch. Please try again.'));
+            }
+
+            try {
+                const tokenResponse = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+                    params: {
+                        client_id: process.env.TWITCH_CLIENT_ID!,
+                        client_secret: process.env.TWITCH_CLIENT_SECRET!,
+                        code: code,
+                        grant_type: 'authorization_code',
+                        redirect_uri: process.env.BASE_URL + '/api/twitch/callback',
+                    },
+                });
+
+                const { access_token, refresh_token, expires_in } = tokenResponse.data;
+
+                // Save the bot credentials to integration_configs
+                await this.stateRepo.saveIntegrationConfig({
+                    platform: 'twitch_bot',
+                    config_key: 'bot_credentials',
+                    config_value: JSON.stringify({
+                        access_token,
+                        refresh_token,
+                        expires_in,
+                        updated_at: new Date().toISOString()
+                    }),
+                    updated_at: new Date().toISOString()
+                });
+
+                res.send(layout('✅ Twitch Bot Connected!', 'The bot has been successfully authorized. You can now use it for broadcasts and community commands.'));
+            } catch (error: any) {
+                console.error('[Twitch OAuth] Setup error:', error.response?.data || error.message);
+                res.status(500).send(layout('❌ Setup Failed', `An unexpected error occurred: ${error.message}`));
             }
         });
 
@@ -944,11 +1117,108 @@ export class ApiServer {
         });
 
         // Add a simple redirect from /discord-setup to the HTML file for convenience
-        this.app.get('/discord-setup', async (req, res) => {
-            const path = require('path');
-            const fs = require('fs');
-            let template = fs.readFileSync(path.join(__dirname, '../public/discord-setup.html'), 'utf8');
-            res.send(this.injectEnvBanner(template));
+        this.app.get('/pricing', (req, res) => {
+            res.send(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Pricing - Washodo Ward</title>
+                    <style>
+                        body { background: #1a1a1a; color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                        .container { max-width: 1000px; width: 90%; text-align: center; padding: 40px 0; }
+                        h1 { color: #a970ff; font-size: 3rem; margin-bottom: 10px; }
+                        .subtitle { color: #ccc; font-size: 1.2rem; margin-bottom: 50px; }
+                        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+                        .plan-card { background: #2d2d2d; border: 2px solid #3d3d3d; border-radius: 20px; padding: 40px; transition: transform 0.3s, border-color 0.3s; display: flex; flex-direction: column; }
+                        .plan-card:hover { transform: translateY(-10px); border-color: #a970ff; }
+                        .plan-card.featured { border-color: #a970ff; position: relative; }
+                        .featured-tag { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #a970ff; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; }
+                        .plan-name { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; }
+                        .plan-price { font-size: 2.5rem; font-weight: bold; margin-bottom: 20px; }
+                        .plan-price span { font-size: 1rem; color: #888; }
+                        .features-list { list-style: none; padding: 0; margin: 0 0 30px 0; text-align: left; flex-grow: 1; }
+                        .features-list li { margin-bottom: 12px; color: #ccc; display: flex; align-items: center; }
+                        .features-list li::before { content: '✓'; color: #a970ff; margin-right: 10px; font-weight: bold; }
+                        .signup-btn { background: #a970ff; color: white; text-decoration: none; padding: 15px; border-radius: 10px; font-weight: bold; transition: opacity 0.2s; display: block; text-align: center; }
+                        .signup-btn:hover { opacity: 0.9; }
+                        .btn-outline { background: transparent; border: 2px solid #a970ff; color: #a970ff; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Choose Your Plan</h1>
+                        <p class="subtitle">Get your community notified instantly. Simple, powerful, and scalable.</p>
+                        <div class="pricing-grid">
+                            <div class="plan-card">
+                                <div class="plan-name">Free</div>
+                                <div class="plan-price">$0<span>/mo</span></div>
+                                <ul class="features-list">
+                                    <li>Ad-supported broadcasts</li>
+                                    <li>subdomain.washodo.tv</li>
+                                    <li>Up to 3 tracked streamers</li>
+                                    <li>1 Discord server</li>
+                                    <li>Standard polling (5m)</li>
+                                </ul>
+                                <a href="/" class="signup-btn btn-outline">Get Started</a>
+                            </div>
+                            <div class="plan-card featured">
+                                <div class="featured-tag">Most Popular</div>
+                                <div class="plan-name">Basic</div>
+                                <div class="plan-price">$8<span>/mo</span></div>
+                                <ul class="features-list">
+                                    <li>100% Ad-Free experience</li>
+                                    <li>subdomain.washodo.tv</li>
+                                    <li>Up to 15 tracked streamers</li>
+                                    <li>Up to 5 Discord servers</li>
+                                    <li>Fast polling (2m)</li>
+                                </ul>
+                                <a href="/" class="signup-btn">Go Basic</a>
+                            </div>
+                            <div class="plan-card">
+                                <div class="plan-name">Professional</div>
+                                <div class="plan-price">Custom</div>
+                                <ul class="features-list">
+                                    <li>White-label Custom Domain</li>
+                                    <li>Unlimited streamers & servers</li>
+                                    <li>Priority 24/7 Support</li>
+                                    <li>Custom API & Webhooks</li>
+                                    <li>Dedicated Instance</li>
+                                </ul>
+                                <a href="mailto:contact@washodo.tv" class="signup-btn btn-outline">Contact Us</a>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+        });
+
+        this.app.post('/api/signup', async (req, res) => {
+            try {
+                const { full_name, email, selected_plan } = req.body;
+                if (!full_name || !email || !selected_plan) {
+                    return res.status(400).json({ error: 'All fields are required' });
+                }
+                
+                await this.stateRepo.addSignup({ full_name, email, selected_plan });
+                
+                // Trigger internal webhook event
+                if (this.dispatcher) {
+                    await this.dispatcher.dispatch('user.signup', {
+                        full_name,
+                        email,
+                        selected_plan,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
+                res.json({ success: true, message: 'Thank you for signing up! We will be in touch soon.' });
+            } catch (error: any) {
+                console.error('[API] Signup error:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
         });
 
         this.app.get('/api/thumbnail/:username', async (req, res) => {

@@ -41,6 +41,27 @@ export class TwitchClient {
     }
   }
 
+  async refreshUserToken(refreshToken: string): Promise<{ accessToken: string, refreshToken: string, expiresIn: number }> {
+    try {
+      const response = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+        params: {
+          client_id: this.config.clientId,
+          client_secret: this.config.clientSecret,
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        },
+      });
+      return {
+        accessToken: response.data.access_token,
+        refreshToken: response.data.refresh_token,
+        expiresIn: response.data.expires_in,
+      };
+    } catch (error: any) {
+      console.error('Error refreshing Twitch user token:', error.response?.data || error.message);
+      throw new Error('Failed to refresh Twitch token');
+    }
+  }
+
   async getUsers(usernames: string[]): Promise<any[]> {
     const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
     if (filteredUsernames.length === 0) {
