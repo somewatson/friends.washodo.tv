@@ -16,6 +16,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **CRITICAL**: Use SQLite (`data/streamers.db`) for all persistent state.
   - **Forbidden**: Do not use `state.json` or other loose JSON files for application state.
   - **Boolean Handling**: SQLite does not have a native Boolean type. When updating boolean flags (e.g., `is_active`, `discord_enabled`) via API, ensure the frontend sends `1` or `0` instead of `true`/`false` to avoid persistence issues.
+  - **Entity Handling**: When retrieving lists of streamers/entities from the repository, always ensure they are sanitized into strings (checking for `.username` properties) before passing them to external APIs or string methods (like `.toLowerCase()`) to avoid `TypeError` crashes.
   - **Portability**: Use `scripts/db-portable.ts` for importing/exporting the database. All dynamic configuration (Mattermost targets, Discord guilds, tracked streamers) must reside in the database, not in `.env`.
 - **Discord Integration**: 
   - Use the `DiscordClient` wrapper in `src/clients/discord.client.ts`.
