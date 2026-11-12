@@ -780,6 +780,14 @@ export class ApiServer {
             }
         });
 
+        this.app.get('/api/admin/system/time', (req, res) => {
+            res.json({
+                utcTime: new Date().toISOString(),
+                localTime: new Date().toString(),
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            });
+        });
+
         this.app.get('/api/admin/cron-next', async (req, res) => {
             const { schedule } = req.query;
             if (!schedule) return res.status(400).json({ error: 'Schedule is required' });
