@@ -85,6 +85,8 @@ export class DiscordNotifier {
 
     async start(): Promise<void> {
         await this.syncConfigsFromDb();
+        console.log(`[DiscordNotifier] Starting login for ${this.configs.length} bots...`);
+        
         const loginPromises = this.configs.map(async (config) => {
             if (this.clients.has(config.token)) return;
 
@@ -102,7 +104,14 @@ export class DiscordNotifier {
                     await this.handleCommand(message);
                 });
 
-                await client.login(config.token);
+                // Wrap login in a timeout to prevent boot-hangs
+                await Promise.race([
+                    client.login(config.token),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Discord login timed out after 15s')), 15000)
+                    )
+                ]);
+
                 this.clients.set(config.token, client);
                 console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
             } catch (error) {
@@ -110,7 +119,8 @@ export class DiscordNotifier {
             }
         });
 
-        await Promise.all(loginPromises);
+        await Promise.allSettled(loginPromises);
+        console.log(`[DiscordNotifier] Discord login phase completed.`);
     }
 
     private async handleCommand(message: any): Promise<void> {
