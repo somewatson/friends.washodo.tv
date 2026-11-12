@@ -1004,15 +1004,6 @@ export class ApiServer {
     }
 
     public async start() {
-        // Initialize Discord Client
-        try {
-            await this.discord.login();
-        } catch (error) {
-            console.error('[Server] Failed to initialize Discord client:', error);
-            // We don't exit here because the server might still be needed for other things, 
-            // but Discord functionality will be broken.
-        }
-
         const portNumber = typeof this.port === 'string' ? parseInt(this.port, 10) : this.port;
         this.server = this.app.listen(portNumber, () => {
             console.log(`API Server running on port ${portNumber}`);
