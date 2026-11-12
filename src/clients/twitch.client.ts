@@ -41,23 +41,42 @@ export class TwitchClient {
     }
   }
 
+  private async request(url: string, config: axios.AxiosRequestConfig, retry = true): Promise<any> {
+    const token = await this.fetchAccessToken();
+    try {
+      const response = await axios({
+        url,
+        ...config,
+        headers: {
+          ...config.headers,
+          'Client-ID': this.config.clientId,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      if (retry && error.response?.status === 401) {
+        console.log('Twitch token expired unexpectedly, refreshing...');
+        this.accessToken = null; // Force refresh
+        this.tokenExpiry = 0;
+        return this.request(url, config, false);
+      }
+      throw error;
+    }
+  }
+
   async getUsers(usernames: string[]): Promise<any[]> {
     const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
     if (filteredUsernames.length === 0) {
       return [];
     }
-    const token = await this.fetchAccessToken();
     try {
-      const response = await axios.get('https://api.twitch.tv/helix/users', {
+      const data = await this.request('https://api.twitch.tv/helix/users', {
         params: {
           login: filteredUsernames,
         },
-        headers: {
-          'Client-ID': this.config.clientId,
-          'Authorization': `Bearer ${token}`,
-        },
       });
-      return response.data.data;
+      return data.data;
     } catch (error: any) {
       console.error('Error fetching Twitch users:', error.response?.data || error.message);
       return [];
@@ -69,19 +88,14 @@ export class TwitchClient {
     if (filteredUsernames.length === 0) {
       return [];
     }
-    const token = await this.fetchAccessToken();
     try {
-      const response = await axios.get('https://api.twitch.tv/helix/streams', {
+      const streamData = await this.request('https://api.twitch.tv/helix/streams', {
         params: {
           user_login: filteredUsernames,
         },
-        headers: {
-          'Client-ID': this.config.clientId,
-          'Authorization': `Bearer ${token}`,
-        },
       });
       
-      const streams = response.data.data;
+      const streams = streamData.data;
       if (!streams || streams.length === 0) return [];
 
       const userIds = streams.map((s: any) => s.user_id).filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
@@ -89,17 +103,13 @@ export class TwitchClient {
         return [];
       }
 
-      const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
+      const userData = await this.request('https://api.twitch.tv/helix/users', {
         params: {
           id: userIds,
         },
-        headers: {
-          'Client-ID': this.config.clientId,
-          'Authorization': `Bearer ${token}`,
-        },
       });
       
-      const users = userResponse.data.data;
+      const users = userData.data;
       const userMap: Record<string, any> = {};
       users.forEach((u: any) => {
         userMap[u.id] = u;
@@ -122,19 +132,14 @@ export class TwitchClient {
 
   async searchUsers(query: string): Promise<any[]> {
     if (!query) return [];
-    const token = await this.fetchAccessToken();
     try {
-      const response = await axios.get('https://api.twitch.tv/helix/search/channels', {
+      const data = await this.request('https://api.twitch.tv/helix/search/channels', {
         params: {
           query: query,
           first: 8,
         },
-        headers: {
-          'Client-ID': this.config.clientId,
-          'Authorization': `Bearer ${token}`,
-        },
       });
-      return response.data.data;
+      return data.data;
     } catch (error: any) {
       console.error('Error searching Twitch channels:', error.response?.data || error.message);
       return [];
