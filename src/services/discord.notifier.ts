@@ -148,7 +148,9 @@ export class DiscordNotifier {
                             });
                         } catch (probeError: any) {
                             if (probeError.response?.status === 429) {
-                                retryAfter = probeError.response.data?.retry_after || 0;
+                                // Cloudflare often puts the retry time in the header rather than the body
+                                const headerRetry = probeError.response.headers['retry-after'];
+                                retryAfter = probeError.response.data?.retry_after || (headerRetry ? parseInt(headerRetry) : 0);
                                 console.log(`[DiscordNotifier] Manual probe detected rate limit for channel ${config.channelId}: ${retryAfter}s`);
                             }
                         }

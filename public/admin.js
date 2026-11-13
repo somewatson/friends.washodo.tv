@@ -731,3 +731,90 @@ document.addEventListener('click', e => {
         handlePageLoad();
     }
 });
+async function renderBroadcasts(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h3 style="margin: 0;">Manage Announcements</h3>
+                    <p style="color: #888; margin: 5px 0 0 0;">Scheduled global broadcasts for Discord and Mattermost.</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-success" onclick="previewBroadcast()">👁️ Preview</button>
+                    <button class="btn-primary" onclick="openAnnouncementModal()">➕ New</button>
+                    <button class="btn-primary" onclick="triggerBroadcastNow()">🚀 Force Now</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="announcements-table">
+                    <thead>
+                        <tr>
+                            <th>Text</th>
+                            <th>Status</th>
+                            <th>Targets</th>
+                            <th>Schedule</th>
+                            <th>Next Run</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    try {
+        const data = await api('/api/admin/announcements');
+        const tbody = document.querySelector('#announcements-table tbody');
+        tbody.innerHTML = data.map(a => `
+            <tr>
+                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.text}</td>
+                <td class="col-toggle text-center" onclick="toggleAnnouncement(${a.id}, !${a.is_active})">
+                    <label class="switch">
+                        <input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
+                        <span class="slider"></span>
+                    </label>
+                </td>
+                <td>
+                    <span class="col-toggle" style="cursor: pointer" onclick="toggleAnnouncementTarget(${a.id}, 'discord_enabled', !${a.discord_enabled})">
+                        💬 ${a.discord_enabled ? '✅' : '❌'}
+                    </span>
+                    <span class="col-toggle" style="cursor: pointer" onclick="toggleAnnouncementTarget(${a.id}, 'mattermost_enabled', !${a.mattermost_enabled})">
+                        🏢 ${a.mattermost_enabled ? '✅' : '❌'}
+                    </span>
+                    <span class="col-toggle" style="cursor: pointer" onclick="toggleAnnouncementTarget(${a.id}, 'twitch_enabled', !${a.twitch_enabled})">
+                        🎮 ${a.twitch_enabled ? '✅' : '❌'}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85em;">${a.cron_schedule || 'Manual'}</td>
+                <td style="font-family: monospace; font-size: 0.85em; color: var(--secondary-color)">${a.next_run ? new Date(a.next_run).toLocaleString() : '—'}</td>
+                <td>
+                    <button class="btn-primary" onclick="openAnnouncementModal(${a.id})">Edit</button>
+                    <button class="btn-danger" onclick="deleteAnnouncement(${a.id})">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        notify('Error loading announcements: ' + e.message, 'error');
+    }
+}
+
+async function renderSystem(container) {
+    container.innerHTML = `
+        <div class="card">
+            <h3>Database Maintenance</h3>
+            <p style="color: #888; margin-bottom: 20px;">Export or import the application state. Be careful when importing.</p>
+            <div class="form-group">
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+                    <button class="btn-primary" onclick="exportDb()">📤 Export Database</button>
+                    <span style="color: #888; font-size: 0.9em;">Saves all tracked streamers and configs to a JSON file.</span>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" id="import-file" accept=".json" style="color: white;">
+                    <button class="btn-danger" onclick="importDb()">📥 Import Database</button>
+                </div>
+                <p style="color: #aaa; font-size: 0.8em; margin-top: 10px;">Warning: Importing will overwrite current state.</p>
+            </div>
+        </div>
+    `;
+}
