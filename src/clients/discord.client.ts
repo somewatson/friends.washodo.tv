@@ -79,7 +79,8 @@ export class DiscordClient {
                 
                 await stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
                 await stateRepo.setGlobalState('discord_rate_limit_last_ping', Date.now().toString());
-                console.error(`[Discord Client] Rate limit detected! Ban until ${new Date(expiry).toISOString()}`);
+                await stateRepo.setGlobalState('discord_rate_limit_retry_after', seconds.toString());
+                console.error(`[Discord Client] Rate limit detected! Ban until ${new Date(expiry).toISOString()} (Retry-After: ${seconds}s)`);
                 throw new Error(`Discord Rate Limit: retry after ${seconds}s`);
             }
             throw error;

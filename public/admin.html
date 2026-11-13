@@ -917,6 +917,7 @@
                     
                     statusHtml = `🔴 <span style="color: var(--danger-color)">Rate Limited</span><br>`;
                     statusHtml += `<small>Last Ping: ${status.lastPing ? new Date(status.lastPing).toLocaleString() : 'Unknown'}</small><br>`;
+                    statusHtml += `<small>Retry after: ${status.retryAfter ? status.retryAfter + 's' : 'Unknown'}</small><br>`;
                     statusHtml += `<small>Retry at: ${retryAt.toLocaleString()} (in ${diffMins}m)</small>`;
                     retryBtn.style.display = 'block';
                 } else if (status.disabled) {

@@ -307,6 +307,7 @@ export class DiscordNotifier {
     async getStatus() {
         const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
         const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
+        const retryAfter = await this.stateRepo.getGlobalState('discord_rate_limit_retry_after');
         const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
         const sessionToken = await this.stateRepo.getGlobalState('discord_session_token');
         const isCached = sessionToken && sessionToken !== '0';
@@ -317,6 +318,7 @@ export class DiscordNotifier {
             rateLimited: isRateLimited,
             rateLimitUntil: isRateLimited ? parseInt(rateLimitUntil) : null,
             lastPing: lastPing ? parseInt(lastPing) : null,
+            retryAfter: retryAfter ? parseInt(retryAfter) : null,
             sessionStatus: isCached ? 'Cached' : 'Fresh',
             lastError: this.lastFailureError,
             lastFailureTime: this.lastFailureTime,
