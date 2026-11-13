@@ -138,9 +138,10 @@ export class DiscordNotifier {
                     // Handle Rate Limits specifically
                     let retryAfter = error.response?.data?.retry_after || error.retryAfter || 0;
                     
-                    // If we timed out or didn't get a clear retryAfter, but it looks like a failure,
-                    // we ping Discord's API directly to see if we are rate limited.
-                    if (retryAfter === 0 && (errMsg.includes('timed out') || error.response?.status === 429)) {
+                    // If we hit a 429 or timed out, we MUST probe the API directly.
+                    // Cloudflare often returns a 429 with a very different retry time in the headers 
+                    // than what the library/body reports (or it might report a generic 30s).
+                    if (error.response?.status === 429 || errMsg.includes('timed out')) {
                         try {
                             const probe = await axios.get('https://discord.com/api/v10/users/@me', {
                                 headers: { Authorization: `Bot ${config.token}` },
@@ -148,10 +149,14 @@ export class DiscordNotifier {
                             });
                         } catch (probeError: any) {
                             if (probeError.response?.status === 429) {
-                                // Cloudflare often puts the retry time in the header rather than the body
                                 const headerRetry = probeError.response.headers['retry-after'];
-                                retryAfter = probeError.response.data?.retry_after || (headerRetry ? parseInt(headerRetry) : 0);
-                                console.log(`[DiscordNotifier] Manual probe detected rate limit for channel ${config.channelId}: ${retryAfter}s`);
+                                const probeRetry = probeError.response.data?.retry_after || (headerRetry ? parseInt(headerRetry) : 0);
+                                
+                                // Prioritize the probe result as it's the most accurate representation of the edge limit
+                                if (probeRetry > 0) {
+                                    retryAfter = Math.max(retryAfter, probeRetry);
+                                    console.log(`[DiscordNotifier] Manual probe detected accurate rate limit for channel ${config.channelId}: ${retryAfter}s`);
+                                }
                             }
                         }
                     }

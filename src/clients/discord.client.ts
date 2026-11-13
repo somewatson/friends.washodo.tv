@@ -222,6 +222,9 @@ export class DiscordClient {
 
     public async getGuildDetails(guildId: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
         try {
+            if (!this._client.user) {
+                throw new Error('Discord client is not logged in. Cannot fetch guild details.');
+            }
             const guild = await this._client.guilds.fetch(guildId);
             return {
                 name: guild.name,

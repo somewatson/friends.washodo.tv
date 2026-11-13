@@ -28,6 +28,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - Use exponential backoff for retries to avoid hammering unreachable servers.
   - Avoid unbounded `Promise.all()` on network requests; use batching or sequential processing.
   - **Isolation**: Ensure failures in one external service (e.g., Mattermost) do not block or cancel requests to others (e.g., Discord).
+  - **Proactive Rate Limiting**: Before making requests to external APIs (especially Discord), check for known rate-limit state in the database. If a rate limit is active, skip the request and return a fallback/cached value instead of triggering further API errors.
 - **Observability & I/O**:
   - **Avoid log storms**: Do not log every single failure in tight loops. Implement throttled, deduplicated, or summarized logging to prevent disk I/O spikes that can trigger filesystem read-only locks.
 - **Notifications**: 
