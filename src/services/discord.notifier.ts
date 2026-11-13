@@ -136,8 +136,10 @@ export class DiscordNotifier {
                     const errMsg = error.response?.data?.message || error.message || 'Unknown error';
                     
                     // Handle Rate Limits specifically
-                    if (error.response?.status === 429 || errMsg.includes('rate limit')) {
-                        const retryAfter = error.response?.data?.retry_after || 0;
+                    // discord.js usually puts retryAfter directly on the error object for API errors
+                    const retryAfter = error.response?.data?.retry_after || error.retryAfter || 0;
+                    
+                    if (error.response?.status === 429 || errMsg.includes('rate limit') || retryAfter > 0) {
                         const expiry = Date.now() + (retryAfter * 1000);
                         
                         await this.stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
