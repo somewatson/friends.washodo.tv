@@ -117,11 +117,6 @@ export class DiscordNotifier {
                         ]
                     });
 
-                    client.on('messageCreate', async (message) => {
-                        if (message.author.bot) return;
-                        await this.handleCommand(message);
-                    });
-
                     // Wrap login in a timeout to prevent boot-hangs
                     await Promise.race([
                         client.login(config.token),
@@ -130,8 +125,16 @@ export class DiscordNotifier {
                         )
                     ]);
 
+                    client.on('messageCreate', async (message) => {
+                        if (message.author.bot) return;
+                        await this.handleCommand(message);
+                    });
+
                     this.clients.set(config.token, client);
                     console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
+                    
+                    // Reset failure state upon any successful bot login
+                    this.isDisabledDueToFailure = false;
                 } catch (error: any) {
                     const errMsg = error.response?.data?.message || error.message || 'Unknown error';
                     

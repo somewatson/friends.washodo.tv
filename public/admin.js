@@ -277,6 +277,15 @@ async function forceRetryDiscord() {
     }
 }
 
+async function testDiscord(guildId) {
+    try {
+        await api(`/api/admin/discord/test/${guildId}`, 'POST');
+        notify('Test message sent to Discord!');
+    } catch (e) {
+        notify('Discord test failed: ' + e.message, 'error');
+    }
+}
+
 async function renderMattermost(container) {
     container.innerHTML = `
         <div class="card">
