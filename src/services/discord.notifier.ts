@@ -108,37 +108,50 @@ export class DiscordNotifier {
 
 
 
-            try {
-                const client = new Client({
-                    intents: [
-                        GatewayIntentBits.Guilds,
-                        GatewayIntentBits.GuildMessages,
-                        GatewayIntentBits.MessageContent
-                    ]
-                });
+                try {
+                    const client = new Client({
+                        intents: [
+                            GatewayIntentBits.Guilds,
+                            GatewayIntentBits.GuildMessages,
+                            GatewayIntentBits.MessageContent
+                        ]
+                    });
 
-                client.on('messageCreate', async (message) => {
-                    if (message.author.bot) return;
-                    await this.handleCommand(message);
-                });
+                    client.on('messageCreate', async (message) => {
+                        if (message.author.bot) return;
+                        await this.handleCommand(message);
+                    });
 
-                // Wrap login in a timeout to prevent boot-hangs
-                await Promise.race([
-                    client.login(config.token),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Discord login timed out after 15s')), 15000)
-                    )
-                ]);
+                    // Wrap login in a timeout to prevent boot-hangs
+                    await Promise.race([
+                        client.login(config.token),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Discord login timed out after 15s')), 15000)
+                        )
+                    ]);
 
-                this.clients.set(config.token, client);
-                console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
-            } catch (error: any) {
-                const errMsg = error.response?.data?.message || error.message || 'Unknown error';
-                console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
-                this.isDisabledDueToFailure = true;
-                this.lastFailureTime = Date.now();
-                this.lastFailureError = errMsg;
-            }
+                    this.clients.set(config.token, client);
+                    console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
+                } catch (error: any) {
+                    const errMsg = error.response?.data?.message || error.message || 'Unknown error';
+                    
+                    // Handle Rate Limits specifically
+                    if (error.response?.status === 429 || errMsg.includes('rate limit')) {
+                        const retryAfter = error.response?.data?.retry_after || 0;
+                        const expiry = Date.now() + (retryAfter * 1000);
+                        
+                        await this.stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
+                        await this.stateRepo.setGlobalState('discord_rate_limit_retry_after', retryAfter.toString());
+                        await this.stateRepo.setGlobalState('discord_rate_limit_last_ping', Date.now().toString());
+                        
+                        console.error(`[DiscordNotifier] Rate limit hit for channel ${config.channelId}. Retry after ${retryAfter}s (until ${new Date(expiry).toISOString()})`);
+                    }
+
+                    console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
+                    this.isDisabledDueToFailure = true;
+                    this.lastFailureTime = Date.now();
+                    this.lastFailureError = errMsg;
+                }
         });
 
         await Promise.allSettled(loginPromises);
