@@ -1,4 +1,6 @@
 import { Client, GatewayIntentBits, PermissionFlagsBits, ChannelType, TextChannel, NewsChannel } from 'discord.js';
+import { Logger } from '../services/logger.service';
+import { UmamiAnalytics } from '../services/umami.service';
 
 export class DiscordClient {
     public get client(): Client {
@@ -43,12 +45,21 @@ export class DiscordClient {
                 console.log('[Discord Client] Logged in successfully using cached session.');
                 
                 // Log only messages that mention the bot
-                this._client.on('messageCreate', (message) => {
+                this._client.on('messageCreate', async (message) => {
                     if (message.author.bot) return;
                     if (!message.mentions.has(this._client.user!)) return;
 
                     const channelName = (message.channel as any).name || 'DM/Unknown';
-                    console.log(`[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`);
+                    const logMessage = `[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`;
+                    console.log(logMessage);
+                    
+                    // Log the chat event and track in Umami
+                    await Logger.info('DISCORD_CHAT', logMessage);
+                    await UmamiAnalytics.trackEvent('Discord Chat', { 
+                        user: message.author.tag, 
+                        channel: channelName, 
+                        content: message.content 
+                    });
                 });
                 return;
             } catch (error: any) {
@@ -67,7 +78,7 @@ export class DiscordClient {
             console.log('[Discord Client] Logged in successfully');
             
             // Cache the token for next time
-            await stateRepo.setGlobalState('discord_session_token', token);
+            await stateRepo.setGlobalStateWithTimestamp('discord_session_token', token);
         } catch (error: any) {
             // Catch 429 errors or Cloudflare 1015
             const isRateLimit = error.status === 429 || error.message?.includes('1015') || error.message?.includes('rate limit');
@@ -85,14 +96,23 @@ export class DiscordClient {
             }
             throw error;
         }
-
+        
         // Log only messages that mention the bot
-        this._client.on('messageCreate', (message) => {
+        this._client.on('messageCreate', async (message) => {
             if (message.author.bot) return;
             if (!message.mentions.has(this._client.user!)) return;
 
             const channelName = (message.channel as any).name || 'DM/Unknown';
-            console.log(`[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`);
+            const logMessage = `[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`;
+            console.log(logMessage);
+            
+            // Log the chat event and track in Umami
+            await Logger.info('DISCORD_CHAT', logMessage);
+            await UmamiAnalytics.trackEvent('Discord Chat', { 
+                user: message.author.tag, 
+                channel: channelName, 
+                content: message.content 
+            });
         });
     }
 

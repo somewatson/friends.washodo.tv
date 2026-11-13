@@ -8,7 +8,12 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "test": "jest",
-    "verify": "ts-node scripts/verify-deploy.ts"
+    "verify": "ts-node scripts/verify-deploy.ts",
+    "lint": "npm run lint:js && npm run lint:css && npm run lint:html && npm run lint:ts",
+    "lint:js": "eslint \"public/**/*.js\"",
+    "lint:css": "stylelint \"public/**/*.css\"",
+    "lint:html": "htmlhint \"public/**/*.html\"",
+    "lint:ts": "eslint \"src/**/*.ts\""
   },
   "keywords": [],
   "author": "",
@@ -16,7 +21,7 @@
   "type": "commonjs",
   "dependencies": {
     "@types/tmi.js": "^1.8.6",
-    "axios": "^1.20.0",
+    "axios": "^1.21.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "cron-parser": "^5.10.4",
@@ -31,6 +36,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/compat": "^2.1.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -39,8 +45,15 @@
     "@types/node-cron": "^3.0.11",
     "@types/sqlite3": "^3.1.11",
     "@types/supertest": "^7.2.1",
+    "@typescript-eslint/eslint-plugin": "^8.72.2",
+    "@typescript-eslint/parser": "^8.72.2",
+    "eslint": "^10.14.0",
+    "eslint-plugin-html": "^8.2.1",
+    "htmlhint": "^1.9.2",
     "jest": "^30.5.2",
     "nodemon": "^3.1.14",
+    "stylelint": "^17.16.0",
+    "stylelint-config-standard": "^40.0.0",
     "supertest": "^7.3.1",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",

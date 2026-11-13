@@ -90,9 +90,12 @@ export class StreamerStateRepository {
         `);
 
         this.db.exec(`
-            CREATE TABLE IF NOT EXISTS discord_global_state (
-                key TEXT PRIMARY KEY,
-                value TEXT
+            CREATE TABLE IF NOT EXISTS application_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+                type TEXT,
+                message TEXT,
+                level TEXT DEFAULT 'INFO'
             )
         `);
 
@@ -353,6 +356,28 @@ export class StreamerStateRepository {
     async setGlobalState(key: string, value: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare('INSERT INTO discord_global_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+    }
+
+    async setGlobalStateWithTimestamp(key: string, value: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        const timestamp = new Date().toISOString();
+        this.db.prepare('INSERT INTO discord_global_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+        this.db.prepare('INSERT INTO discord_global_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(`${key}_timestamp`, timestamp);
+    }
+
+    async saveLog(type: string, message: string, level: string = 'INFO') {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO application_logs (type, message, level) VALUES (?, ?, ?)'
+        ).run(type, message, level);
+    }
+
+    async getLogs(type?: string, limit: number = 1000) {
+        if (!this.db) throw new Error('Database not initialized');
+        if (type) {
+            return this.db.prepare('SELECT * FROM application_logs WHERE type = ? ORDER BY timestamp DESC LIMIT ?').all(type, limit) as any[];
+        }
+        return this.db.prepare('SELECT * FROM application_logs ORDER BY timestamp DESC LIMIT ?').all(limit) as any[];
     }
 
     async clearDiscordRateLimit() {

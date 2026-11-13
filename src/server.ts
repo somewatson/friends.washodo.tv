@@ -177,7 +177,7 @@ export class ApiServer {
         });
 
         // Warden Interface
-        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system'], (req, res) => {
+        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system', '/warden/logs'], (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
             
@@ -531,13 +531,14 @@ export class ApiServer {
             }
         });
 
-        this.app.get('/api/admin/system/time', (req, res) => {
-            const now = new Date();
-            res.json({
-                serverTime: now.toISOString(),
-                timezone: 'UTC',
-                localString: now.toUTCString()
-            });
+        this.app.get('/api/admin/logs', async (req, res) => {
+            try {
+                const { type } = req.query;
+                const logs = await this.stateRepo.getLogs(type as string);
+                res.json(logs);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch logs', details: error.message });
+            }
         });
 
         this.app.get('/api/admin/cron-next', async (req, res) => {

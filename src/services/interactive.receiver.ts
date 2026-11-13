@@ -2,6 +2,8 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import { WebhookNotifier } from '../services/webhook.service';
 import { TwitchClient } from '../clients/twitch.client';
+import { Logger } from '../services/logger.service';
+import { UmamiAnalytics } from '../services/umami.service';
 import dotenv from 'dotenv';
 import axios from 'axios';
 
@@ -80,6 +82,10 @@ export class InteractiveReceiver {
       }
 
       console.log(`[Webhook] Received message from ${user_name} on ${serverConfig.serverUrl}: ${text}`);
+      
+      // Log the chat event and track in Umami
+      await Logger.info('MATTERMOST_CHAT', `Message from ${user_name} on ${serverConfig.serverUrl}: ${text}`);
+      await UmamiAnalytics.trackEvent('Mattermost Chat', { user: user_name, server: serverConfig.serverUrl });
 
       try {
         await this.handleCommand(text, channel_id, serverConfig, root_id);

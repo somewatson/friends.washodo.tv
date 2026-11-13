@@ -11,7 +11,11 @@ import { InteractiveReceiver } from './services/interactive.receiver';
 import { StreamerStateRepository } from './streamerStateRepository';
 import { ApiServer } from './server';
 import { AnnouncementAssembler } from './services/announcement.assembler';
+import { UmamiAnalytics } from './services/umami.service';
+import { Logger } from './services/logger.service';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -57,9 +61,10 @@ class WashodoWardApp {
     }
 
     async scheduleBroadcasts(mattermostNotifier: MattermostNotifier, discordNotifier: DiscordNotifier, twitchChatClient: TwitchChatClient) {
-        console.log(`[${new Date().toISOString()}] Scheduling community broadcasts...`);
+        console.log(`[BROADCAST] [${new Date().toISOString()}] Scheduling community broadcasts...`);
         try {
             const announcements = await this.stateRepo.getAnnouncements();
+    
             
             for (const job of this.broadcastJobs.values()) {
                 job.stop();
@@ -73,10 +78,11 @@ class WashodoWardApp {
 
                     try {
                         const job = cron.schedule(ann.cron_schedule, () => {
-                            console.log(`[Broadcast] Scheduled trigger for announcement ${ann.id}: ${ann.cron_schedule}`);
+                            console.log(`[BROADCAST] Scheduled trigger for announcement ${ann.id}: ${ann.cron_schedule}`);
                             this.executeBroadcast(ann, mattermostNotifier, discordNotifier, twitchChatClient);
                         });
                         this.broadcastJobs.set(ann.id, job);
+    
                         
                         const nextDate = (parser as any).parseExpression(ann.cron_schedule).next().toDate();
                         const diffMs = nextDate.getTime() - Date.now();
@@ -104,7 +110,9 @@ class WashodoWardApp {
         stateManager: StateManager,
         stateRepo: StreamerStateRepository
     ) {
-        console.log(`[${new Date().toISOString()}] Checking streamers...`);
+        await Logger.info('STREAMER_CHECK', 'Starting streamer status check cycle...');
+        console.log(`[CHECK] [${new Date().toISOString()}] Checking streamers...`);
+    
 
         const entities = await stateRepo.getStreamers();
         const uniqueStreamers = [...new Set(entities.map((e: any) => e.username))];
@@ -156,10 +164,16 @@ class WashodoWardApp {
 
     async bootstrap() {
         try {
+            console.log(`[BOOT] [${new Date().toISOString()}] Bootstrapping Washodo Ward...`);
             // Initialize State Repository first
             const stateRepo = new StreamerStateRepository();
             await stateRepo.init();
             this.stateRepo = stateRepo;
+
+            // Initialize Logger
+            Logger.init(stateRepo);
+            await Logger.info('BOOT', 'Application bootstrapping started...');
+    
 
             // Initialize TwitchClient for use in both polling and interactive receiver
             const twitchClient = new TwitchClient({ 

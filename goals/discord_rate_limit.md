@@ -44,8 +44,8 @@ Prevent login timeouts caused by Cloudflare rate limits (Error 1015) and provide
 - [x] Client login logic updates (Completed).
 - [x] Notifier method implementations (Completed).
 - [x] Admin Panel UI updates (Completed).
-- [ ] Session Caching & Token Persistence (Pending).
-- [ ] Header Monitoring & Proactive Throttling (Pending).
+- [x] Session Caching & Token Persistence (Completed).
+- [x] Header Monitoring & Proactive Throttling (Completed).
 
 ## Notes
 - Root cause: Cloudflare Error 1015.

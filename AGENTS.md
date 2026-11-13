@@ -8,6 +8,8 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Start**: `npm start` (runs `node dist/index.js`)
 - **Test**: `npm test` (runs `jest`)
 - **Deployment Verify**: `npm run verify` (runs `scripts/verify-deploy.ts`)
+- **Lint Assets**: `npm run lint` (checks HTML, CSS, JS, and TS in `public/` and `src/`)
+- **Build & Verify**: Always run `npm run lint` followed by `npm run build` before committing.
 
 ## 🏗 Architecture & Flow
 - **Hybrid Nature**: Node.js/TypeScript. Source in `src/`, builds to `dist/`.
