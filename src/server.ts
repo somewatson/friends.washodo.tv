@@ -321,7 +321,8 @@ export class ApiServer {
                             throw new Error('Rate limited');
                         }
 
-                        const details = await this.discord.getGuildDetails(integration.guild_id);
+                        // Use the DiscordNotifier to get the logged-in client and guild details
+                        const details = await (this.mainApp as any).discordNotifier.getGuildDetails(integration.guild_id, integration.bot_token || process.env.DISCORD_BOT_TOKEN);
                         return {
                             ...integration,
                             serverName: details.name,

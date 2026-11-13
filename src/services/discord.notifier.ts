@@ -10,7 +10,7 @@ interface DiscordConfig {
 }
 
 export class DiscordNotifier {
-    private clients: Map<string, Client> = new Map();
+    public clients: Map<string, Client> = new Map();
     private configs: DiscordConfig[] = [];
     private stateRepo: any; // Will be StreamerStateRepository
     private twitchClient: any; // Will be TwitchClient
@@ -341,6 +341,28 @@ export class DiscordNotifier {
         }
     }
 
+    public async getClientForToken(token: string): Promise<Client | null> {
+        return this.clients.get(token) || null;
+    }
+
+    public async getGuildDetails(guildId: string, token: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
+        const client = await this.getClientForToken(token);
+        if (!client) {
+            throw new Error('Discord client for this token is not logged in.');
+        }
+        try {
+            const guild = await client.guilds.fetch(guildId);
+            return {
+                name: guild.name,
+                memberCount: guild.memberCount,
+                icon: guild.iconURL()
+            };
+        } catch (error: any) {
+            console.error(`[DiscordNotifier] Error fetching guild details for ${guildId}:`, error);
+            throw error;
+        }
+    }
+
     async getStatus() {
         const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
         const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
@@ -348,6 +370,7 @@ export class DiscordNotifier {
         const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
         const sessionToken = await this.stateRepo.getGlobalState('discord_session_token');
         const isCached = sessionToken && sessionToken !== '0';
+
 
         return {
             connected: this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited,
