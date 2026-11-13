@@ -366,6 +366,15 @@ export class DiscordNotifier {
         }
     }
 
+    public getInviteUrl(): string {
+        const clientId = process.env.DISCORD_CLIENT_ID;
+        if (!clientId) {
+            throw new Error('DISCORD_CLIENT_ID not configured in environment');
+        }
+        // Permissions: 8 is Administrator. Scope: bot and applications.commands
+        return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
+    }
+
     async getStatus() {
         const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
         const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
@@ -374,9 +383,12 @@ export class DiscordNotifier {
         const sessionToken = await this.stateRepo.getGlobalState('discord_session_token');
         const isCached = sessionToken && sessionToken !== '0';
 
+        const connected = this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited;
+        
+        console.log(`[DiscordNotifier] Status check: connected=${connected}, clients=${this.clients.size}, disabled=${this.isDisabledDueToFailure}, rateLimited=${isRateLimited}`);
 
         return {
-            connected: this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited,
+            connected,
             disabled: this.isDisabledDueToFailure,
             rateLimited: isRateLimited,
             rateLimitUntil: isRateLimited ? parseInt(rateLimitUntil) : null,

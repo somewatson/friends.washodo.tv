@@ -21,7 +21,8 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **Entity Handling**: When retrieving lists of streamers/entities from the repository, always ensure they are sanitized into strings (checking for `.username` properties) before passing them to external APIs or string methods (like `.toLowerCase()`) to avoid `TypeError` crashes.
   - **Portability**: Use `scripts/db-portable.ts` for importing/exporting the database. All dynamic configuration (Mattermost targets, Discord guilds, tracked streamers) must reside in the database, not in `.env`.
 - **Discord Integration**: 
-  - Use the `DiscordClient` wrapper in `src/clients/discord.client.ts`.
+  - **Single Source of Truth**: All Discord bot operations, session management, and status tracking MUST be handled by `DiscordNotifier` in `src/services/discord.notifier.ts`.
+  - Do not instantiate separate `DiscordClient` objects in the API server or other services; instead, use the `discordNotifier` instance attached to the main application to avoid session mismatch and "not logged in" errors.
   - All Discord interactions are handled via the `discord.js` library to ensure proper rate limiting, type safety, and 64-bit permission handling.
 - **Network Resilience**: 
   - All HTTP calls **must** have explicit timeouts (default 10s).

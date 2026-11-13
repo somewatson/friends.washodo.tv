@@ -22,7 +22,6 @@ export class ApiServer {
         clientId: process.env.TWITCH_CLIENT_ID || '',
         clientSecret: process.env.TWITCH_CLIENT_SECRET || '',
     });
-    private discord = new DiscordClient();
     private notifier = new WebhookNotifier();
     private stateRepo: StreamerStateRepository;
     private server: any;
@@ -283,7 +282,8 @@ export class ApiServer {
         this.app.post('/api/admin/discord/sync-channel/:guildId', async (req, res) => {
             try {
                 const guildId = req.params.guildId;
-                const channelId = await this.discord.findOrCreateAnnouncementChannel(guildId);
+                const discordNotifier = (this.mainApp as any).discordNotifier;
+                const channelId = await discordNotifier.findOrCreateAnnouncementChannel(guildId);
                 
                 const integration = await this.stateRepo.getDiscordIntegration(guildId);
                 if (integration) {
@@ -637,7 +637,8 @@ export class ApiServer {
                 if (!integration) return res.status(404).json({ error: 'Discord integration not found' });
                 
                 console.log(`[Admin Panel] Sending Discord test notification for guild ${req.params.guildId}`);
-                await this.discord.sendTestMessage(integration);
+                const discordNotifier = (this.mainApp as any).discordNotifier;
+                await discordNotifier.sendTestMessage(integration);
                 res.json({ success: true });
             } catch (error: any) {
                 res.status(500).json({ error: 'Discord test failed', details: error.message });
@@ -739,7 +740,8 @@ export class ApiServer {
                     if (!hasManageGuild) continue;
                     
                     try {
-                        await this.discord.client.guilds.fetch(g.id);
+                        const discordNotifier = (this.mainApp as any).discordNotifier;
+                        await discordNotifier.client.guilds.fetch(g.id);
                         authorizedGuild = g;
                         break;
                     } catch {
@@ -753,7 +755,8 @@ export class ApiServer {
                 }
                 
                 const guild_id = authorizedGuild.id;
-                const channelId = await this.discord.createNotificationChannel(guild_id);
+                const discordNotifier = (this.mainApp as any).discordNotifier;
+                const channelId = await discordNotifier.createNotificationChannel(guild_id);
                 await this.stateRepo.saveDiscordIntegration(guild_id, channelId);
     
                 res.send(layout('✅ Setup Complete!', 'The announcement channel has been created or linked successfully. You can now close this window or return to the dashboard.'));
@@ -912,8 +915,9 @@ export class ApiServer {
 
         this.app.get('/api/discord/invite', (req, res) => {
             try {
-                const inviteUrl = this.discord.getInviteUrl();
-                res.json({ url: inviteUrl });
+                if (!this.mainApp) return res.status(500).json({ error: 'Main app not initialized' });
+                const discordNotifier = (this.mainApp as any).discordNotifier;
+                res.json({ url: discordNotifier.getInviteUrl() });
             } catch (error: any) {
                 console.error('[Discord Setup] Error generating invite link:', error.message);
                 res.status(500).json({ error: error.message });
