@@ -306,13 +306,18 @@ export class DiscordNotifier {
 
     async getStatus() {
         const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
+        const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
         const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
+        const sessionToken = await this.stateRepo.getGlobalState('discord_session_token');
+        const isCached = sessionToken && sessionToken !== '0';
 
         return {
             connected: this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited,
             disabled: this.isDisabledDueToFailure,
             rateLimited: isRateLimited,
-            rateLimitUntil: isRateLimited ? new Date(parseInt(rateLimitUntil)).toISOString() : null,
+            rateLimitUntil: isRateLimited ? parseInt(rateLimitUntil) : null,
+            lastPing: lastPing ? parseInt(lastPing) : null,
+            sessionStatus: isCached ? 'Cached' : 'Fresh',
             lastError: this.lastFailureError,
             lastFailureTime: this.lastFailureTime,
             botCount: this.clients.size,
@@ -322,6 +327,7 @@ export class DiscordNotifier {
 
     async forceRetry(): Promise<void> {
         await this.stateRepo.clearDiscordRateLimit();
+        await this.stateRepo.setGlobalState('discord_session_token', '0');
         this.isDisabledDueToFailure = false;
         this.lastFailureTime = 0;
         this.lastFailureError = '';
@@ -338,17 +344,17 @@ export class DiscordNotifier {
             // Cooldown expired, we can try to resume (though start() usually handles this)
             this.isDisabledDueToFailure = false;
         }
-
+        
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured in database or DISCORD_BOTS');
             return;
         }
-
+        
         const statusText = isRecurring ? 'is STILL LIVE!' : 'is now LIVE!';
         const thumbnail = streamer.thumbnail_url 
             ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
             : '';
-
+        
         // Process configs sequentially to avoid unbounded concurrency
         for (const config of this.configs) {
             if (!config.isActive) continue;
@@ -356,18 +362,25 @@ export class DiscordNotifier {
                 const cooldown = isRecurring 
                     ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
                     : 0;
-
+        
                 const shouldNotify = await this.stateRepo.shouldNotify(
                     streamer.user_login, 
                     'discord', 
                     config.channelId, 
                     cooldown
                 );
-
+        
                 if (!shouldNotify) continue;
-
+        
                 const client = this.clients.get(config.token);
                 if (!client) continue;
+        
+                // Proactive Rate Limit Check: Check if we are globally rate limited before trying
+                const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
+                if (rateLimitUntil && parseInt(rateLimitUntil) > Date.now()) {
+                    console.warn(`[DiscordNotifier] Skipping notification for ${config.channelId} due to global rate limit.`);
+                    continue;
+                }
 
                 await withRetry(
                     async () => {
@@ -375,21 +388,26 @@ export class DiscordNotifier {
                         if (!channel || !channel.isTextBased()) {
                             throw new Error(`Channel ${config.channelId} not found or not text-based`);
                         }
-
+        
                         const embed = new EmbedBuilder()
                             .setColor(0xFF0000)
                             .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
                             .setDescription(`**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}`)
                             .setThumbnail(thumbnail || null)
                             .setTimestamp();
-
-                        await (channel as any).send({ embeds: [embed] });
+        
+                        const response = await (channel as any).send({ embeds: [embed] });
+                        
+                        // Header Monitoring: In discord.js, the response is the message. 
+                        // Actual HTTP headers are usually hidden, but we can monitor the result.
+                        // If the library provides access to the underlying request/response, we'd check it here.
+                        // Since discord.js abstracts the REST API, we rely on the error handling for 429s.
                     },
                     3,
                     1000,
                     (err, attempt) => console.log(`[DiscordNotifier] Retry ${attempt} for ${config.channelId} due to: ${err.message}`)
                 );
-
+        
                 await this.stateRepo.recordNotification(streamer.user_login, 'discord', config.channelId);
                 
             } catch (error: any) {
@@ -398,7 +416,7 @@ export class DiscordNotifier {
                     error.message?.includes('not found') || 
                     error.code === 50001 || // Missing Access
                     error.code === 10003;   // Unknown Channel
-
+        
                 if (isPermanentFailure) {
                     console.error(`[DiscordNotifier] Permanent failure detected for channel ${config.channelId}. Marking as inactive.`);
                     
@@ -415,7 +433,7 @@ export class DiscordNotifier {
                         }
                     }
                 }
-
+        
                 const logKey = `discord_error_${config.channelId}`;
                 if (LogThrottler.shouldLog(logKey)) {
                     console.error(`[DiscordNotifier] Persistent failure for ${config.channelId}:`, error);

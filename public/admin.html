@@ -908,19 +908,33 @@
                 
                 if (!statusTextEl || !retryBtn) return;
 
+                let statusHtml = '';
                 if (status.rateLimited) {
-                    statusTextEl.innerHTML = `🔴 <span style="color: var(--danger-color)">Rate Limited</span> - Retry after ${status.rateLimitUntil}`;
+                    const retryAt = new Date(status.rateLimitUntil);
+                    const now = new Date();
+                    const diffMs = retryAt - now;
+                    const diffMins = Math.ceil(diffMs / 1000 / 60);
+                    
+                    statusHtml = `🔴 <span style="color: var(--danger-color)">Rate Limited</span><br>`;
+                    statusHtml += `<small>Last Ping: ${status.lastPing ? new Date(status.lastPing).toLocaleString() : 'Unknown'}</small><br>`;
+                    statusHtml += `<small>Retry at: ${retryAt.toLocaleString()} (in ${diffMins}m)</small>`;
                     retryBtn.style.display = 'block';
                 } else if (status.disabled) {
-                    statusTextEl.innerHTML = `🟡 <span style="color: #fbbf24">Disabled/Cooldown</span> - ${status.lastError || 'Unknown error'}`;
+                    statusHtml = `🟡 <span style="color: #fbbf24">Disabled/Cooldown</span> - ${status.lastError || 'Unknown error'}`;
                     retryBtn.style.display = 'block';
                 } else if (status.connected) {
-                    statusTextEl.innerHTML = `🟢 <span style="color: var(--success-color)">Operational</span> - ${status.botCount} bots connected`;
+                    statusHtml = `🟢 <span style="color: var(--success-color)">Operational</span> - ${status.botCount} bots connected`;
                     retryBtn.style.display = 'none';
                 } else {
-                    statusTextEl.innerHTML = `⚪ <span style="color: #888">Disconnected</span>`;
+                    statusHtml = `⚪ <span style="color: #888">Disconnected</span>`;
                     retryBtn.style.display = 'block';
                 }
+
+                if (status.sessionStatus) {
+                    statusHtml += `<br>Session: <strong>${status.sessionStatus}</strong>`;
+                }
+
+                statusTextEl.innerHTML = statusHtml;
             } catch (e) {
                 console.error('Error updating Discord status:', e);
             }

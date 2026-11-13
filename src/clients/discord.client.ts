@@ -34,9 +34,40 @@ export class DiscordClient {
             throw new Error(`Rate limited until ${new Date(parseInt(rateLimitUntil)).toISOString()}`);
         }
 
+        // Session Caching: Check for a cached token first
+        const cachedToken = await stateRepo.getGlobalState('discord_session_token');
+        if (cachedToken && cachedToken !== '0') {
+            try {
+                console.log('[Discord Client] Attempting to login with cached session token...');
+                await this._client.login(cachedToken);
+                console.log('[Discord Client] Logged in successfully using cached session.');
+                
+                // Log only messages that mention the bot
+                this._client.on('messageCreate', (message) => {
+                    if (message.author.bot) return;
+                    if (!message.mentions.has(this._client.user!)) return;
+
+                    const channelName = (message.channel as any).name || 'DM/Unknown';
+                    console.log(`[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`);
+                });
+                return;
+            } catch (error: any) {
+                const isUnauthorized = error.status === 401 || error.message?.includes('Unauthorized');
+                if (isUnauthorized) {
+                    console.warn('[Discord Client] Cached session token invalid. Performing fresh login...');
+                    await stateRepo.setGlobalState('discord_session_token', '0');
+                } else {
+                    throw error;
+                }
+            }
+        }
+
         try {
             await this._client.login(token);
             console.log('[Discord Client] Logged in successfully');
+            
+            // Cache the token for next time
+            await stateRepo.setGlobalState('discord_session_token', token);
         } catch (error: any) {
             // Catch 429 errors or Cloudflare 1015
             const isRateLimit = error.status === 429 || error.message?.includes('1015') || error.message?.includes('rate limit');
@@ -47,6 +78,7 @@ export class DiscordClient {
                 const expiry = Date.now() + (seconds * 1000);
                 
                 await stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
+                await stateRepo.setGlobalState('discord_rate_limit_last_ping', Date.now().toString());
                 console.error(`[Discord Client] Rate limit detected! Ban until ${new Date(expiry).toISOString()}`);
                 throw new Error(`Discord Rate Limit: retry after ${seconds}s`);
             }
