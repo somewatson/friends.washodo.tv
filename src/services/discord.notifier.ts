@@ -136,8 +136,23 @@ export class DiscordNotifier {
                     const errMsg = error.response?.data?.message || error.message || 'Unknown error';
                     
                     // Handle Rate Limits specifically
-                    // discord.js usually puts retryAfter directly on the error object for API errors
-                    const retryAfter = error.response?.data?.retry_after || error.retryAfter || 0;
+                    let retryAfter = error.response?.data?.retry_after || error.retryAfter || 0;
+                    
+                    // If we timed out or didn't get a clear retryAfter, but it looks like a failure,
+                    // we ping Discord's API directly to see if we are rate limited.
+                    if (retryAfter === 0 && (errMsg.includes('timed out') || error.response?.status === 429)) {
+                        try {
+                            const probe = await axios.get('https://discord.com/api/v10/users/@me', {
+                                headers: { Authorization: `Bot ${config.token}` },
+                                timeout: 5000
+                            });
+                        } catch (probeError: any) {
+                            if (probeError.response?.status === 429) {
+                                retryAfter = probeError.response.data?.retry_after || 0;
+                                console.log(`[DiscordNotifier] Manual probe detected rate limit for channel ${config.channelId}: ${retryAfter}s`);
+                            }
+                        }
+                    }
                     
                     if (error.response?.status === 429 || errMsg.includes('rate limit') || retryAfter > 0) {
                         const expiry = Date.now() + (retryAfter * 1000);
