@@ -16,8 +16,8 @@ export class DiscordNotifier {
     constructor(stateRepo: any, twitchClient?: any) {
         this.stateRepo = stateRepo;
         this.twitchClient = twitchClient;
-        this.sessionManager = new DiscordSessionManager(stateRepo);
         this.commandHandler = new DiscordCommandHandler(stateRepo, twitchClient);
+        this.sessionManager = new DiscordSessionManager(stateRepo, this.commandHandler);
         this.initializeConfigs().catch(err => console.error(`[DiscordNotifier] Initialization failed: ${err}`));
     }
 
@@ -91,49 +91,43 @@ export class DiscordNotifier {
     public async findOrCreateAnnouncementChannel(guildId: string): Promise<string> {
         const firstToken = this.sessionManager.clients.keys().next().value;
         if (!firstToken) throw new Error('No Discord managers are logged in. Cannot manage channels.');
-        const manager = this.sessionManager.clients.get(firstToken);
+        const client = this.sessionManager.clients.get(firstToken);
 
         try {
-            return await manager.broadcastEval(async (ctx: any) => {
-                const client = ctx.client || ctx;
-                if (!client || !client.guilds) {
-                    throw new Error('Discord client or guilds manager not available in shard context');
-                }
-                const guild = await client.guilds.fetch(ctx.guildId);
-                if (!guild) throw new Error(`Guild ${ctx.guildId} not found`);
+            const guild = await client.guilds.fetch(guildId);
+            if (!guild) throw new Error(`Guild ${guildId} not found`);
 
-                const channels = await guild.channels.fetch();
-                const existingAnnouncement = channels.find((c: any) => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5));
+            const channels = await guild.channels.fetch();
+            const existingAnnouncement = channels.find((c: any) => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5));
 
-                if (existingAnnouncement) {
-                    console.log(`[DiscordBot] Found existing announcement channel ${existingAnnouncement.id} for guild ${ctx.guildId}`);
-                    return existingAnnouncement.id;
-                }
+            if (existingAnnouncement) {
+                console.log(`[DiscordBot] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
+                return existingAnnouncement.id;
+            }
 
-                console.log(`[DiscordBot] No announcement channel found for guild ${ctx.guildId}. Creating one...`);
-                let channel;
-                try {
+            console.log(`[DiscordBot] No announcement channel found for guild ${guildId}. Creating one...`);
+            let channel;
+            try {
+                channel = await guild.channels.create({
+                    name: '📯-ward-bot',
+                    type: 5,
+                    topic: 'Official Twitch notifications for the Washodo community.',
+                });
+            } catch (announcementError: any) {
+                if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
+                    console.log(`[DiscordBot] Community features not enabled for guild ${guildId}. Falling back to GuildText...`);
                     channel = await guild.channels.create({
                         name: '📯-ward-bot',
-                        type: 5,
+                        type: 0,
                         topic: 'Official Twitch notifications for the Washodo community.',
                     });
-                } catch (announcementError: any) {
-                    if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
-                        console.log(`[DiscordBot] Community features not enabled for guild ${ctx.guildId}. Falling back to GuildText...`);
-                        channel = await guild.channels.create({
-                            name: '📯-ward-bot',
-                            type: 0,
-                            topic: 'Official Twitch notifications for the Washodo community.',
-                        });
-                    } else {
-                        throw announcementError;
-                    }
+                } else {
+                    throw announcementError;
                 }
+            }
 
-                if (!channel) throw new Error('Failed to create announcement channel');
-                return channel.id;
-            }, { guildId });
+            if (!channel) throw new Error('Failed to create announcement channel');
+            return channel.id;
         } catch (error: any) {
             console.error('[DiscordNotifier] Error in findOrCreateAnnouncementChannel:', error);
             throw error;
@@ -174,23 +168,17 @@ export class DiscordNotifier {
     }
 
     public async getGuildDetails(guildId: string, token: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
-        const manager = this.sessionManager.clients.get(token);
-        if (!manager) {
+        const client = this.sessionManager.clients.get(token);
+        if (!client) {
             throw new Error('Discord manager for this token is not active.');
         }
         try {
-            return await manager.broadcastEval(async (ctx: any) => {
-                const client = ctx.client || ctx;
-                if (!client || !client.guilds) {
-                    throw new Error('Discord client or guilds manager not available in shard context');
-                }
-                const guild = await client.guilds.fetch(ctx.guildId);
-                return {
-                    name: guild.name,
-                    memberCount: guild.memberCount,
-                    icon: typeof guild.iconURL === 'function' ? guild.iconURL() : guild.iconURL
-                };
-            }, { guildId });
+            const guild = await client.guilds.fetch(guildId);
+            return {
+                name: guild.name,
+                memberCount: guild.memberCount,
+                icon: typeof guild.iconURL === 'function' ? guild.iconURL() : guild.iconURL
+            };
         } catch (error: any) {
             console.error(`[DiscordNotifier] Error fetching guild details for ${guildId}:`, error);
             throw error;
@@ -226,29 +214,23 @@ export class DiscordNotifier {
 
         const connected = this.sessionManager.clients.size > 0 && !this.sessionManager.isDisabled && !isRateLimited;
 
-        const botDetails = await Promise.all(
-            Array.from(this.sessionManager.clients.entries()).map(async ([token, manager]) => {
-                try {
-                    const results = await manager.broadcastEval(async (ctx: any) => {
-                        const client = ctx.client || ctx;
-                        return {
-                            tag: client.user?.tag || 'Unknown Bot',
-                            id: client.user?.id || 'Unknown ID',
-                            avatar: client.user?.displayAvatarURL ? client.user.displayAvatarURL() : null,
-                            status: client.user?.presence?.status || 'offline'
-                        };
-                    });
-                    return results[0];
-                } catch (e) {
-                    return {
-                        tag: 'Error',
-                        id: 'Error',
-                        avatar: null,
-                        status: 'offline'
-                    };
-                }
-            })
-        );
+        const botDetails = Array.from(this.sessionManager.clients.entries()).map(([token, client]) => {
+            try {
+                return {
+                    tag: client.user?.tag || 'Unknown Bot',
+                    id: client.user?.id || 'Unknown ID',
+                    avatar: client.user?.displayAvatarURL ? client.user.displayAvatarURL() : null,
+                    status: client.user?.presence?.status || 'offline'
+                };
+            } catch (e) {
+                return {
+                    tag: 'Error',
+                    id: 'Error',
+                    avatar: null,
+                    status: 'offline'
+                };
+            }
+        });
 
         return {
             connected,
@@ -323,22 +305,19 @@ export class DiscordNotifier {
 
                 await withRetry(
                     async () => {
-                        await manager.broadcastEval(async (ctx: any) => {
-                            const client = ctx.client;
-                            const channel = await client.channels.fetch(config.channelId);
-                            if (!channel || !channel.isTextBased()) {
-                                throw new Error(`Channel ${config.channelId} not found or not text-based`);
-                            }
+                        const channel = await client.channels.fetch(config.channelId);
+                        if (!channel || !channel.isTextBased()) {
+                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
+                        }
 
-                            const embed = new (require('discord.js').EmbedBuilder)()
-                                .setColor(0xFF0000)
-                                .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
-                                .setDescription(`**Title:** ${streamer.title || 'No title provided'}\\n**Link:** https://twitch.tv/${streamer.user_login}`)
-                                .setThumbnail(thumbnail || null)
-                                .setTimestamp();
+                        const embed = new (require('discord.js').EmbedBuilder)()
+                            .setColor(0xFF0000)
+                            .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
+                            .setDescription(`**Title:** ${streamer.title || 'No title provided'}\\n**Link:** https://twitch.tv/${streamer.user_login}`)
+                            .setThumbnail(thumbnail || null)
+                            .setTimestamp();
 
-                            await channel.send({ embeds: [embed] });
-                        });
+                        await channel.send({ embeds: [embed] });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Successfully sent notification for ${streamer.user_name} to channel ${config.channelId}`);
                     },
                     3,
@@ -396,29 +375,26 @@ export class DiscordNotifier {
 
         for (const config of activeConfigs) {
             try {
-                const manager = this.sessionManager.clients.get(config.token);
-                if (!manager) {
-                    console.error(`[DiscordNotifier] No manager found for token used in channel ${config.channelId}.`);
+                const client = this.sessionManager.clients.get(config.token);
+                if (!client) {
+                    console.error(`[DiscordNotifier] No client found for token used in channel ${config.channelId}.`);
                     continue;
                 }
 
                 await withRetry(
                     async () => {
-                        await manager.broadcastEval(async (ctx: any) => {
-                            const client = ctx.client;
-                            const channel = await client.channels.fetch(config.channelId);
-                            if (!channel || !channel.isTextBased()) {
-                                throw new Error(`Channel ${config.channelId} not found or not text-based`);
-                            }
+                        const channel = await client.channels.fetch(config.channelId);
+                        if (!channel || !channel.isTextBased()) {
+                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
+                        }
 
-                            const embed = new (require('discord.js').EmbedBuilder)()
-                                .setColor(0xa970ff)
-                                .setTitle(`${getEnvPrefix()}📢 Community Announcement`)
-                                .setDescription(text)
-                                .setTimestamp();
+                        const embed = new (require('discord.js').EmbedBuilder)()
+                            .setColor(0xa970ff)
+                            .setTitle(`${getEnvPrefix()}📢 Community Announcement`)
+                            .setDescription(text)
+                            .setTimestamp();
 
-                            await channel.send({ embeds: [embed] });
-                        });
+                        await channel.send({ embeds: [embed] });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Broadcast successfully sent to channel ${config.channelId}`);
                     },
                     3,
@@ -436,34 +412,25 @@ export class DiscordNotifier {
         const targets = [];
         for (const config of this.configs) {
             if (config.isActive) {
-                const manager = this.sessionManager.clients.get(config.token);
-                if (manager) {
+                const client = this.sessionManager.clients.get(config.token);
+                if (client) {
                     try {
-                        const details = await manager.broadcastEval(async (ctx: any) => {
-                            const client = ctx.client || ctx;
-                            if (!client || !client.guilds) {
-                                throw new Error('Discord client or guilds manager not available in shard context');
-                            }
-                            const channel = await client.channels.fetch(config.channelId);
-                            
-                            // Diagnostic logging to identify why guildName is missing
-                            console.log(`[DiscordBot] broadcastEval Guild Name Check for ${config.channelId}:`, {
-                                channelFound: !!channel,
-                                guildFound: !!channel?.guild,
-                                guildName: channel?.guild?.name
-                            });
-
-                            return {
-                                guildName: channel?.guild?.name || 'Unknown Guild',
-                                channelName: channel?.name || 'Unknown Channel'
-                            };
+                        const channel = await client.channels.fetch(config.channelId);
+                        
+                        // Diagnostic logging to identify why guildName is missing
+                        console.log(`[DiscordBot] Guild Name Check for ${config.channelId}:`, {
+                            channelFound: !!channel,
+                            guildFound: !!channel?.guild,
+                            guildName: channel?.guild?.name
                         });
+
                         targets.push({
-                            ...details,
+                            guildName: channel?.guild?.name || 'Unknown Guild',
+                            channelName: channel?.name || 'Unknown Channel',
                             channelId: config.channelId
                         });
                     } catch (e) {
-                        console.error(`[DiscordNotifier] Error in getActiveTargets broadcastEval for ${config.channelId}:`, e);
+                        console.error(`[DiscordNotifier] Error in getActiveTargets for ${config.channelId}:`, e);
                         targets.push({
                             guildName: 'Error',
                             channelName: 'Error',

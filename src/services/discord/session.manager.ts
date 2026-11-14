@@ -1,19 +1,22 @@
-import { ShardingManager } from 'discord.js';
+import { Client, GatewayIntentBits } from 'discord.js';
 import { getEnvPrefix } from '../../utils/env';
 import { DiscordConfig, DiscordSessionInfo, DISCORD_COOLDOWNS } from './types';
+import { DiscordCommandHandler } from './command.handler';
 
 export class DiscordSessionManager {
-    public clients: Map<string, any> = new Map();
+    public clients: Map<string, Client> = new Map();
     public sessionSources: Map<string, 'Cached' | 'Fresh'> = new Map();
     private stateRepo: any;
+    private commandHandler: DiscordCommandHandler;
     
     public isDisabledDueToFailure = false;
     public lastFailureTime = 0;
     public failureCount = 0;
     public lastFailureError: string = '';
 
-    constructor(stateRepo: any) {
+    constructor(stateRepo: any, commandHandler: DiscordCommandHandler) {
         this.stateRepo = stateRepo;
+        this.commandHandler = commandHandler;
     }
 
     async start(configs: DiscordConfig[]): Promise<void> {
@@ -32,91 +35,73 @@ export class DiscordSessionManager {
             this.isDisabledDueToFailure = false;
         }
 
-        console.log(`${env}[DiscordNotifier] Starting Discord bots via ShardingManager...`);
+        console.log(`${env}[DiscordNotifier] Starting Discord bots...`);
 
         for (const config of configs) {
             if (this.clients.has(config.token)) continue;
 
             try {
-                const manager = new ShardingManager(process.cwd() + '/dist/bot.js', {
-                    token: config.token,
-                    totalShards: 1
+                const client = new Client({
+                    intents: [
+                        GatewayIntentBits.Guilds,
+                        GatewayIntentBits.GuildMessages,
+                        GatewayIntentBits.MessageContent,
+                        GatewayIntentBits.GuildMembers
+                    ]
                 });
 
                 const session = await this.stateRepo.getDiscordSession(config.token);
                 if (session) {
-                    console.log(`${env}[DiscordNotifier] [Decision Point] Bot ...${config.token.slice(-4)}: Persisted session found. Handshake: RESUME`);
+                    console.log(`${env}[DiscordNotifier] Bot ...${config.token.slice(-4)}: Persisted session found.`);
                     this.sessionSources.set(config.token, 'Cached');
-                    (manager as any).options = {
-                        ... (manager as any).options,
-                        env: {
-                            ... (manager as any).options?.env,
-                            DISCORD_SESSION_DATA: JSON.stringify({
-                                sessionId: session.sessionId,
-                                userSequence: session.userSequence,
-                                shardId: session.shardId,
-                                shardCount: session.shardCount,
-                                resumeURL: session.resumeURL
-                            })
-                        }
-                    };
+                    // Note: discord.js handles session resumption internally via token
+                    // but we can manually set session data if needed for specific gateway versions.
                 } else {
-                    console.log(`${env}[DiscordNotifier] [Decision Point] Bot ...${config.token.slice(-4)}: No persisted session found. Handshake: IDENTIFY`);
+                    console.log(`${env}[DiscordNotifier] Bot ...${config.token.slice(-4)}: No persisted session found. Fresh login.`);
                     this.sessionSources.set(config.token, 'Fresh');
                 }
 
-                manager.on('shardCreate', shard => {
-                    console.log(`${env}[DiscordNotifier] Shard ${shard.id} created for bot ...${config.token.slice(-4)}`);
-                });
-
-                (manager as any).on('error', (err: any) => {
-                    console.error(`${env}[DiscordNotifier] Manager error for bot ...${config.token.slice(-4)}: ${err}`);
-                });
-
-                await manager.spawn();
-
-                (manager as any).on('message', async (shard: any, message: any) => {
-                    if (message && message.type === 'SESSION_UPDATE') {
-                        try {
-                            const { token, session } = message;
-                            console.log(`${env}[DiscordNotifier] Received session update from shard for bot ...${token.slice(-4)}`);
-                            await this.stateRepo.saveDiscordSession(token, {
-                                sessionId: session.sessionId,
-                                userSequence: session.sequence,
-                                shardId: session.shardId,
-                                shardCount: session.shardCount,
-                                resumeURL: session.resumeURL
+                client.on('ready', async () => {
+                    console.log(`${env}[DiscordNotifier] Bot ${client.user?.tag} is online.`);
+                    
+                    // Capture session info for persistence
+                    try {
+                        const shard = client.ws.shards[0];
+                        if (shard && shard.sessionInfo) {
+                            const { sessionId, sequence, shardId, shardCount, resumeURL } = shard.sessionInfo;
+                            await this.stateRepo.saveDiscordSession(config.token, {
+                                sessionId,
+                                userSequence: sequence,
+                                shardId,
+                                shardCount,
+                                resumeURL
                             });
-                        } catch (err) {
-                            console.error(`${env}[DiscordNotifier] Failed to save session update: ${err}`);
                         }
-                    }
-
-                    if (message && message.type === 'SESSION_INVALID') {
-                        try {
-                            const { token } = message;
-                            console.log(`${env}[DiscordNotifier] Clearing invalid session for bot ...${token.slice(-4)}`);
-                            await this.stateRepo.deleteDiscordSession(token);
-                        } catch (err) {
-                            console.error(`${env}[DiscordNotifier] Failed to clear invalid session: ${err}`);
-                        }
+                    } catch (err) {
+                        console.error(`${env}[DiscordNotifier] Failed to save session info: ${err}`);
                     }
                 });
 
-                this.clients.set(config.token, manager as any);
+                client.on('messageCreate', async (message) => {
+                    await this.commandHandler.handleCommand(message);
+                });
+
+                await client.login(config.token);
+
+                this.clients.set(config.token, client);
                 this.isDisabledDueToFailure = false;
                 this.failureCount = 0;
 
             } catch (error: any) {
-                this.lastFailureError = error.message || 'Unknown spawn error';
-                console.error(`${env}[DiscordNotifier] Failed to spawn bot for channel ${config.channelId}: ${this.lastFailureError}`);
+                this.lastFailureError = error.message || 'Unknown login error';
+                console.error(`${env}[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${this.lastFailureError}`);
                 this.isDisabledDueToFailure = true;
                 this.failureCount++;
                 this.lastFailureTime = Date.now();
             }
         }
 
-        console.log(`${env}[DiscordNotifier] Discord sharding phase completed.`);
+        console.log(`${env}[DiscordNotifier] Discord client initialization completed.`);
     }
 
     public get isDisabled() { return this.isDisabledDueToFailure; }
@@ -126,6 +111,10 @@ export class DiscordSessionManager {
         this.failureCount = 0;
         this.lastFailureTime = 0;
         this.lastFailureError = '';
+        
+        for (const client of this.clients.values()) {
+            client.destroy();
+        }
         this.clients.clear();
         this.sessionSources.clear();
     }

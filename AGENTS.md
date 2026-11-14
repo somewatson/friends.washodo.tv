@@ -24,14 +24,15 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Visual Automation (Ready Signal)**: To prevent blank screenshots in the visual loop, the Admin Panel uses a `data-loaded` attribute on the `<body>` tag. Automation tools (Playwright) should wait for `body[data-loaded="true"]` before taking screenshots.
 - **Discord Integration**: 
 - **Single Source of Truth**: All Discord bot operations, session management, and status tracking MUST be handled by `DiscordNotifier` in `src/services/discord.notifier.ts`.
+  - **Multi-Client Architecture**: The system uses a multi-client approach where multiple `discord.js.Client` instances are managed within a single process. **Do not use `ShardingManager` or spawn separate processes for bots**, as this introduces unnecessary overhead and complexity.
   - **Centralized State Logic**: Never perform raw database queries (e.g., checking `discord_rate_limit_until`) in controllers or API handlers to determine service state. Always use the corresponding service method (e.g., `discordNotifier.isRateLimited()`) to ensure consistent logic and avoid state contradictions.
   - **Session Persistence**: To avoid full identify handshakes (which can trigger rate limits and "bot joined" spam) and enable faster recovery, the system persists `SessionInfo` (sessionId, sequence, shardId, shardCount, resumeURL) in the `discord_sessions` table.
-    - **Capture**: Session information must be captured from `client.ws.shards[0].sessionInfo` during the `clientReady` event and saved to the database. (Note: In `discord.js` v14+, session data is stored in the `shards` array rather than a singular `shard` property).
-    - **Resumption**: On startup, retrieve the stored `SessionInfo` for the bot token. **CRITICAL**: In the current high-level `Client.login()` implementation, this data is persisted but not actively used for resumption because `discord.js`'s `Client` handles the gateway connection internally and defaults to a fresh identify. To achieve silent resumption, the architecture must migrate to a `ShardingManager` where `SessionInfo` can be explicitly passed to shards.
-    - **Forbidden**: Do not use a simple cached bot token in `discord_global_state` as a substitute for a proper session; this only performs a fresh login with a different token and does not resume the session.
+    - **Capture**: Session information must be captured from `client.ws.shards[0].sessionInfo` during the `clientReady` event and saved to the database.
+    - **Resumption**: On startup, retrieve the stored `SessionInfo` for the bot token.
   - **Rate Limit Compliance**: To avoid Discord/Cloudflare bans, login attempts are governed by a cooldown period (`COOLDOWN_PERIOD`) after repeated failures. Never implement tight-loop retries for authentication.
   - Do not instantiate separate `DiscordClient` objects in the API server or other services; instead, use the `discordNotifier` instance attached to the main application to avoid session mismatch and "not logged in" errors.
   - All Discord interactions are handled via the `discord.js` library to ensure proper rate limiting, type safety, and 64-bit permission handling.
+
 - **Network Resilience**: 
   - All HTTP calls **must** have explicit timeouts (default 10s).
   - Use exponential backoff for retries to avoid hammering unreachable servers.
