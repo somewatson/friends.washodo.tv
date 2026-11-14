@@ -426,6 +426,8 @@ export class StreamerStateRepository {
         const tokenHash = this.hashToken(token);
         this.db.prepare('DELETE FROM discord_sessions WHERE token_hash = ?').run(tokenHash);
     }
+
+    private hashToken(token: string): string {
         // Simple deterministic hash to avoid storing raw tokens in the session table if desired, 
         // but for simplicity in this internal DB we can just use a basic string transform or the token itself.
         // Let's use a simple slice/hash to keep it unique but not plain-text.

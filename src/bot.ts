@@ -87,7 +87,7 @@ async function runBot() {
     });
 
     // Handle INVALID_SESSION to clear persisted data
-    client.ws.on('shardDisconnect', (event: any) => {
+    (client.ws as any).on('shardDisconnect', (event: any) => {
         if (event.reason === 'INVALID_SESSION') {
             console.warn(`${env}[DiscordBot] Invalid session detected. Clearing persisted session...`);
             if (process.send) {
