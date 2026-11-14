@@ -61,24 +61,27 @@ async function runBot() {
     client.on('clientReady', async () => {
         try {
             // Give the WebSocket a moment to fully populate internal state
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
+            // In discord.js v14, when spawned by a ShardingManager, the Client object
+            // itself has a 'shard' property of type ShardClientUtil.
+            const shard = (client as any).shard;
+            
+            // The ShardClientUtil typically doesn't expose sessionInfo directly,
+            // but the WebSocketManager (client.ws) does, often via its internal shards array.
             const ws = client.ws;
-            // The logs show 'shards' exists in wsKeys but shardExists is false.
-            // This means ws.shards is likely an array, and we should check its content.
-            const shards = (ws as any).shards;
-            const shard = Array.isArray(shards) ? shards[0] : (ws as any).shard;
+            const wsShard = (ws as any).shards?.[0];
             
-            const sessionInfo = shard?.sessionInfo || (ws as any).sessionInfo || (ws as any)._ws?.sessionInfo;
+            // Try to find sessionInfo in any of the likely candidates
+            const sessionInfo = wsShard?.sessionInfo || shard?.sessionInfo || (ws as any).sessionInfo;
 
             if (!sessionInfo) {
                 console.log(`${env}[DiscordBot] [Debug] SessionInfo not found. State inspection:`, {
+                    clientHasShard: !!shard,
+                    wsHasShards: !!(ws as any).shards,
+                    wsShardsLength: (ws as any).shards?.length,
                     wsKeys: ws ? Object.keys(ws) : 'N/A',
-                    shardsType: typeof shards,
-                    shardsLength: Array.isArray(shards) ? shards.length : 'N/A',
-                    shardExists: !!shard,
-                    shardKeys: shard ? Object.keys(shard) : 'N/A',
-                    internalWsKeys: (ws as any)._ws ? Object.keys((ws as any)._ws) : 'N/A'
+                    shardKeys: shard ? Object.keys(shard) : 'N/A'
                 });
             }
 
@@ -102,7 +105,7 @@ async function runBot() {
                     });
                 }
             } else {
-                console.warn(`${env}[DiscordBot] clientReady event fired but no sessionInfo found on shard or ws.`);
+                console.warn(`${env}[DiscordBot] clientReady event fired but no sessionInfo found on client.shard, client.ws.shards, or client.ws.`);
             }
             console.log(`${env}[DiscordBot] Logged in as ${client.user?.tag}`);
         } catch (err) {
