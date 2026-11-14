@@ -57,6 +57,84 @@ app.post('/send', async (req, res) => {
     }
 });
 
+app.get('/channel/:channelId', async (req, res) => {
+    const { channelId } = req.params;
+    const { token } = req.query;
+
+    const client = sessionManager.clients.get(token as string);
+    if (!client) return res.status(404).json({ error: 'Bot not found' });
+
+    try {
+        const channel = await client.channels.fetch(channelId);
+        if (!channel) throw new Error('Channel not found');
+        
+        res.json({
+            guildName: channel.guild?.name || 'Unknown Guild',
+            channelName: channel.name || 'Unknown Channel'
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/guild/:guildId', async (req, res) => {
+    const { guildId } = req.params;
+    const { token } = req.query;
+
+    const client = sessionManager.clients.get(token as string);
+    if (!client) return res.status(404).json({ error: 'Bot not found' });
+
+    try {
+        const guild = await client.guilds.fetch(guildId);
+        if (!guild) throw new Error('Guild not found');
+
+        res.json({
+            name: guild.name,
+            memberCount: guild.memberCount,
+            icon: guild.iconURL() || null
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/create-channel', async (req, res) => {
+    const { guildId } = req.body;
+    // Use the first available bot to manage channels
+    const client = sessionManager.clients.values().next().value;
+    if (!client) return res.status(500).json({ error: 'No bots online to create channel' });
+
+    try {
+        const guild = await client.guilds.fetch(guildId);
+        if (!guild) throw new Error('Guild not found');
+
+        const channels = await guild.channels.fetch();
+        const existing = channels.find((c: any) => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5));
+
+        if (existing) return res.json({ channelId: existing.id });
+
+        let channel;
+        try {
+            channel = await guild.channels.create({
+                name: '📯-ward-bot',
+                type: 5, // Announcement channel
+                topic: 'Official Twitch notifications for the Washodo community.',
+            });
+        } catch (e) {
+            // Fallback to text channel if announcement channels aren't supported
+            channel = await guild.channels.create({
+                name: '📯-ward-bot',
+                type: 0,
+                topic: 'Official Twitch notifications for the Washodo community.',
+            });
+        }
+
+        res.json({ channelId: channel.id });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/status', (req, res) => {
     const bots = Array.from(sessionManager.clients.entries()).map(([token, client]) => ({
         tag: client.user?.tag,
