@@ -147,6 +147,13 @@ app.get('/status', (req, res) => {
     });
 });
 
+app.post('/restart', (req, res) => {
+    console.log('[BotRunner] Restart requested. Exiting process for Docker restart...');
+    res.json({ success: true, message: 'Restarting Bot Runner...' });
+    // Delay exit slightly to allow response to be sent
+    setTimeout(() => process.exit(1), 1000);
+});
+
 async function bootstrap() {
     const env = getEnvPrefix();
     console.log(`${env}[BotRunner] Bootstrapping Discord Bot Runner...`);
