@@ -357,18 +357,18 @@ export class DiscordNotifier {
                 if (!client || !client.guilds) {
                     throw new Error('Discord client or guilds manager not available in shard context');
                 }
-                const guild = await client.guilds.fetch(guildId);
-                if (!guild) throw new Error(`Guild ${guildId} not found`);
+                const guild = await client.guilds.fetch(ctx.guildId);
+                if (!guild) throw new Error(`Guild ${ctx.guildId} not found`);
         
                 const channels = await guild.channels.fetch();
                 const existingAnnouncement = channels.find((c: any) => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5));
                 
                 if (existingAnnouncement) {
-                    console.log(`[DiscordBot] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
+                    console.log(`[DiscordBot] Found existing announcement channel ${existingAnnouncement.id} for guild ${ctx.guildId}`);
                     return existingAnnouncement.id;
                 }
         
-                console.log(`[DiscordBot] No announcement channel found for guild ${guildId}. Creating one...`);
+                console.log(`[DiscordBot] No announcement channel found for guild ${ctx.guildId}. Creating one...`);
                 let channel;
                 try {
                     channel = await guild.channels.create({
@@ -378,7 +378,7 @@ export class DiscordNotifier {
                     });
                 } catch (announcementError: any) {
                     if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
-                        console.log(`[DiscordBot] Community features not enabled for guild ${guildId}. Falling back to GuildText...`);
+                        console.log(`[DiscordBot] Community features not enabled for guild ${ctx.guildId}. Falling back to GuildText...`);
                         channel = await guild.channels.create({
                             name: '📯-ward-bot',
                             type: 0,
@@ -391,7 +391,7 @@ export class DiscordNotifier {
         
                 if (!channel) throw new Error('Failed to create announcement channel');
                 return channel.id;
-            });
+            }, { guildId });
         } catch (error: any) {
             console.error('[DiscordNotifier] Error in findOrCreateAnnouncementChannel:', error);
             throw error;
@@ -412,10 +412,10 @@ export class DiscordNotifier {
                 if (!client || !client.guilds) {
                     throw new Error('Discord client or guilds manager not available in shard context');
                 }
-                const guild = await client.guilds.fetch(integration.guild_id);
-                if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
+                const guild = await client.guilds.fetch(ctx.guildId);
+                if (!guild) throw new Error(`Guild ${ctx.guildId} not found`);
                 
-                const channel = await guild.channels.fetch(integration.channel_id);
+                const channel = await guild.channels.fetch(ctx.channelId);
                 if (!channel || (!(channel as any).isTextBased())) {
                     throw new Error('Notification channel not found or is not a valid text/announcement channel');
                 }
@@ -424,7 +424,7 @@ export class DiscordNotifier {
                 const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
                 
                 await (channel as any).send(`${prefix}Test message from Washodo Ward Admin Panel!`);
-            });
+            }, { guildId: integration.guild_id, channelId: integration.channel_id });
             return true;
         } catch (error: any) {
             throw new Error(`Discord test failed: ${error.message}`);
@@ -443,13 +443,13 @@ export class DiscordNotifier {
                 if (!client || !client.guilds) {
                     throw new Error('Discord client or guilds manager not available in shard context');
                 }
-                const guild = await client.guilds.fetch(guildId);
+                const guild = await client.guilds.fetch(ctx.guildId);
                 return {
                     name: guild.name,
                     memberCount: guild.memberCount,
                     icon: guild.iconURL()
                 };
-            });
+            }, { guildId });
         } catch (error: any) {
             console.error(`[DiscordNotifier] Error fetching guild details for ${guildId}:`, error);
             throw error;
