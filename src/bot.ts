@@ -61,46 +61,44 @@ async function runBot() {
     client.on('clientReady', async () => {
         try {
             // Give the WebSocket a moment to fully populate internal state
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            const shard = (client.ws as any).shards?.[0];
+            // In discord.js v14, the session info is typically inside the WebSocket manager's shard
+            // Let's try multiple common paths for the session data
+            const ws = client.ws;
+            const shard = (ws as any).shards?.[0] || (ws as any).shard;
             
-            // Debug: Inspect shard keys and deep dive into _ws if necessary
-            if (!shard || !shard.sessionInfo) {
-                console.log(`${env}[DiscordBot] [Debug] Shard state inspection:`, {
-                    hasShard: !!shard,
-                    shardKeys: shard ? Object.keys(shard) : 'N/A',
-                    wsKeys: client.ws ? Object.keys(client.ws) : 'N/A',
-                    // Dig deeper into the internal WebSocket if it exists
-                    internalWsKeys: (client.ws as any)._ws ? Object.keys((client.ws as any)._ws) : 'N/A'
+            const sessionInfo = shard?.sessionInfo || (ws as any).sessionInfo;
+
+            if (!sessionInfo) {
+                console.log(`${env}[DiscordBot] [Debug] SessionInfo not found. State inspection:`, {
+                    wsKeys: ws ? Object.keys(ws) : 'N/A',
+                    shardExists: !!shard,
+                    shardKeys: shard ? Object.keys(shard) : 'N/A'
                 });
             }
 
-            if (shard && shard.sessionInfo) {
+            if (sessionInfo) {
                 console.log(`${env}[DiscordBot] [Decision Point] Bot ...${token.slice(-4)}: Captured session info. Saving to DB...`);
                 
-                // Save to DB from the worker as well for redundancy
                 await stateRepo.saveDiscordSession(token, {
-                    sessionId: shard.sessionInfo.sessionId,
-                    userSequence: shard.sessionInfo.sequence,
-                    shardId: shard.sessionInfo.shardId,
-                    shardCount: shard.sessionInfo.shardCount,
-                    resumeURL: shard.sessionInfo.resumeURL
+                    sessionId: sessionInfo.sessionId,
+                    userSequence: sessionInfo.sequence,
+                    shardId: sessionInfo.shardId,
+                    shardCount: sessionInfo.shardCount,
+                    resumeURL: sessionInfo.resumeURL
                 });
                 
-                // Notify parent process via IPC
                 if (process.send) {
                     console.log(`${env}[DiscordBot] Sending SESSION_UPDATE to parent via IPC...`);
                     process.send({
                         type: 'SESSION_UPDATE',
                         token: token,
-                        session: shard.sessionInfo
+                        session: sessionInfo
                     });
-                } else {
-                    console.warn(`${env}[DiscordBot] process.send is not available; cannot notify parent of session update`);
                 }
             } else {
-                console.warn(`${env}[DiscordBot] clientReady event fired but no sessionInfo found on shard.`);
+                console.warn(`${env}[DiscordBot] clientReady event fired but no sessionInfo found on shard or ws.`);
             }
             console.log(`${env}[DiscordBot] Logged in as ${client.user?.tag}`);
         } catch (err) {
