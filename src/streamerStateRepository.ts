@@ -99,6 +99,13 @@ export class StreamerStateRepository {
             )
         `);
 
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS discord_global_state (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        `);
+
 
         // Migration: Ensure necessary columns exist for existing databases
 
