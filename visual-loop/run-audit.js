@@ -24,7 +24,18 @@ async function waitForApp() {
 async function run() {
   console.log('🚀 Starting Visual Feedback Loop Orchestration...');
   
-  // 1. Start the app in the background
+  // 1. State-Based Trigger / Cooldown
+  const lastRunFile = path.join(__dirname, 'last-run.txt');
+  if (fs.existsSync(lastRunFile)) {
+    const lastRun = parseInt(fs.readFileSync(lastRunFile, 'utf8'));
+    const cooldown = 30 * 60 * 1000; // 30 minute minimum interval to prevent token drain
+    if (Date.now() - lastRun < cooldown) {
+      console.log(`Skipping audit: Last run was less than 30 minutes ago.`);
+      process.exit(0);
+    }
+  }
+
+  // 2. Start the app in the background
   console.log('Starting dev server...');
   const appProcess = spawn('npm', ['run', 'dev'], {
     shell: true,
@@ -34,23 +45,24 @@ async function run() {
   appProcess.unref();
 
   try {
-    // 2. Wait for app to be responsive
+    // 3. Wait for app to be responsive
     await waitForApp();
 
-    // 3. Run the audit script
+    // 4. Run the audit script
     console.log('Running audit scripts...');
-    // We use execSync here to wait for the audit to finish and see the output
     execSync('node visual-loop/audit-pages.js', { stdio: 'inherit' });
+    
+    // Save successful run timestamp
+    fs.writeFileSync(lastRunFile, Date.now().toString());
     
     console.log('✅ Audit completed successfully.');
   } catch (error) {
     console.error('❌ Orchestration failed:');
     console.error(error);
   } finally {
-    // 4. Cleanup
+    // 5. Cleanup
     console.log('Cleaning up processes...');
     try {
-      // Kill app and any lingering ngrok processes
       execSync('pkill -f "nodemon src/index.ts" || true');
       execSync('pkill ngrok || true');
       console.log('Processes cleaned up.');
