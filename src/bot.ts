@@ -63,7 +63,7 @@ async function runBot() {
             // Give the WebSocket a moment to fully populate internal state
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            const shard = (client.ws as any).shard;
+            const shard = (client.ws as any).shards?.[0];
             
             // Debug: Inspect shard keys to find session data if sessionInfo is missing
             if (!shard || !shard.sessionInfo) {
