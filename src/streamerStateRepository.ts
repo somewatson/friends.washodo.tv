@@ -421,6 +421,13 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM discord_sessions WHERE token_hash = ?').get(tokenHash) as any;
     }
 
+    async clearDiscordRateLimit() {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM discord_global_state WHERE key = ?').run('discord_rate_limit_until');
+        this.db.prepare('DELETE FROM discord_global_state WHERE key = ?').run('discord_rate_limit_last_ping');
+        this.db.prepare('DELETE FROM discord_global_state WHERE key = ?').run('discord_rate_limit_retry_after');
+    }
+
     async deleteDiscordSession(token: string) {
         if (!this.db) throw new Error('Database not initialized');
         const tokenHash = this.hashToken(token);

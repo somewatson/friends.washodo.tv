@@ -177,7 +177,8 @@ export class DiscordNotifier {
                 this.failureCount = 0;
 
             } catch (error: any) {
-                console.error(`${env}[DiscordNotifier] Failed to spawn bot for channel ${config.channelId}: ${error.message}`);
+                this.lastFailureError = error.message || 'Unknown spawn error';
+                console.error(`${env}[DiscordNotifier] Failed to spawn bot for channel ${config.channelId}: ${this.lastFailureError}`);
                 this.isDisabledDueToFailure = true;
                 this.failureCount++;
                 this.lastFailureTime = Date.now();
