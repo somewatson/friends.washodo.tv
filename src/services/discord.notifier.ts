@@ -94,6 +94,7 @@ export class DiscordNotifier {
     async start(): Promise<void> {
         await this.syncConfigsFromDb();
 
+        const env = getEnvPrefix();
         if (this.isDisabledDueToFailure) {
             const now = Date.now();
             const cooldown = Math.min(
@@ -101,14 +102,14 @@ export class DiscordNotifier {
                 this.MAX_COOLDOWN
             );
             if (now - this.lastFailureTime < cooldown) {
-                console.warn(`[DiscordNotifier] Service is in cooldown due to ${this.failureCount} previous failures. Skipping login attempts until ${new Date(this.lastFailureTime + cooldown).toISOString()}. (Next interval: ${Math.round(cooldown / 60000)}m)`);
+                console.warn(`${env}[DiscordNotifier] Service is in cooldown due to ${this.failureCount} previous failures. Skipping login attempts until ${new Date(this.lastFailureTime + cooldown).toISOString()}. (Next interval: ${Math.round(cooldown / 60000)}m)`);
                 return;
             }
-            console.log(`[DiscordNotifier] Cooldown period expired. Attempting fresh login...`);
+            console.log(`${env}[DiscordNotifier] Cooldown period expired. Attempting fresh login...`);
             this.isDisabledDueToFailure = false;
         }
 
-        console.log(`[DiscordNotifier] Starting login for ${this.configs.length} bots...`);
+        console.log(`${env}[DiscordNotifier] Starting login for ${this.configs.length} bots...`);
         
         const loginPromises = this.configs.map(async (config) => {
             if (this.clients.has(config.token)) return;
@@ -123,13 +124,21 @@ export class DiscordNotifier {
                 });
 
                 // Session Caching: Check for a cached token first in the repository
+                console.log(`${env}[DiscordNotifier] Attempting to retrieve session token from database...`);
                 const cachedToken = await this.stateRepo.getGlobalState('discord_session_token');
+                
+                if (cachedToken && cachedToken !== '0') {
+                    console.log(`${env}[DiscordNotifier] Retrieved session token from DB: ...${cachedToken.slice(-4)}`);
+                } else {
+                    console.log(`${env}[DiscordNotifier] No valid session token found in database.`);
+                }
+
                 const tokenToUse = (cachedToken && cachedToken !== '0') ? cachedToken : config.token;
                 
                 if (tokenToUse !== config.token) {
-                    console.log(`[DiscordNotifier] Using saved session token for channel ${config.channelId}. Skipping fresh login call.`);
+                    console.log(`${env}[DiscordNotifier] Using cached session token for channel ${config.channelId}. Skipping fresh login call.`);
                 } else {
-                    console.log(`[DiscordNotifier] No saved token available for channel ${config.channelId}. Making fresh login call to Discord API...`);
+                    console.log(`${env}[DiscordNotifier] No valid alternative session token available for channel ${config.channelId}. Using primary token for fresh login call to Discord API...`);
                 }
 
                 // Wrap login in a timeout to prevent boot-hangs
@@ -149,10 +158,8 @@ export class DiscordNotifier {
                     // 2. Log mentions (absorbed from DiscordClient)
                     if (message.mentions.has(client.user!)) {
                         const channelName = (message.channel as any).name || 'DM/Unknown';
-                        const logMessage = `[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`;
+                        const logMessage = `${env}[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`;
                         console.log(logMessage);
-                        // Note: Logger and Umami should be handled here if available, 
-                        // but for now we maintain the console log to avoid adding too many dependencies to Notifier.
                     }
                 });
 
@@ -160,22 +167,20 @@ export class DiscordNotifier {
                 
                 const usedCached = tokenToUse !== config.token;
                 this.sessionSources.set(config.token, usedCached ? 'Cached' : 'Fresh');
-                console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId} ${usedCached ? '(using saved session token)' : '(using primary bot token)'}`);
+                console.log(`${env}[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId} ${usedCached ? '(using saved session token)' : '(using primary bot token)'}`);
                 
                 // Reset failure state and count upon any successful bot login
                 this.isDisabledDueToFailure = false;
                 this.failureCount = 0;
                 
                 // Update cached token if we used the primary token and it worked
-                // Note: We only want to store a DIFFERENT token as a session token if we actually got one.
-                // discord.js's .login() doesn't explicitly return a session token.
-                // If we are just saving the primary token, it's not really a "session cache".
                 if (tokenToUse === config.token) {
-                    // Only save if the current cached token is empty or invalid, to avoid overwriting a potentially better session token
                     const currentCached = await this.stateRepo.getGlobalState('discord_session_token');
                     if (!currentCached || currentCached === '0') {
                         await this.stateRepo.setGlobalStateWithTimestamp('discord_session_token', config.token);
-                        console.log(`[DiscordNotifier] Primary token saved to database as fallback: ...${config.token.slice(-4)}`);
+                        console.log(`${env}[DiscordNotifier] Session token saved to database for recovery: ...${config.token.slice(-4)}`);
+                    } else {
+                        console.log(`${env}[DiscordNotifier] Session cache already contains a token, skipping overwrite with primary token.`);
                     }
                 }
 
@@ -186,14 +191,14 @@ export class DiscordNotifier {
                 
                 // Handle Unauthorized - clear cache
                 if (error.status === 401 || errMsg.includes('Unauthorized')) {
-                    console.warn(`[DiscordNotifier] Session token invalid or expired for channel ${config.channelId}. Clearing session cache and marking for fresh login...`);
+                    console.warn(`${env}[DiscordNotifier] Session token invalid or expired for channel ${config.channelId}. Clearing session cache and marking for fresh login...`);
                     await this.stateRepo.setGlobalState('discord_session_token', '0');
                     
                     const isUsingCached = (await this.stateRepo.getGlobalState('discord_session_token')) !== config.token;
                     if (isUsingCached) {
-                        console.log(`[DiscordNotifier] Recovery: Cached token failed. Will use primary bot token on next attempt.`);
+                        console.log(`${env}[DiscordNotifier] Recovery: Cached token failed. Will use primary bot token on next attempt.`);
                     } else {
-                        console.error(`[DiscordNotifier] Critical: Primary bot token is invalid for channel ${config.channelId}. Check environment variables or DB.`);
+                        console.error(`${env}[DiscordNotifier] Critical: Primary bot token is invalid for channel ${config.channelId}. Check environment variables or DB.`);
                     }
                 }
 
@@ -212,7 +217,7 @@ export class DiscordNotifier {
                             const probeRetry = probeError.response.data?.retry_after || (headerRetry ? parseInt(headerRetry) : 0);
                             if (probeRetry > 0) {
                                 retryAfter = Math.max(retryAfter, probeRetry);
-                                console.log(`[DiscordNotifier] Manual probe detected accurate rate limit for channel ${config.channelId}: ${retryAfter}s`);
+                                console.log(`${env}[DiscordNotifier] Manual probe detected accurate rate limit for channel ${config.channelId}: ${retryAfter}s`);
                             }
                         }
                     }
@@ -223,10 +228,10 @@ export class DiscordNotifier {
                     await this.stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
                     await this.stateRepo.setGlobalState('discord_rate_limit_retry_after', retryAfter.toString());
                     await this.stateRepo.setGlobalState('discord_rate_limit_last_ping', Date.now().toString());
-                    console.error(`[DiscordNotifier] Rate limit hit for channel ${config.channelId}. Retry after ${retryAfter}s (until ${new Date(expiry).toISOString()})`);
+                    console.error(`${env}[DiscordNotifier] Rate limit hit for channel ${config.channelId}. Retry after ${retryAfter}s (until ${new Date(expiry).toISOString()})`);
                 }
 
-                console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
+                console.error(`${env}[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
                 this.isDisabledDueToFailure = true;
                 this.failureCount++;
                 this.lastFailureTime = Date.now();
@@ -235,7 +240,7 @@ export class DiscordNotifier {
         });
 
         await Promise.allSettled(loginPromises);
-        console.log(`[DiscordNotifier] Discord login phase completed.`);
+        console.log(`${env}[DiscordNotifier] Discord login phase completed.`);
     }
 
     private async handleCommand(message: any): Promise<void> {
