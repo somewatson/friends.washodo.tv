@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.ts",
+    "start:discord": "node dist/services/discord/bot-runner.js",
+    "start:all": "concurrently \"npm run start\" \"npm run start:discord\"",
+    "dev": "concurrently \"nodemon src/index.ts\" \"ts-node src/services/discord/bot-runner.ts\"",
     "test": "jest",
     "verify": "ts-node scripts/verify-deploy.ts",
     "lint": "npm run lint:js && npm run lint:css && npm run lint:html && npm run lint:ts",
@@ -22,6 +24,7 @@
   "dependencies": {
     "@types/tmi.js": "^1.8.6",
     "axios": "^1.21.1",
+    "concurrently": "^10.0.7",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "cron-parser": "^5.10.4",

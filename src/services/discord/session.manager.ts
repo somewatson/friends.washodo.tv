@@ -50,36 +50,10 @@ export class DiscordSessionManager {
                     ]
                 });
 
-                const session = await this.stateRepo.getDiscordSession(config.token);
-                if (session) {
-                    console.log(`${env}[DiscordNotifier] Bot ...${config.token.slice(-4)}: Persisted session found.`);
-                    this.sessionSources.set(config.token, 'Cached');
-                    // Note: discord.js handles session resumption internally via token
-                    // but we can manually set session data if needed for specific gateway versions.
-                } else {
-                    console.log(`${env}[DiscordNotifier] Bot ...${config.token.slice(-4)}: No persisted session found. Fresh login.`);
-                    this.sessionSources.set(config.token, 'Fresh');
-                }
+                console.log(`${env}[DiscordNotifier] Bot ...${config.token.slice(-4)}: Logging in...`);
 
                 client.on('ready', async () => {
                     console.log(`${env}[DiscordNotifier] Bot ${client.user?.tag} is online.`);
-                    
-                    // Capture session info for persistence
-                    try {
-                        const shard = client.ws.shards[0];
-                        if (shard && shard.sessionInfo) {
-                            const { sessionId, sequence, shardId, shardCount, resumeURL } = shard.sessionInfo;
-                            await this.stateRepo.saveDiscordSession(config.token, {
-                                sessionId,
-                                userSequence: sequence,
-                                shardId,
-                                shardCount,
-                                resumeURL
-                            });
-                        }
-                    } catch (err) {
-                        console.error(`${env}[DiscordNotifier] Failed to save session info: ${err}`);
-                    }
                 });
 
                 client.on('messageCreate', async (message) => {

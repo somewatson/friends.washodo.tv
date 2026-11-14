@@ -23,15 +23,13 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Async API Handlers**: Many service methods (especially in `DiscordNotifier` and `StateRepository`) are `async`. When calling these inside Express route handlers in `src/server.ts`, **always** `await` the result before passing it to `res.json()`. Failure to do so will send a serialized Promise (empty object `{}`) to the frontend, leading to incorrect UI states (e.g., "Disconnected" status).
 - **Visual Automation (Ready Signal)**: To prevent blank screenshots in the visual loop, the Admin Panel uses a `data-loaded` attribute on the `<body>` tag. Automation tools (Playwright) should wait for `body[data-loaded="true"]` before taking screenshots.
 - **Discord Integration**: 
-- **Single Source of Truth**: All Discord bot operations, session management, and status tracking MUST be handled by `DiscordNotifier` in `src/services/discord.notifier.ts`.
-  - **Multi-Client Architecture**: The system uses a multi-client approach where multiple `discord.js.Client` instances are managed within a single process. **Do not use `ShardingManager` or spawn separate processes for bots**, as this introduces unnecessary overhead and complexity.
-  - **Centralized State Logic**: Never perform raw database queries (e.g., checking `discord_rate_limit_until`) in controllers or API handlers to determine service state. Always use the corresponding service method (e.g., `discordNotifier.isRateLimited()`) to ensure consistent logic and avoid state contradictions.
-  - **Session Persistence**: To avoid full identify handshakes (which can trigger rate limits and "bot joined" spam) and enable faster recovery, the system persists `SessionInfo` (sessionId, sequence, shardId, shardCount, resumeURL) in the `discord_sessions` table.
-    - **Capture**: Session information must be captured from `client.ws.shards[0].sessionInfo` during the `clientReady` event and saved to the database.
-    - **Resumption**: On startup, retrieve the stored `SessionInfo` for the bot token.
-  - **Rate Limit Compliance**: To avoid Discord/Cloudflare bans, login attempts are governed by a cooldown period (`COOLDOWN_PERIOD`) after repeated failures. Never implement tight-loop retries for authentication.
-  - Do not instantiate separate `DiscordClient` objects in the API server or other services; instead, use the `discordNotifier` instance attached to the main application to avoid session mismatch and "not logged in" errors.
-  - All Discord interactions are handled via the `discord.js` library to ensure proper rate limiting, type safety, and 64-bit permission handling.
+- **Single Source of Truth**: All Discord bot operations are handled by a decoupled **Bot Runner** process and managed via `DiscordNotifier` in `src/services/discord.notifier.ts`.
+  - **Decoupled Architecture**: To prevent frequent re-logins and rate limits during development (especially during visual loop iterations), Discord clients run in a separate process. The main application communicates with this runner via an internal API.
+  - **Bot Runner**: The dedicated process in `src/services/discord/bot-runner.ts` handles all Gateway connections and `discord.js` client lifecycles. It stays alive even when the main application restarts.
+  - **DiscordNotifier Proxy**: The `DiscordNotifier` class acts as a proxy, sending requests to the Bot Runner rather than interacting with the Discord API directly.
+  - **Rate Limit Compliance**: Login attempts are governed by a cooldown period (`COOLDOWN_PERIOD`) after repeated failures.
+  - All Discord interactions are handled via the `discord.js` library to ensure proper rate limiting and type safety.
+
 
 - **Network Resilience**: 
   - All HTTP calls **must** have explicit timeouts (default 10s).

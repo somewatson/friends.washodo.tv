@@ -1,23 +1,18 @@
-import { Client, EmbedBuilder } from 'discord.js';
 import axios from 'axios';
 import { withRetry, LogThrottler } from '../utils/resilience';
 import { getEnvPrefix } from '../utils/env';
 import { DiscordConfig, DISCORD_COOLDOWNS } from './discord/types';
-import { DiscordSessionManager } from './discord/session.manager';
-import { DiscordCommandHandler } from './discord/command.handler';
+
+const BOT_RUNNER_URL = process.env.DISCORD_BOT_RUNNER_URL || 'http://localhost:3001';
 
 export class DiscordNotifier {
     private configs: DiscordConfig[] = [];
     private stateRepo: any;
     private twitchClient: any;
-    private sessionManager: DiscordSessionManager;
-    private commandHandler: DiscordCommandHandler;
 
     constructor(stateRepo: any, twitchClient?: any) {
         this.stateRepo = stateRepo;
         this.twitchClient = twitchClient;
-        this.commandHandler = new DiscordCommandHandler(stateRepo, twitchClient);
-        this.sessionManager = new DiscordSessionManager(stateRepo, this.commandHandler);
         this.initializeConfigs().catch(err => console.error(`[DiscordNotifier] Initialization failed: ${err}`));
     }
 
@@ -76,58 +71,20 @@ export class DiscordNotifier {
 
     async start(): Promise<void> {
         await this.syncConfigsFromDb();
-        await this.sessionManager.start(this.configs);
     }
 
-    // Delegate command handling to the CommandHandler
     async handleCommand(message: any): Promise<void> {
-        await this.commandHandler.handleCommand(message);
+        // Handled by Bot Runner
     }
 
     public async getClientForToken(token: string): Promise<any | null> {
-        return this.sessionManager.clients.get(token) || null;
+        throw new Error('Direct client access is not available. Use the internal API.');
     }
 
     public async findOrCreateAnnouncementChannel(guildId: string): Promise<string> {
-        const firstToken = this.sessionManager.clients.keys().next().value;
-        if (!firstToken) throw new Error('No Discord managers are logged in. Cannot manage channels.');
-        const client = this.sessionManager.clients.get(firstToken);
-
         try {
-            const guild = await client.guilds.fetch(guildId);
-            if (!guild) throw new Error(`Guild ${guildId} not found`);
-
-            const channels = await guild.channels.fetch();
-            const existingAnnouncement = channels.find((c: any) => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5));
-
-            if (existingAnnouncement) {
-                console.log(`[DiscordBot] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
-                return existingAnnouncement.id;
-            }
-
-            console.log(`[DiscordBot] No announcement channel found for guild ${guildId}. Creating one...`);
-            let channel;
-            try {
-                channel = await guild.channels.create({
-                    name: '📯-ward-bot',
-                    type: 5,
-                    topic: 'Official Twitch notifications for the Washodo community.',
-                });
-            } catch (announcementError: any) {
-                if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
-                    console.log(`[DiscordBot] Community features not enabled for guild ${guildId}. Falling back to GuildText...`);
-                    channel = await guild.channels.create({
-                        name: '📯-ward-bot',
-                        type: 0,
-                        topic: 'Official Twitch notifications for the Washodo community.',
-                    });
-                } else {
-                    throw announcementError;
-                }
-            }
-
-            if (!channel) throw new Error('Failed to create announcement channel');
-            return channel.id;
+            const response = await axios.post(`${BOT_RUNNER_URL}/create-channel`, { guildId });
+            return response.data.channelId;
         } catch (error: any) {
             console.error('[DiscordNotifier] Error in findOrCreateAnnouncementChannel:', error);
             throw error;
@@ -139,46 +96,28 @@ export class DiscordNotifier {
     }
 
     async sendTestMessage(integration: any) {
-        const manager = this.sessionManager.clients.get(integration.bot_token || process.env.DISCORD_BOT_TOKEN);
-        if (!manager) throw new Error('Discord manager for this token is not active.');
-
         try {
-            await manager.broadcastEval(async (ctx: any) => {
-                const client = ctx.client || ctx;
-                if (!client || !client.guilds) {
-                    throw new Error('Discord client or guilds manager not available in shard context');
-                    }
-                const guild = await client.guilds.fetch(ctx.guildId);
-                if (!guild) throw new Error(`Guild ${ctx.guildId} not found`);
-
-                const channel = await guild.channels.fetch(ctx.channelId);
-                if (!channel || (!(channel as any).isTextBased())) {
-                    throw new Error('Notification channel not found or is not a valid text/announcement channel');
+            const response = await axios.post(`${BOT_RUNNER_URL}/send`, {
+                token: integration.bot_token || process.env.DISCORD_BOT_TOKEN,
+                channelId: integration.channel_id,
+                embed: {
+                    title: 'Test Message',
+                    description: `${getEnvPrefix()}Test message from Washodo Ward Admin Panel!`,
+                    color: 0x00FF00
                 }
-
-                const env = process.env.APP_ENV;
-                const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
-
-                await (channel as any).send(`${prefix}Test message from Washodo Ward Admin Panel!`);
-            }, { guildId: integration.guild_id, channelId: integration.channel_id });
-            return true;
+            });
+            return response.data.success;
         } catch (error: any) {
             throw new Error(`Discord test failed: ${error.message}`);
         }
     }
 
     public async getGuildDetails(guildId: string, token: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
-        const client = this.sessionManager.clients.get(token);
-        if (!client) {
-            throw new Error('Discord manager for this token is not active.');
-        }
         try {
-            const guild = await client.guilds.fetch(guildId);
-            return {
-                name: guild.name,
-                memberCount: guild.memberCount,
-                icon: typeof guild.iconURL === 'function' ? guild.iconURL() : guild.iconURL
-            };
+            const response = await axios.get(`${BOT_RUNNER_URL}/guild/${guildId}`, {
+                params: { token }
+            });
+            return response.data;
         } catch (error: any) {
             console.error(`[DiscordNotifier] Error fetching guild details for ${guildId}:`, error);
             throw error;
@@ -199,76 +138,53 @@ export class DiscordNotifier {
     }
 
     async getStatus() {
-        const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
-        const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
-        const retryAfter = await this.stateRepo.getGlobalState('discord_rate_limit_retry_after');
-        const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
+        try {
+            const response = await axios.get(`${BOT_RUNNER_URL}/status`);
+            const runnerStatus = response.data;
 
-        let overallSessionStatus = 'Fresh';
-        if (this.sessionManager.clients.size > 0) {
-            const firstToken = this.sessionManager.clients.keys().next().value;
-            if (firstToken) {
-                overallSessionStatus = this.sessionManager.sessionSources.get(firstToken) || 'Fresh';
-            }
+            const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
+            const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
+            const retryAfter = await this.stateRepo.getGlobalState('discord_rate_limit_retry_after');
+            const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
+
+            return {
+                connected: runnerStatus.status === 'online',
+                disabled: false,
+                rateLimited: isRateLimited,
+                rateLimitUntil: isRateLimited ? parseInt(rateLimitUntil) : null,
+                lastPing: lastPing ? parseInt(lastPing) : null,
+                retryAfter: retryAfter ? parseInt(retryAfter) : null,
+                sessionStatus: 'Decoupled',
+                lastError: null,
+                lastFailureTime: null,
+                botCount: runnerStatus.botCount,
+                bots: runnerStatus.bots,
+                activeChannels: this.configs.filter(c => c.isActive).length,
+                totalConfigs: this.configs.length
+            };
+        } catch (error: any) {
+            return {
+                connected: false,
+                disabled: false,
+                rateLimited: false,
+                botCount: 0,
+                bots: [],
+                activeChannels: this.configs.filter(c => c.isActive).length,
+                totalConfigs: this.configs.length,
+                lastError: `Bot Runner unreachable: ${error.message}`
+            };
         }
-
-        const connected = this.sessionManager.clients.size > 0 && !this.sessionManager.isDisabled && !isRateLimited;
-
-        const botDetails = Array.from(this.sessionManager.clients.entries()).map(([token, client]) => {
-            try {
-                return {
-                    tag: client.user?.tag || 'Unknown Bot',
-                    id: client.user?.id || 'Unknown ID',
-                    avatar: client.user?.displayAvatarURL ? client.user.displayAvatarURL() : null,
-                    status: client.user?.presence?.status || 'offline'
-                };
-            } catch (e) {
-                return {
-                    tag: 'Error',
-                    id: 'Error',
-                    avatar: null,
-                    status: 'offline'
-                };
-            }
-        });
-
-        return {
-            connected,
-            disabled: this.sessionManager.isDisabled,
-            rateLimited: isRateLimited,
-            rateLimitUntil: isRateLimited ? parseInt(rateLimitUntil) : null,
-            lastPing: lastPing ? parseInt(lastPing) : null,
-            retryAfter: retryAfter ? parseInt(retryAfter) : null,
-            sessionStatus: overallSessionStatus,
-            lastError: this.sessionManager.lastFailureError,
-            lastFailureTime: this.sessionManager.lastFailureTime,
-            botCount: this.sessionManager.clients.size,
-            bots: botDetails,
-            activeChannels: this.configs.filter(c => c.isActive).length,
-            totalConfigs: this.configs.length
-        };
     }
 
     async forceRetry(): Promise<void> {
-        await this.stateRepo.clearDiscordRateLimit();
-        await this.stateRepo.setGlobalState('discord_session_token', '0');
-        await this.sessionManager.resetFailureState();
-        await this.start();
+        try {
+            await axios.post(`${BOT_RUNNER_URL}/restart`);
+        } catch (e) {
+            console.error('[DiscordNotifier] Failed to trigger runner restart');
+        }
     }
 
     async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
-        if (this.sessionManager.isDisabled) {
-            const now = Date.now();
-            const cooldown = Math.min(
-                DISCORD_COOLDOWNS.MIN * Math.pow(2, this.sessionManager.failureCount - 1),
-                DISCORD_COOLDOWNS.MAX
-            );
-            if (now - this.sessionManager.lastFailureTime < cooldown) {
-                return;
-            }
-            // We don't reset here because sessionManager.start() handles it
-        }
-
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured in database or DISCORD_BOTS');
             return;
@@ -295,9 +211,6 @@ export class DiscordNotifier {
 
                 if (!shouldNotify) continue;
 
-                const manager = this.sessionManager.clients.get(config.token);
-                if (!manager) continue;
-
                 if (await this.isRateLimited()) {
                     console.warn(`[DiscordNotifier] Skipping notification for ${config.channelId} due to global rate limit.`);
                     continue;
@@ -305,19 +218,16 @@ export class DiscordNotifier {
 
                 await withRetry(
                     async () => {
-                        const channel = await client.channels.fetch(config.channelId);
-                        if (!channel || !channel.isTextBased()) {
-                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
-                        }
-
-                        const embed = new (require('discord.js').EmbedBuilder)()
-                            .setColor(0xFF0000)
-                            .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
-                            .setDescription(`**Title:** ${streamer.title || 'No title provided'}\\n**Link:** https://twitch.tv/${streamer.user_login}`)
-                            .setThumbnail(thumbnail || null)
-                            .setTimestamp();
-
-                        await channel.send({ embeds: [embed] });
+                        await axios.post(`${BOT_RUNNER_URL}/send`, {
+                            token: config.token,
+                            channelId: config.channelId,
+                            embed: {
+                                color: 0xFF0000,
+                                title: `${getEnvPrefix()}${streamer.user_name} ${statusText}`,
+                                description: `**Title:** ${streamer.title || 'No title provided'}\\n**Link:** https://twitch.tv/${streamer.user_login}`,
+                                thumbnail: thumbnail || null
+                            }
+                        });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Successfully sent notification for ${streamer.user_name} to channel ${config.channelId}`);
                     },
                     3,
@@ -348,18 +258,6 @@ export class DiscordNotifier {
     }
 
     async broadcast(text: string): Promise<void> {
-        if (this.sessionManager.isDisabled) {
-            const now = Date.now();
-            const cooldown = Math.min(
-                DISCORD_COOLDOWNS.MIN * Math.pow(2, this.sessionManager.failureCount - 1),
-                DISCORD_COOLDOWNS.MAX
-            );
-            if (now - this.sessionManager.lastFailureTime < cooldown) {
-                console.warn(`[DiscordNotifier] Broadcast skipped: Service is in cooldown due to login failures.`);
-                return;
-            }
-        }
-
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured for broadcast');
             return;
@@ -375,26 +273,17 @@ export class DiscordNotifier {
 
         for (const config of activeConfigs) {
             try {
-                const client = this.sessionManager.clients.get(config.token);
-                if (!client) {
-                    console.error(`[DiscordNotifier] No client found for token used in channel ${config.channelId}.`);
-                    continue;
-                }
-
                 await withRetry(
                     async () => {
-                        const channel = await client.channels.fetch(config.channelId);
-                        if (!channel || !channel.isTextBased()) {
-                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
-                        }
-
-                        const embed = new (require('discord.js').EmbedBuilder)()
-                            .setColor(0xa970ff)
-                            .setTitle(`${getEnvPrefix()}📢 Community Announcement`)
-                            .setDescription(text)
-                            .setTimestamp();
-
-                        await channel.send({ embeds: [embed] });
+                        await axios.post(`${BOT_RUNNER_URL}/send`, {
+                            token: config.token,
+                            channelId: config.channelId,
+                            embed: {
+                                color: 0xa970ff,
+                                title: `${getEnvPrefix()}📢 Community Announcement`,
+                                description: text
+                            }
+                        });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Broadcast successfully sent to channel ${config.channelId}`);
                     },
                     3,
@@ -412,31 +301,21 @@ export class DiscordNotifier {
         const targets = [];
         for (const config of this.configs) {
             if (config.isActive) {
-                const client = this.sessionManager.clients.get(config.token);
-                if (client) {
-                    try {
-                        const channel = await client.channels.fetch(config.channelId);
-                        
-                        // Diagnostic logging to identify why guildName is missing
-                        console.log(`[DiscordBot] Guild Name Check for ${config.channelId}:`, {
-                            channelFound: !!channel,
-                            guildFound: !!channel?.guild,
-                            guildName: channel?.guild?.name
-                        });
-
-                        targets.push({
-                            guildName: channel?.guild?.name || 'Unknown Guild',
-                            channelName: channel?.name || 'Unknown Channel',
-                            channelId: config.channelId
-                        });
-                    } catch (e) {
-                        console.error(`[DiscordNotifier] Error in getActiveTargets for ${config.channelId}:`, e);
-                        targets.push({
-                            guildName: 'Error',
-                            channelName: 'Error',
-                            channelId: config.channelId
-                        });
-                    }
+                try {
+                    const response = await axios.get(`${BOT_RUNNER_URL}/channel/${config.channelId}`, {
+                        params: { token: config.token }
+                    });
+                    targets.push({
+                        ...response.data,
+                        channelId: config.channelId
+                    });
+                } catch (e) {
+                    console.error(`[DiscordNotifier] Error in getActiveTargets for ${config.channelId}:`, e);
+                    targets.push({
+                        guildName: 'Error',
+                        channelName: 'Error',
+                        channelId: config.channelId
+                    });
                 }
             }
         }
