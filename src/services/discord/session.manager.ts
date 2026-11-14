@@ -46,6 +46,7 @@ export class DiscordSessionManager {
                         GatewayIntentBits.Guilds,
                         GatewayIntentBits.GuildMessages,
                         GatewayIntentBits.MessageContent,
+                        GatewayIntentBits.GuildMembers,
                         GatewayIntentBits.GuildPresences
                     ]
                 });
