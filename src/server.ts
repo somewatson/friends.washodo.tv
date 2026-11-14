@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import { TwitchClient } from './clients/twitch.client';
 import { WebhookNotifier } from './webhookNotifier';
 import { StreamerStateRepository } from './streamerStateRepository';
-import { DiscordClient } from './clients/discord.client';
 import axios from 'axios';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';

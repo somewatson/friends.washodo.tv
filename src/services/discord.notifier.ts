@@ -106,79 +106,100 @@ export class DiscordNotifier {
         const loginPromises = this.configs.map(async (config) => {
             if (this.clients.has(config.token)) return;
 
+            try {
+                const client = new Client({
+                    intents: [
+                        GatewayIntentBits.Guilds,
+                        GatewayIntentBits.GuildMessages,
+                        GatewayIntentBits.MessageContent
+                    ]
+                });
 
+                // Session Caching: Check for a cached token first in the repository
+                const cachedToken = await this.stateRepo.getGlobalState('discord_session_token');
+                const tokenToUse = (cachedToken && cachedToken !== '0') ? cachedToken : config.token;
+                
+                if (tokenToUse !== config.token) {
+                    console.log(`[DiscordNotifier] Attempting to login bot for channel ${config.channelId} with cached session token...`);
+                }
 
-                try {
-                    const client = new Client({
-                        intents: [
-                            GatewayIntentBits.Guilds,
-                            GatewayIntentBits.GuildMessages,
-                            GatewayIntentBits.MessageContent
-                        ]
-                    });
+                // Wrap login in a timeout to prevent boot-hangs
+                await Promise.race([
+                    client.login(tokenToUse),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Discord login timed out after 15s')), 15000)
+                    )
+                ]);
 
-                    // Wrap login in a timeout to prevent boot-hangs
-                    await Promise.race([
-                        client.login(config.token),
-                        new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('Discord login timed out after 15s')), 15000)
-                        )
-                    ]);
-
-                    client.on('messageCreate', async (message) => {
-                        if (message.author.bot) return;
-                        await this.handleCommand(message);
-                    });
-
-                    this.clients.set(config.token, client);
-                    console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
+                client.on('messageCreate', async (message) => {
+                    if (message.author.bot) return;
                     
-                    // Reset failure state upon any successful bot login
-                    this.isDisabledDueToFailure = false;
-                } catch (error: any) {
-                    const errMsg = error.response?.data?.message || error.message || 'Unknown error';
-                    
-                    // Handle Rate Limits specifically
-                    let retryAfter = error.response?.data?.retry_after || error.retryAfter || 0;
-                    
-                    // If we hit a 429 or timed out, we MUST probe the API directly.
-                    // Cloudflare often returns a 429 with a very different retry time in the headers 
-                    // than what the library/body reports (or it might report a generic 30s).
-                    if (error.response?.status === 429 || errMsg.includes('timed out')) {
-                        try {
-                            const probe = await axios.get('https://discord.com/api/v10/users/@me', {
-                                headers: { Authorization: `Bot ${config.token}` },
-                                timeout: 5000
-                            });
-                        } catch (probeError: any) {
-                            if (probeError.response?.status === 429) {
-                                const headerRetry = probeError.response.headers['retry-after'];
-                                const probeRetry = probeError.response.data?.retry_after || (headerRetry ? parseInt(headerRetry) : 0);
-                                
-                                // Prioritize the probe result as it's the most accurate representation of the edge limit
-                                if (probeRetry > 0) {
-                                    retryAfter = Math.max(retryAfter, probeRetry);
-                                    console.log(`[DiscordNotifier] Manual probe detected accurate rate limit for channel ${config.channelId}: ${retryAfter}s`);
-                                }
+                    // 1. Handle Commands (existing logic)
+                    await this.handleCommand(message);
+
+                    // 2. Log mentions (absorbed from DiscordClient)
+                    if (message.mentions.has(client.user!)) {
+                        const channelName = (message.channel as any).name || 'DM/Unknown';
+                        const logMessage = `[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`;
+                        console.log(logMessage);
+                        // Note: Logger and Umami should be handled here if available, 
+                        // but for now we maintain the console log to avoid adding too many dependencies to Notifier.
+                    }
+                });
+
+                this.clients.set(config.token, client);
+                console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
+                
+                // Update cached token if we used the primary token and it worked
+                if (tokenToUse === config.token) {
+                    await this.stateRepo.setGlobalStateWithTimestamp('discord_session_token', config.token);
+                }
+
+                // Reset failure state upon any successful bot login
+                this.isDisabledDueToFailure = false;
+            } catch (error: any) {
+                const errMsg = error.response?.data?.message || error.message || 'Unknown error';
+                
+                // Handle Unauthorized - clear cache
+                if (error.status === 401 || errMsg.includes('Unauthorized')) {
+                    console.warn(`[DiscordNotifier] Session token invalid for channel ${config.channelId}. Clearing cache...`);
+                    await this.stateRepo.setGlobalState('discord_session_token', '0');
+                }
+
+                // Handle Rate Limits specifically
+                let retryAfter = error.response?.data?.retry_after || error.retryAfter || 0;
+                
+                if (error.response?.status === 429 || errMsg.includes('timed out')) {
+                    try {
+                        await axios.get('https://discord.com/api/v10/users/@me', {
+                            headers: { Authorization: `Bot ${config.token}` },
+                            timeout: 5000
+                        });
+                    } catch (probeError: any) {
+                        if (probeError.response?.status === 429) {
+                            const headerRetry = probeError.response.headers['retry-after'];
+                            const probeRetry = probeError.response.data?.retry_after || (headerRetry ? parseInt(headerRetry) : 0);
+                            if (probeRetry > 0) {
+                                retryAfter = Math.max(retryAfter, probeRetry);
+                                console.log(`[DiscordNotifier] Manual probe detected accurate rate limit for channel ${config.channelId}: ${retryAfter}s`);
                             }
                         }
                     }
-                    
-                    if (error.response?.status === 429 || errMsg.includes('rate limit') || retryAfter > 0) {
-                        const expiry = Date.now() + (retryAfter * 1000);
-                        
-                        await this.stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
-                        await this.stateRepo.setGlobalState('discord_rate_limit_retry_after', retryAfter.toString());
-                        await this.stateRepo.setGlobalState('discord_rate_limit_last_ping', Date.now().toString());
-                        
-                        console.error(`[DiscordNotifier] Rate limit hit for channel ${config.channelId}. Retry after ${retryAfter}s (until ${new Date(expiry).toISOString()})`);
-                    }
-
-                    console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
-                    this.isDisabledDueToFailure = true;
-                    this.lastFailureTime = Date.now();
-                    this.lastFailureError = errMsg;
                 }
+                
+                if (error.response?.status === 429 || errMsg.includes('rate limit') || retryAfter > 0) {
+                    const expiry = Date.now() + (retryAfter * 1000);
+                    await this.stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
+                    await this.stateRepo.setGlobalState('discord_rate_limit_retry_after', retryAfter.toString());
+                    await this.stateRepo.setGlobalState('discord_rate_limit_last_ping', Date.now().toString());
+                    console.error(`[DiscordNotifier] Rate limit hit for channel ${config.channelId}. Retry after ${retryAfter}s (until ${new Date(expiry).toISOString()})`);
+                }
+
+                console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
+                this.isDisabledDueToFailure = true;
+                this.lastFailureTime = Date.now();
+                this.lastFailureError = errMsg;
+            }
         });
 
         await Promise.allSettled(loginPromises);
@@ -348,8 +369,80 @@ export class DiscordNotifier {
         return this.clients.get(token) || null;
     }
 
+    public async findOrCreateAnnouncementChannel(guildId: string): Promise<string> {
+        const client = this.clients.values().next().value; // Use the first available client for management tasks
+        if (!client) throw new Error('No Discord clients are logged in. Cannot manage channels.');
+
+        try {
+            const guild = await client.guilds.fetch(guildId);
+            if (!guild) throw new Error(`Guild ${guildId} not found`);
+
+            const channels = await guild.channels.fetch();
+            const existingAnnouncement = channels.find(c => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5)); // 0: GuildText, 5: GuildAnnouncement
+            
+            if (existingAnnouncement) {
+                console.log(`[DiscordNotifier] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
+                return existingAnnouncement.id;
+            }
+
+            console.log(`[DiscordNotifier] No announcement channel found for guild ${guildId}. Creating one...`);
+            let channel;
+            try {
+                channel = await guild.channels.create({
+                    name: '📯-ward-bot',
+                    type: 5, // GuildAnnouncement
+                    topic: 'Official Twitch notifications for the Washodo community.',
+                });
+            } catch (announcementError: any) {
+                if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
+                    console.log(`[DiscordNotifier] Community features not enabled for guild ${guildId}. Falling back to GuildText...`);
+                    channel = await guild.channels.create({
+                        name: '📯-ward-bot',
+                        type: 0, // GuildText
+                        topic: 'Official Twitch notifications for the Washodo community.',
+                    });
+                } else {
+                    throw announcementError;
+                }
+            }
+
+            if (!channel) throw new Error('Failed to create announcement channel');
+            return channel.id;
+        } catch (error: any) {
+            console.error('[DiscordNotifier] Error in findOrCreateAnnouncementChannel:', error);
+            throw error;
+        }
+    }
+
+    public async createNotificationChannel(guildId: string): Promise<string> {
+        return this.findOrCreateAnnouncementChannel(guildId);
+    }
+
+    async sendTestMessage(integration: any) {
+        const client = this.clients.get(integration.bot_token || process.env.DISCORD_BOT_TOKEN);
+        if (!client) throw new Error('Discord client for this token is not logged in.');
+
+        try {
+            const guild = await client.guilds.fetch(integration.guild_id);
+            if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
+            
+            const channel = await guild.channels.fetch(integration.channel_id);
+            if (!channel || (!(channel as any).isTextBased())) {
+                throw new Error('Notification channel not found or is not a valid text/announcement channel');
+            }
+            
+            const env = process.env.APP_ENV;
+            const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
+            
+            await (channel as any).send(`${prefix}Test message from Washodo Ward Admin Panel!`);
+            return true;
+        } catch (error: any) {
+            throw new Error(`Discord test failed: ${error.message}`);
+        }
+    }
+
     public async getGuildDetails(guildId: string, token: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
-        const client = await this.getClientForToken(token);
+        const client = this.clients.get(token);
         if (!client) {
             throw new Error('Discord client for this token is not logged in.');
         }
