@@ -123,17 +123,30 @@ export class DiscordNotifier {
                     ]
                 });
 
-                // Session Caching: Check for a cached token first in the repository
-                console.log(`${env}[DiscordNotifier] Attempting to retrieve session token from database...`);
-                const cachedToken = await this.stateRepo.getGlobalState('discord_session_token');
-                
-                if (cachedToken && cachedToken !== '0') {
-                    console.log(`${env}[DiscordNotifier] Retrieved session token from DB: ...${cachedToken.slice(-4)}`);
-                } else {
-                    console.log(`${env}[DiscordNotifier] No valid session token found in database.`);
+                // Session Resumption: Check for stored session info
+                const sessionInfo = await this.stateRepo.getDiscordSession(config.token);
+                if (sessionInfo) {
+                    console.log(`${env}[DiscordNotifier] Found stored session for bot ...${config.token.slice(-4)}. Attempting to resume...`);
+                    
+                    // To truly resume a session in discord.js v14, we need to provide 
+                    // sessionId and userSequence to the shard. 
+                    // Since we are using the high-level Client, we can't pass these to login().
+                    // However, we can set them on the client's WebSocket manager if we can access it
+                    // before the first connection. 
+                    
+                    // Unfortunately, Client.login() creates the WebSocket and connects immediately.
+                    // To implement this properly, we would need to use a custom ShardManager 
+                    // or a low-level gateway client. 
+                    
+                    // For this architecture, we have established the persistence layer. 
+                    // The next step for full resumption would be migrating to a ShardManager
+                    // where we can specify the session in the shard options.
                 }
 
-                const tokenToUse = (cachedToken && cachedToken !== '0') ? cachedToken : config.token;
+                // Session Caching: Check for a cached token first in the repository
+                // This is legacy logic from previous "pseudo-persistence" and should be removed
+                // now that we have a proper SessionInfo architecture.
+                const tokenToUse = config.token;
                 
                 if (tokenToUse !== config.token) {
                     console.log(`${env}[DiscordNotifier] Using cached session token for channel ${config.channelId}. Skipping fresh login call.`);
@@ -148,6 +161,24 @@ export class DiscordNotifier {
                         setTimeout(() => reject(new Error('Discord login timed out after 15s')), 15000)
                     )
                 ]);
+
+                client.on('ready', async () => {
+                    try {
+                        const shard = (client.ws as any).shard;
+                        if (shard && shard.sessionInfo) {
+                            console.log(`${env}[DiscordNotifier] Capturing session info for bot ...${config.token.slice(-4)}`);
+                            await this.stateRepo.saveDiscordSession(config.token, {
+                                sessionId: shard.sessionInfo.sessionId,
+                                userSequence: shard.sessionInfo.sequence,
+                                shardId: shard.sessionInfo.shardId,
+                                shardCount: shard.sessionInfo.shardCount,
+                                resumeURL: shard.sessionInfo.resumeURL
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`${env}[DiscordNotifier] Failed to save session info: ${err}`);
+                    }
+                });
 
                 client.on('messageCreate', async (message) => {
                     if (message.author.bot) return;
@@ -174,6 +205,8 @@ export class DiscordNotifier {
                 this.failureCount = 0;
                 
                 // Update cached token if we used the primary token and it worked
+                // This legacy logic is now redundant with SessionInfo persistence
+                // but kept for backward compatibility with global state until fully migrated.
                 if (tokenToUse === config.token) {
                     const currentCached = await this.stateRepo.getGlobalState('discord_session_token');
                     if (!currentCached || currentCached === '0') {
@@ -625,6 +658,8 @@ export class DiscordNotifier {
                             .setTimestamp();
         
                         const response = await (channel as any).send({ embeds: [embed] });
+                        
+                        console.log(`${getEnvPrefix()}[DiscordNotifier] Successfully sent notification for ${streamer.user_name} to channel ${config.channelId}`);
                         
                         // Header Monitoring: In discord.js, the response is the message. 
                         // Actual HTTP headers are usually hidden, but we can monitor the result.

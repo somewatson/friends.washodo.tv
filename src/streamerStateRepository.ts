@@ -100,6 +100,18 @@ export class StreamerStateRepository {
         `);
 
         this.db.exec(`
+            CREATE TABLE IF NOT EXISTS discord_sessions (
+                token_hash TEXT PRIMARY KEY,
+                sessionId TEXT,
+                userSequence INTEGER,
+                shardId INTEGER,
+                shardCount INTEGER,
+                resumeURL TEXT,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        this.db.exec(`
             CREATE TABLE IF NOT EXISTS discord_global_state (
                 key TEXT PRIMARY KEY,
                 value TEXT
@@ -387,8 +399,33 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM application_logs ORDER BY timestamp DESC LIMIT ?').all(limit) as any[];
     }
 
-    async clearDiscordRateLimit() {
-        await this.setGlobalState('discord_rate_limit_until', '0');
+    async saveDiscordSession(token: string, session: { sessionId: string, userSequence: number, shardId: number, shardCount: number, resumeURL: string }) {
+        if (!this.db) throw new Error('Database not initialized');
+        const tokenHash = this.hashToken(token);
+        this.db.prepare(`
+            INSERT INTO discord_sessions (token_hash, sessionId, userSequence, shardId, shardCount, resumeURL, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) 
+            ON CONFLICT(token_hash) DO UPDATE SET 
+                sessionId = excluded.sessionId, 
+                userSequence = excluded.userSequence, 
+                shardId = excluded.shardId, 
+                shardCount = excluded.shardCount, 
+                resumeURL = excluded.resumeURL, 
+                updated_at = CURRENT_TIMESTAMP
+        `).run(tokenHash, session.sessionId, session.userSequence, session.shardId, session.shardCount, session.resumeURL);
+    }
+
+    async getDiscordSession(token: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        const tokenHash = this.hashToken(token);
+        return this.db.prepare('SELECT * FROM discord_sessions WHERE token_hash = ?').get(tokenHash) as any;
+    }
+
+    private hashToken(token: string): string {
+        // Simple deterministic hash to avoid storing raw tokens in the session table if desired, 
+        // but for simplicity in this internal DB we can just use a basic string transform or the token itself.
+        // Let's use a simple slice/hash to keep it unique but not plain-text.
+        return Buffer.from(token).toString('base64').substring(0, 32);
     }
 
 

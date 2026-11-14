@@ -141,9 +141,11 @@ class WashodoWardApp {
                     if (assembled.mattermost) {
                         notifications.push(mattermostNotifier.notify(streamData, isRecurring, assembled.mattermost));
                     }
-                    if (assembled.discord) {
-                        notifications.push(discordNotifier.notify(streamData, isRecurring, assembled.discord));
-                    }
+                    
+                    // FIX: Call notify even if assembled.discord is empty. 
+                    // The notifier handles the primary "Live" embed, and uses the assembled text as additional info.
+                    notifications.push(discordNotifier.notify(streamData, isRecurring, assembled.discord || ''));
+                    
                     if (assembled.twitch) {
                         notifications.push(twitchChatClient.sendMessage(username, assembled.twitch));
                     }

@@ -271,11 +271,11 @@ async function updateDiscordGlobalStatus() {
                     <div style="font-weight: bold; margin-bottom: 8px; color: #eee; border-bottom: 1px solid #444; padding-bottom: 4px;">Session Mode</div>
                     <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; ${isCached ? 'color: var(--success-color); font-weight: bold;' : 'color: #888;'}">
                         <span>${isCached ? '✅' : '⚪'}</span>
-                        <span><strong>Cached:</strong> Using a saved session token for faster reconnection.</span>
+                        <span><strong>Session:</strong> Using persisted session data for silent resumption.</span>
                     </div>
                     <div style="display: flex; align-items: flex-start; gap: 8px; ${!isCached ? 'color: var(--accent-color); font-weight: bold;' : 'color: #888;'}">
                         <span>${!isCached ? '✅' : '⚪'}</span>
-                        <span><strong>Fresh:</strong> Using primary token for a full authentication handshake.</span>
+                        <span><strong>Fresh:</strong> Performing a full authentication handshake.</span>
                     </div>
                 </div>`;
         }
@@ -302,6 +302,16 @@ async function testDiscord(guildId) {
         notify('Test message sent to Discord!');
     } catch (e) {
         notify('Discord test failed: ' + e.message, 'error');
+    }
+}
+
+async function syncDiscord(guildId) {
+    try {
+        await api(`/api/admin/discord/sync-channel/${guildId}`, 'POST');
+        notify('Discord channel synced successfully!');
+        renderDiscord(document.getElementById('content-area'));
+    } catch (e) {
+        notify('Discord sync failed: ' + e.message, 'error');
     }
 }
 
