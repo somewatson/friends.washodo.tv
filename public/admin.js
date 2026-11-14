@@ -271,7 +271,7 @@ async function updateDiscordGlobalStatus() {
                         ${status.bots.map(bot => `
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 ${bot.avatar ? `<img src="${bot.avatar}" style="width: 24px; height: 24px; border-radius: 50%;" alt="">` : '<div style="width: 24px; height: 24px; background: #555; border-radius: 50%;"></div>'}
-                                <span><strong>${bot.tag}</strong> <small style="color: #888;">(${bot.id})</small></span>
+                                <span><strong>${bot.tag}</strong> <small style="color: #888;">(${bot.id})</small> <span class="status-pill pill-${bot.status || 'offline'}" style="font-size: 0.7em; padding: 1px 4px; margin-left: 4px;">${bot.status || 'offline'}</span></span>
                             </div>
                         `).join('')}
                     </div>
