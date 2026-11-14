@@ -10,7 +10,7 @@ services:
       - ./data:/app/data
     command: npm run start:discord
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/status"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${DISCORD_BOT_PORT:-3001}/status"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -24,11 +24,11 @@ services:
     env_file:
       - .env
     environment:
-      - DISCORD_BOT_RUNNER_URL=http://discord-bot:3001
+      - DISCORD_BOT_RUNNER_URL=http://discord-bot:${DISCORD_BOT_PORT:-3001}
     volumes:
       - ./data:/app/data
     ports:
-      - "3000:3000" # Or whatever your main app port is
+      - "${APP_PORT:-3000}:3000"
     command: npm run start
     depends_on:
       discord-bot:
