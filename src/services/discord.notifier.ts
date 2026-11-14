@@ -493,6 +493,11 @@ export class DiscordNotifier {
         return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
     }
 
+    async isRateLimited(): Promise<boolean> {
+        const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
+        return !!(rateLimitUntil && parseInt(rateLimitUntil) > Date.now());
+    }
+
     async getStatus() {
         const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
         const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
@@ -588,8 +593,7 @@ export class DiscordNotifier {
                 if (!client) continue;
         
                 // Proactive Rate Limit Check: Check if we are globally rate limited before trying
-                const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
-                if (rateLimitUntil && parseInt(rateLimitUntil) > Date.now()) {
+                if (await this.isRateLimited()) {
                     console.warn(`[DiscordNotifier] Skipping notification for ${config.channelId} due to global rate limit.`);
                     continue;
                 }
