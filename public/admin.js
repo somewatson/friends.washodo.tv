@@ -265,14 +265,18 @@ async function updateDiscordGlobalStatus() {
 
         if (status.sessionStatus) {
             const isCached = status.sessionStatus === 'Cached';
-            const sessionDesc = isCached 
-                ? 'Using a saved session token from the database for faster reconnection.' 
-                : 'Using the primary bot token for a fresh authentication handshake.';
             
             statusHtml += `
-                <div style="margin-top: 8px; padding: 6px 10px; background: rgba(0,0,0,0.2); border-radius: 4px; border-left: 3px solid ${isCached ? 'var(--success-color)' : 'var(--accent-color)'}; font-size: 0.85em; line-height: 1.4;">
-                    <strong style="color: ${isCached ? 'var(--success-color)' : 'var(--accent-color)'}">${status.sessionStatus} Session</strong><br>
-                    <span style="color: #ccc">${sessionDesc}</span>
+                <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; border: 1px solid #444; font-size: 0.85em; line-height: 1.6;">
+                    <div style="font-weight: bold; margin-bottom: 8px; color: #eee; border-bottom: 1px solid #444; padding-bottom: 4px;">Session Mode</div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; ${isCached ? 'color: var(--success-color); font-weight: bold;' : 'color: #888;'}">
+                        <span>${isCached ? '✅' : '⚪'}</span>
+                        <span><strong>Cached:</strong> Using a saved session token for faster reconnection.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px; ${!isCached ? 'color: var(--accent-color); font-weight: bold;' : 'color: #888;'}">
+                        <span>${!isCached ? '✅' : '⚪'}</span>
+                        <span><strong>Fresh:</strong> Using primary token for a full authentication handshake.</span>
+                    </div>
                 </div>`;
         }
 
