@@ -13,7 +13,7 @@ dotenv.config();
 
 export class ApiServer {
     private app = express();
-    private port = process.env.PORT || 3000;
+    private port = process.env.APP_PORT || 3000;
     private apiKey = process.env.API_KEY;
     private adminUsername = process.env.ADMIN_USERNAME;
     private adminPassword = process.env.ADMIN_PASSWORD;
