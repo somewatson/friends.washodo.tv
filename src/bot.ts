@@ -58,9 +58,22 @@ async function runBot() {
         }
     }
     
-    client.on('ready', async () => {
+    client.on('clientReady', async () => {
         try {
+            // Give the WebSocket a moment to fully populate internal state
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             const shard = (client.ws as any).shard;
+            
+            // Debug: Inspect shard keys to find session data if sessionInfo is missing
+            if (!shard || !shard.sessionInfo) {
+                console.log(`${env}[DiscordBot] [Debug] Shard state inspection:`, {
+                    hasShard: !!shard,
+                    shardKeys: shard ? Object.keys(shard) : 'N/A',
+                    wsKeys: client.ws ? Object.keys(client.ws) : 'N/A',
+                });
+            }
+
             if (shard && shard.sessionInfo) {
                 console.log(`${env}[DiscordBot] [Decision Point] Bot ...${token.slice(-4)}: Captured session info. Saving to DB...`);
                 
@@ -85,7 +98,7 @@ async function runBot() {
                     console.warn(`${env}[DiscordBot] process.send is not available; cannot notify parent of session update`);
                 }
             } else {
-                console.warn(`${env}[DiscordBot] Ready event fired but no sessionInfo found on shard.`);
+                console.warn(`${env}[DiscordBot] clientReady event fired but no sessionInfo found on shard.`);
             }
             console.log(`${env}[DiscordBot] Logged in as ${client.user?.tag}`);
         } catch (err) {

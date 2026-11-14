@@ -209,7 +209,7 @@ async function renderDiscord(container) {
             <tr>
                 <td>
                     ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
-                    <strong>${d.serverName}</strong><br><small style="color: #888">${d.guild_id}</small>
+                    <strong>${d.serverName || d.guildName || 'Unknown Server'}</strong><br><small style="color: #888">${d.guild_id}</small>
                 </td>
                 <td>${d.channel_id}</td>
                 <td class="text-center">${d.memberCount ? d.memberCount.toLocaleString() : '0'}</td>
