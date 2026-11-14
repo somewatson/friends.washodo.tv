@@ -65,12 +65,14 @@ async function runBot() {
             
             const shard = (client.ws as any).shards?.[0];
             
-            // Debug: Inspect shard keys to find session data if sessionInfo is missing
+            // Debug: Inspect shard keys and deep dive into _ws if necessary
             if (!shard || !shard.sessionInfo) {
                 console.log(`${env}[DiscordBot] [Debug] Shard state inspection:`, {
                     hasShard: !!shard,
                     shardKeys: shard ? Object.keys(shard) : 'N/A',
                     wsKeys: client.ws ? Object.keys(client.ws) : 'N/A',
+                    // Dig deeper into the internal WebSocket if it exists
+                    internalWsKeys: (client.ws as any)._ws ? Object.keys((client.ws as any)._ws) : 'N/A'
                 });
             }
 
