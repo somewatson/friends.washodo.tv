@@ -1,4 +1,4 @@
-const API_KEY = '{{API_KEY}}';
+const API_KEY = window.WARDEN_API_KEY || '';
 const BASE_URL = window.location.origin;
 
 async function api(path, method = 'GET', body = null) {
