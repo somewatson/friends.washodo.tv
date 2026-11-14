@@ -16,7 +16,9 @@ export class DiscordNotifier {
     private twitchClient: any; // Will be TwitchClient
     private isDisabledDueToFailure = false;
     private lastFailureTime = 0;
-    private readonly COOLDOWN_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
+    private failureCount = 0;
+    private readonly MIN_COOLDOWN = 5 * 60 * 1000; // 5 minutes
+    private readonly MAX_COOLDOWN = 60 * 60 * 1000; // 1 hour
 
     constructor(stateRepo: any, twitchClient?: any) {
         this.stateRepo = stateRepo;
@@ -93,8 +95,12 @@ export class DiscordNotifier {
 
         if (this.isDisabledDueToFailure) {
             const now = Date.now();
-            if (now - this.lastFailureTime < this.COOLDOWN_PERIOD) {
-                console.warn(`[DiscordNotifier] Service is in cooldown due to previous failures. Skipping login attempts until ${new Date(this.lastFailureTime + this.COOLDOWN_PERIOD).toISOString()}.`);
+            const cooldown = Math.min(
+                this.MIN_COOLDOWN * Math.pow(2, this.failureCount - 1),
+                this.MAX_COOLDOWN
+            );
+            if (now - this.lastFailureTime < cooldown) {
+                console.warn(`[DiscordNotifier] Service is in cooldown due to ${this.failureCount} previous failures. Skipping login attempts until ${new Date(this.lastFailureTime + cooldown).toISOString()}. (Next interval: ${Math.round(cooldown / 60000)}m)`);
                 return;
             }
             console.log(`[DiscordNotifier] Cooldown period expired. Attempting fresh login...`);
@@ -120,7 +126,9 @@ export class DiscordNotifier {
                 const tokenToUse = (cachedToken && cachedToken !== '0') ? cachedToken : config.token;
                 
                 if (tokenToUse !== config.token) {
-                    console.log(`[DiscordNotifier] Attempting to login bot for channel ${config.channelId} with cached session token...`);
+                    console.log(`[DiscordNotifier] Using saved session token for channel ${config.channelId}. Skipping fresh login call.`);
+                } else {
+                    console.log(`[DiscordNotifier] No saved token available for channel ${config.channelId}. Making fresh login call to Discord API...`);
                 }
 
                 // Wrap login in a timeout to prevent boot-hangs
@@ -150,6 +158,10 @@ export class DiscordNotifier {
                 this.clients.set(config.token, client);
                 console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
                 
+                // Reset failure state and count upon any successful bot login
+                this.isDisabledDueToFailure = false;
+                this.failureCount = 0;
+                
                 // Update cached token if we used the primary token and it worked
                 if (tokenToUse === config.token) {
                     await this.stateRepo.setGlobalStateWithTimestamp('discord_session_token', config.token);
@@ -163,8 +175,14 @@ export class DiscordNotifier {
                 
                 // Handle Unauthorized - clear cache
                 if (error.status === 401 || errMsg.includes('Unauthorized')) {
-                    console.warn(`[DiscordNotifier] Session token invalid for channel ${config.channelId}. Clearing cache...`);
+                    console.warn(`[DiscordNotifier] Session token invalid or expired for channel ${config.channelId}. Clearing session cache and marking for fresh login...`);
                     await this.stateRepo.setGlobalState('discord_session_token', '0');
+                    
+                    if (tokenToUse !== config.token) {
+                        console.log(`[DiscordNotifier] Recovery: Cached token failed. Will use primary bot token on next attempt.`);
+                    } else {
+                        console.error(`[DiscordNotifier] Critical: Primary bot token is invalid for channel ${config.channelId}. Check environment variables or DB.`);
+                    }
                 }
 
                 // Handle Rate Limits specifically
@@ -198,6 +216,7 @@ export class DiscordNotifier {
 
                 console.error(`[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
                 this.isDisabledDueToFailure = true;
+                this.failureCount++;
                 this.lastFailureTime = Date.now();
                 this.lastFailureError = errMsg;
             }
@@ -500,6 +519,7 @@ export class DiscordNotifier {
         await this.stateRepo.clearDiscordRateLimit();
         await this.stateRepo.setGlobalState('discord_session_token', '0');
         this.isDisabledDueToFailure = false;
+        this.failureCount = 0;
         this.lastFailureTime = 0;
         this.lastFailureError = '';
         this.clients.clear();

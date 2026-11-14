@@ -24,6 +24,8 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Visual Automation (Ready Signal)**: To prevent blank screenshots in the visual loop, the Admin Panel uses a `data-loaded` attribute on the `<body>` tag. Automation tools (Playwright) should wait for `body[data-loaded="true"]` before taking screenshots.
 - **Discord Integration**: 
   - **Single Source of Truth**: All Discord bot operations, session management, and status tracking MUST be handled by `DiscordNotifier` in `src/services/discord.notifier.ts`.
+  - **Token Recovery**: The system attempts to use a cached session token for faster boot. If a `401 Unauthorized` occurs, the cache is cleared, and a fresh login is performed using the primary bot token.
+  - **Rate Limit Compliance**: To avoid Discord/Cloudflare bans, login attempts are governed by a cooldown period (`COOLDOWN_PERIOD`) after repeated failures. Never implement tight-loop retries for authentication.
   - Do not instantiate separate `DiscordClient` objects in the API server or other services; instead, use the `discordNotifier` instance attached to the main application to avoid session mismatch and "not logged in" errors.
   - All Discord interactions are handled via the `discord.js` library to ensure proper rate limiting, type safety, and 64-bit permission handling.
 - **Network Resilience**: 
