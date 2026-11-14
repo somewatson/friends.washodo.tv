@@ -112,8 +112,11 @@ async function auditApp(appUrl) {
       console.log(`Auditing ${route.name}: ${route.path}`);
       try {
         await page.goto(route.path, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
+        
+        // Wait for the "ready signal" from the frontend
+        console.log(`Waiting for ${route.name} to signal readiness...`);
+        await page.waitForSelector('body[data-loaded="true"]', { timeout: 30000 });
+        
         const screenshotPath = path.join(screenshotDir, `${route.name}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: true });
 

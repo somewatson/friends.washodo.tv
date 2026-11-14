@@ -39,6 +39,7 @@ function notify(message, type = 'success') {
 }
 
 async function handlePageLoad() {
+    document.body.dataset.loaded = 'false';
     const path = window.location.pathname;
     const contentArea = document.getElementById('content-area');
     const titleEl = document.getElementById('page-title');
@@ -47,40 +48,45 @@ async function handlePageLoad() {
     // Update nav active state
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     
+    let loadPromise = Promise.resolve();
+
     if (path === '/warden/streamers') {
         document.getElementById('nav-streamers').classList.add('active');
         titleEl.textContent = 'Manage Streamers';
         descEl.textContent = 'Add and organize tracked community members and friends.';
-        renderStreamers(contentArea);
+        loadPromise = renderStreamers(contentArea);
     } else if (path === '/warden/discord') {
         document.getElementById('nav-discord').classList.add('active');
         titleEl.textContent = 'Discord Integrations';
         descEl.textContent = 'Configure announcement channels for Discord servers.';
-        renderDiscord(contentArea);
-        updateDiscordGlobalStatus();
+        loadPromise = Promise.all([renderDiscord(contentArea), updateDiscordGlobalStatus()]);
     } else if (path === '/warden/mattermost') {
         document.getElementById('nav-mattermost').classList.add('active');
         titleEl.textContent = 'Mattermost Configs';
         descEl.textContent = 'Configure webhooks for Mattermost servers.';
-        renderMattermost(contentArea);
+        loadPromise = renderMattermost(contentArea);
     } else if (path === '/warden/broadcasts') {
         document.getElementById('nav-broadcasts').classList.add('active');
         titleEl.textContent = 'Community Broadcasts';
         descEl.textContent = 'Manage global settings and scheduled announcements.';
-        renderBroadcasts(contentArea);
+        loadPromise = renderBroadcasts(contentArea);
     } else if (path === '/warden/system') {
         document.getElementById('nav-system').classList.add('active');
         titleEl.textContent = 'System Tools';
         descEl.textContent = 'Database maintenance and portability tools.';
-        renderSystem(contentArea);
+        loadPromise = renderSystem(contentArea);
     } else if (path === '/warden/logs') {
         document.getElementById('nav-logs').classList.add('active');
         titleEl.textContent = 'Application Logs';
         descEl.textContent = 'Review system events grouped by type.';
-        renderLogs(contentArea);
+        loadPromise = renderLogs(contentArea);
     } else {
         window.location.href = '/warden/streamers';
+        return;
     }
+
+    await loadPromise;
+    document.body.dataset.loaded = 'true';
 }
 
 async function renderStreamers(container) {
