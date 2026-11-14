@@ -61,20 +61,24 @@ async function runBot() {
     client.on('clientReady', async () => {
         try {
             // Give the WebSocket a moment to fully populate internal state
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // In discord.js v14, the session info is typically inside the WebSocket manager's shard
-            // Let's try multiple common paths for the session data
             const ws = client.ws;
-            const shard = (ws as any).shards?.[0] || (ws as any).shard;
+            // The logs show 'shards' exists in wsKeys but shardExists is false.
+            // This means ws.shards is likely an array, and we should check its content.
+            const shards = (ws as any).shards;
+            const shard = Array.isArray(shards) ? shards[0] : (ws as any).shard;
             
-            const sessionInfo = shard?.sessionInfo || (ws as any).sessionInfo;
+            const sessionInfo = shard?.sessionInfo || (ws as any).sessionInfo || (ws as any)._ws?.sessionInfo;
 
             if (!sessionInfo) {
                 console.log(`${env}[DiscordBot] [Debug] SessionInfo not found. State inspection:`, {
                     wsKeys: ws ? Object.keys(ws) : 'N/A',
+                    shardsType: typeof shards,
+                    shardsLength: Array.isArray(shards) ? shards.length : 'N/A',
                     shardExists: !!shard,
-                    shardKeys: shard ? Object.keys(shard) : 'N/A'
+                    shardKeys: shard ? Object.keys(shard) : 'N/A',
+                    internalWsKeys: (ws as any)._ws ? Object.keys((ws as any)._ws) : 'N/A'
                 });
             }
 
