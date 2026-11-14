@@ -188,7 +188,7 @@ export class DiscordNotifier {
                 return {
                     name: guild.name,
                     memberCount: guild.memberCount,
-                    icon: guild.iconURL() || null
+                    icon: typeof guild.iconURL === 'function' ? guild.iconURL() : guild.iconURL
                 };
             }, { guildId });
         } catch (error: any) {
