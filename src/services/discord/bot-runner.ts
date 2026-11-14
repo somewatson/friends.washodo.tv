@@ -4,6 +4,8 @@ import { DiscordSessionManager } from './session.manager';
 import { DiscordCommandHandler } from './command.handler';
 import { getEnvPrefix } from '../../utils/env';
 import { DiscordConfig } from './types';
+import { StreamerStateRepository } from '../../streamerStateRepository';
+import { TwitchClient } from '../../clients/twitch.client';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -13,8 +15,11 @@ const PORT = process.env.DISCORD_BOT_PORT || 3001;
 const app = express();
 app.use(express.json());
 
-const stateRepo = require('../../data/state.repository')(); // Assuming this is how it's normally initialized
-const twitchClient = require('../../clients/twitch.client')();
+const stateRepo = new StreamerStateRepository();
+const twitchClient = new TwitchClient({ 
+    clientId: process.env.TWITCH_CLIENT_ID || '', 
+    clientSecret: process.env.TWITCH_CLIENT_SECRET || '' 
+});
 
 const commandHandler = new DiscordCommandHandler(stateRepo, twitchClient);
 const sessionManager = new DiscordSessionManager(stateRepo, commandHandler);
@@ -69,6 +74,7 @@ async function bootstrap() {
     console.log(`${env}[BotRunner] Bootstrapping Discord Bot Runner...`);
 
     try {
+        await stateRepo.init();
         const integrations = await stateRepo.getDiscordIntegrations();
         const configs: DiscordConfig[] = integrations.map((i: any) => ({
             token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
