@@ -153,6 +153,7 @@ export class DiscordNotifier {
                 // Update cached token if we used the primary token and it worked
                 if (tokenToUse === config.token) {
                     await this.stateRepo.setGlobalStateWithTimestamp('discord_session_token', config.token);
+                    console.log(`[DiscordNotifier] Session token saved to database for recovery: ...${config.token.slice(-4)}`);
                 }
 
                 // Reset failure state upon any successful bot login
