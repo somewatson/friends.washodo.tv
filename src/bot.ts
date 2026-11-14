@@ -39,7 +39,7 @@ async function runBot() {
     if (sessionData) {
         try {
             const session = JSON.parse(sessionData);
-            console.log(`${env}[DiscordBot] Attempting to resume session from persisted data (SessionID: ${session.sessionId})...`);
+            console.log(`${env}[DiscordBot] [Decision Point] Bot ...${token.slice(-4)}: Resuming session (SessionID: ${session.sessionId})`);
             
             // In discord.js, the way to resume is to provide the session data to the Client 
             // during initialization or via a ShardingManager that passes it.
@@ -62,7 +62,7 @@ async function runBot() {
         try {
             const shard = (client.ws as any).shard;
             if (shard && shard.sessionInfo) {
-                console.log(`${env}[DiscordBot] Capturing session info for bot ...${token.slice(-4)}`);
+                console.log(`${env}[DiscordBot] [Decision Point] Bot ...${token.slice(-4)}: Captured session info. Saving to DB...`);
                 
                 // Save to DB from the worker as well for redundancy
                 await stateRepo.saveDiscordSession(token, {

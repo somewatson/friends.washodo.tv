@@ -212,7 +212,7 @@ async function renderDiscord(container) {
                     <strong>${d.serverName}</strong><br><small style="color: #888">${d.guild_id}</small>
                 </td>
                 <td>${d.channel_id}</td>
-                <td class="text-center">${d.memberCount.toLocaleString()}</td>
+                <td class="text-center">${d.memberCount ? d.memberCount.toLocaleString() : '0'}</td>
                 <td>${d.owner_id || 'System'}</td>
                 <td class="col-toggle text-center" onclick="toggleDiscord('${d.guild_id}', !${d.is_active})">
                     <label class="switch">
@@ -622,7 +622,7 @@ async function updateCronPreview() {
         const res = await api(`/api/admin/cron-next?schedule=${encodeURIComponent(cron)}`);
         const nextDate = new Date(res.next);
         const nextUTC = nextDate.toUTCString();
-        const nextLocal = nextDate.toLocaleString();
+        const nextLocal = nextDate ? nextDate.toLocaleString() : 'N/A';
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         previewDiv.textContent = `${cron} → ${translation} (Next: ${nextUTC} UTC / ${nextLocal} ${tz})`;
     } catch (e) {
@@ -698,7 +698,7 @@ async function refreshLogs() {
 
         tbody.innerHTML = logs.map(l => `
             <tr>
-                <td style="font-family: monospace; font-size: 0.85em;">${new Date(l.timestamp).toLocaleString()}</td>
+                <td style="font-family: monospace; font-size: 0.85em;">${l.timestamp ? new Date(l.timestamp).toLocaleString() : 'Unknown'}</td>
                 <td><span class="status-pill pill-${l.type.toLowerCase()}">${l.type}</span></td>
                 <td style="color: ${l.level === 'ERROR' ? 'var(--danger-color)' : l.level === 'WARN' ? '#fbbf24' : 'inherit'}">${l.level}</td>
                 <td style="font-family: monospace; white-space: pre-wrap;">${l.message}</td>
