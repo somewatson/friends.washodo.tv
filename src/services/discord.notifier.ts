@@ -107,12 +107,27 @@ export class DiscordNotifier {
 
             try {
                 // We spawn a dedicated ShardingManager for each bot token.
-                // In a large scale app, we'd have one manager for all, but since these
-                // are different bot tokens, they each need their own manager instance.
                 const manager = new ShardingManager(process.cwd() + '/dist/bot.js', {
                     token: config.token,
                     totalShards: 1
                 });
+
+                // Retrieve persisted session for this token
+                const session = await this.stateRepo.getDiscordSession(config.token);
+                if (session) {
+                    console.log(`${env}[DiscordNotifier] Found persisted session for bot ...${config.token.slice(-4)}. Injecting into shard...`);
+                    // Inject session data as environment variable for the shard process
+                    manager.options.env = {
+                        ...manager.options.env,
+                        DISCORD_SESSION_DATA: JSON.stringify({
+                            sessionId: session.sessionId,
+                            userSequence: session.userSequence,
+                            shardId: session.shardId,
+                            shardCount: session.shardCount,
+                            resumeURL: session.resumeURL
+                        })
+                    };
+                }
 
                 manager.on('shardCreate', shard => {
                     console.log(`${env}[DiscordNotifier] Shard ${shard.id} created for bot ...${config.token.slice(-4)}`);
@@ -124,7 +139,35 @@ export class DiscordNotifier {
 
                 await manager.spawn();
                 
-                // We track the manager instead of the client because the client lives in the child process.
+                // Setup IPC listener for session updates from the shard
+                (manager as any).on('message', async (shard: any, message: any) => {
+                    if (message && message.type === 'SESSION_UPDATE') {
+                        try {
+                            const { token, session } = message;
+                            console.log(`${env}[DiscordNotifier] Received session update from shard for bot ...${token.slice(-4)}`);
+                            await this.stateRepo.saveDiscordSession(token, {
+                                sessionId: session.sessionId,
+                                userSequence: session.sequence,
+                                shardId: session.shardId,
+                                shardCount: session.shardCount,
+                                resumeURL: session.resumeURL
+                            });
+                        } catch (err) {
+                            console.error(`${env}[DiscordNotifier] Failed to save session update: ${err}`);
+                        }
+                    }
+                    
+                    if (message && message.type === 'SESSION_INVALID') {
+                        try {
+                            const { token } = message;
+                            console.log(`${env}[DiscordNotifier] Clearing invalid session for bot ...${token.slice(-4)}`);
+                            await this.stateRepo.deleteDiscordSession(token);
+                        } catch (err) {
+                            console.error(`${env}[DiscordNotifier] Failed to clear invalid session: ${err}`);
+                        }
+                    }
+                });
+
                 this.clients.set(config.token, manager as any); 
                 this.isDisabledDueToFailure = false;
                 this.failureCount = 0;
