@@ -178,7 +178,8 @@ export class DiscordNotifier {
                     console.warn(`[DiscordNotifier] Session token invalid or expired for channel ${config.channelId}. Clearing session cache and marking for fresh login...`);
                     await this.stateRepo.setGlobalState('discord_session_token', '0');
                     
-                    if (tokenToUse !== config.token) {
+                    const isUsingCached = (await this.stateRepo.getGlobalState('discord_session_token')) !== config.token;
+                    if (isUsingCached) {
                         console.log(`[DiscordNotifier] Recovery: Cached token failed. Will use primary bot token on next attempt.`);
                     } else {
                         console.error(`[DiscordNotifier] Critical: Primary bot token is invalid for channel ${config.channelId}. Check environment variables or DB.`);
@@ -529,7 +530,11 @@ export class DiscordNotifier {
     async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
         if (this.isDisabledDueToFailure) {
             const now = Date.now();
-            if (now - this.lastFailureTime < this.COOLDOWN_PERIOD) {
+            const cooldown = Math.min(
+                this.MIN_COOLDOWN * Math.pow(2, this.failureCount - 1),
+                this.MAX_COOLDOWN
+            );
+            if (now - this.lastFailureTime < cooldown) {
                 return; // Silent return during cooldown
             }
             // Cooldown expired, we can try to resume (though start() usually handles this)
@@ -636,7 +641,11 @@ export class DiscordNotifier {
     async broadcast(text: string): Promise<void> {
         if (this.isDisabledDueToFailure) {
             const now = Date.now();
-            if (now - this.lastFailureTime < this.COOLDOWN_PERIOD) {
+            const cooldown = Math.min(
+                this.MIN_COOLDOWN * Math.pow(2, this.failureCount - 1),
+                this.MAX_COOLDOWN
+            );
+            if (now - this.lastFailureTime < cooldown) {
                 console.warn(`[DiscordNotifier] Broadcast skipped: Service is in cooldown due to login failures.`);
                 return;
             }
