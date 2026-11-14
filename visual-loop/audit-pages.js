@@ -15,16 +15,16 @@ async function setupTunnel() {
     console.log('Auth token might already be set or failed: ' + e.message);
   }
 
-  const appPort = process.env.APP_PORT || '3001';
+  const port = process.env.PORT || '3000';
 
-  console.log(`Starting ngrok tunnel for localhost:${appPort}...`);
+  console.log(`Starting ngrok tunnel for localhost:${port}...`);
   
   // Kill existing ngrok processes to avoid token/port conflicts
   try {
     execSync('pkill ngrok || true');
   } catch (e) {}
 
-  const ngrokProcess = spawn('./bin/ngrok', ['http', appPort], {
+  const ngrokProcess = spawn('./bin/ngrok', ['http', port], {
     detached: true,
     stdio: 'ignore'
   });
