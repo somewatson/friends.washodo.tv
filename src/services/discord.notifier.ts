@@ -156,7 +156,9 @@ export class DiscordNotifier {
                 });
 
                 this.clients.set(config.token, client);
-                console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId}`);
+                
+                const usedCached = tokenToUse !== config.token;
+                console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId} ${usedCached ? '(using saved session token)' : '(using primary bot token)'}`);
                 
                 // Reset failure state and count upon any successful bot login
                 this.isDisabledDueToFailure = false;
