@@ -13,6 +13,9 @@ RUN npm run build
 # Production Stage
 FROM node:22-alpine
 
+# Install curl for healthchecks
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 COPY package*.json ./
