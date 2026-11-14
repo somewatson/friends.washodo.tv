@@ -78,10 +78,8 @@ export class DiscordNotifier {
         
         this.configs = allConfigs.filter(c => {
             if (seenChannels.has(c.channelId)) return false;
-            if (seenTokens.has(c.token)) return false;
             
             seenChannels.add(c.channelId);
-            seenTokens.add(c.token);
             return true;
         });
 
