@@ -61,27 +61,31 @@ async function runBot() {
     client.on('clientReady', async () => {
         try {
             // Give the WebSocket a moment to fully populate internal state
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // In discord.js v14, when spawned by a ShardingManager, the Client object
-            // itself has a 'shard' property of type ShardClientUtil.
-            const shard = (client as any).shard;
-            
-            // The ShardClientUtil typically doesn't expose sessionInfo directly,
-            // but the WebSocketManager (client.ws) does, often via its internal shards array.
             const ws = client.ws;
-            const wsShard = (ws as any).shards?.[0];
+            const shards = (ws as any).shards;
+            const shard = Array.isArray(shards) ? shards[0] : (ws as any).shard;
             
-            // Try to find sessionInfo in any of the likely candidates
-            const sessionInfo = wsShard?.sessionInfo || shard?.sessionInfo || (ws as any).sessionInfo;
+            // The logs show ws.shards exists but wsShardsLength is undefined.
+            // This strongly suggests ws.shards is NOT an array, but maybe an object or a getter.
+            // Let's try to find the session info in the most raw places possible.
+            
+            const sessionInfo = 
+                shard?.sessionInfo || 
+                (ws as any).sessionInfo || 
+                (ws as any)._ws?.sessionInfo ||
+                (ws as any).gateway?.sessionInfo ||
+                (client as any).sessionInfo;
 
             if (!sessionInfo) {
-                console.log(`${env}[DiscordBot] [Debug] SessionInfo not found. State inspection:`, {
-                    clientHasShard: !!shard,
-                    wsHasShards: !!(ws as any).shards,
-                    wsShardsLength: (ws as any).shards?.length,
+                console.log(`${env}[DiscordBot] [Debug] SessionInfo not found. Deep State inspection:`, {
                     wsKeys: ws ? Object.keys(ws) : 'N/A',
-                    shardKeys: shard ? Object.keys(shard) : 'N/A'
+                    shardsType: typeof shards,
+                    shardsValue: shards, // Log the actual value to see what it is
+                    clientHasShard: !!(client as any).shard,
+                    shardKeys: (client as any).shard ? Object.keys((client as any).shard) : 'N/A',
+                    internalWsKeys: (ws as any)._ws ? Object.keys((ws as any)._ws) : 'N/A'
                 });
             }
 
@@ -105,7 +109,7 @@ async function runBot() {
                     });
                 }
             } else {
-                console.warn(`${env}[DiscordBot] clientReady event fired but no sessionInfo found on client.shard, client.ws.shards, or client.ws.`);
+                console.warn(`${env}[DiscordBot] clientReady event fired but no sessionInfo found.`);
             }
             console.log(`${env}[DiscordBot] Logged in as ${client.user?.tag}`);
         } catch (err) {
