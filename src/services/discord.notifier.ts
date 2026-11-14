@@ -448,7 +448,7 @@ export class DiscordNotifier {
                 return {
                     name: guild.name,
                     memberCount: guild.memberCount,
-                    icon: guild.iconURL()
+                    icon: typeof guild.iconURL === 'function' ? guild.iconURL() : guild.iconURL
                 };
             }, { guildId });
         } catch (error: any) {
@@ -489,15 +489,16 @@ export class DiscordNotifier {
         const botDetails = await Promise.all(
             Array.from(this.clients.entries()).map(async ([token, manager]) => {
                 try {
-                    return await manager.broadcastEval(async (ctx: any) => {
+                    const results = await manager.broadcastEval(async (ctx: any) => {
                         const client = ctx.client || ctx;
                         return {
                             tag: client.user?.tag || 'Unknown Bot',
                             id: client.user?.id || 'Unknown ID',
-                            avatar: client.user?.displayAvatarURL() || null,
+                            avatar: client.user?.displayAvatarURL ? client.user.displayAvatarURL() : null,
                             status: client.user?.presence?.status || 'offline'
                         };
                     });
+                    return results[0];
                 } catch (e) {
                     return {
                         tag: 'Error',
