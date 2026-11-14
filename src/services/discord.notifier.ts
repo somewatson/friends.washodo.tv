@@ -11,6 +11,7 @@ interface DiscordConfig {
 
 export class DiscordNotifier {
     public clients: Map<string, Client> = new Map();
+    private sessionSources: Map<string, 'Cached' | 'Fresh'> = new Map();
     private configs: DiscordConfig[] = [];
     private stateRepo: any; // Will be StreamerStateRepository
     private twitchClient: any; // Will be TwitchClient
@@ -158,6 +159,7 @@ export class DiscordNotifier {
                 this.clients.set(config.token, client);
                 
                 const usedCached = tokenToUse !== config.token;
+                this.sessionSources.set(config.token, usedCached ? 'Cached' : 'Fresh');
                 console.log(`[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId} ${usedCached ? '(using saved session token)' : '(using primary bot token)'}`);
                 
                 // Reset failure state and count upon any successful bot login
@@ -496,13 +498,24 @@ export class DiscordNotifier {
         const lastPing = await this.stateRepo.getGlobalState('discord_rate_limit_last_ping');
         const retryAfter = await this.stateRepo.getGlobalState('discord_rate_limit_retry_after');
         const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
-        const sessionToken = await this.stateRepo.getGlobalState('discord_session_token');
-        const isCached = sessionToken && sessionToken !== '0';
+        
+        // Determine session status based on actually connected clients
+        let sessionStatus = 'Fresh';
+        if (this.clients.size > 0) {
+            const firstToken = this.clients.keys().next().value;
+            if (firstToken) {
+                sessionStatus = this.sessionSources.get(firstToken) || 'Fresh';
+            }
+        } else {
+            // Fallback to DB state if no clients are connected
+            const sessionToken = await this.stateRepo.getGlobalState('discord_session_token');
+            sessionStatus = (sessionToken && sessionToken !== '0') ? 'Cached' : 'Fresh';
+        }
 
         const connected = this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited;
         
         console.log(`[DiscordNotifier] Status check: connected=${connected}, clients=${this.clients.size}, disabled=${this.isDisabledDueToFailure}, rateLimited=${isRateLimited}`);
-
+        
         return {
             connected,
             disabled: this.isDisabledDueToFailure,
@@ -510,7 +523,7 @@ export class DiscordNotifier {
             rateLimitUntil: isRateLimited ? parseInt(rateLimitUntil) : null,
             lastPing: lastPing ? parseInt(lastPing) : null,
             retryAfter: retryAfter ? parseInt(retryAfter) : null,
-            sessionStatus: isCached ? 'Cached' : 'Fresh',
+            sessionStatus,
             lastError: this.lastFailureError,
             lastFailureTime: this.lastFailureTime,
             botCount: this.clients.size,
@@ -526,6 +539,7 @@ export class DiscordNotifier {
         this.lastFailureTime = 0;
         this.lastFailureError = '';
         this.clients.clear();
+        this.sessionSources.clear();
         await this.start();
     }
 
