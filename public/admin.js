@@ -263,20 +263,23 @@ async function updateDiscordGlobalStatus() {
             retryBtn.style.display = 'block';
         }
 
-        if (status.sessionStatus) {
-            const isCached = status.sessionStatus === 'Cached';
-            
+        if (status.bots && status.bots.length > 0) {
             statusHtml += `
                 <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; border: 1px solid #444; font-size: 0.85em; line-height: 1.6;">
-                    <div style="font-weight: bold; margin-bottom: 8px; color: #eee; border-bottom: 1px solid #444; padding-bottom: 4px;">Session Mode</div>
-                    <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; ${isCached ? 'color: var(--success-color); font-weight: bold;' : 'color: #888;'}">
-                        <span>${isCached ? '✅' : '⚪'}</span>
-                        <span><strong>Session:</strong> Using persisted session data for silent resumption.</span>
+                    <div style="font-weight: bold; margin-bottom: 8px; color: #eee; border-bottom: 1px solid #444; padding-bottom: 4px;">Connected Bots</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        ${status.bots.map(bot => `
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                ${bot.avatar ? `<img src="${bot.avatar}" style="width: 24px; height: 24px; border-radius: 50%;" alt="">` : '<div style="width: 24px; height: 24px; background: #555; border-radius: 50%;"></div>'}
+                                <span><strong>${bot.tag}</strong> <small style="color: #888;">(${bot.id})</small></span>
+                            </div>
+                        `).join('')}
                     </div>
-                    <div style="display: flex; align-items: flex-start; gap: 8px; ${!isCached ? 'color: var(--accent-color); font-weight: bold;' : 'color: #888;'}">
-                        <span>${!isCached ? '✅' : '⚪'}</span>
-                        <span><strong>Fresh:</strong> Performing a full authentication handshake.</span>
-                    </div>
+                    ${status.sessionStatus ? `
+                        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #444; font-weight: bold; color: #ccc;">
+                            Session Mode: <span style="color: ${status.sessionStatus === 'Cached' ? 'var(--success-color)' : 'var(--accent-color)'}">${status.sessionStatus}</span>
+                        </div>
+                    ` : ''}
                 </div>`;
         }
 

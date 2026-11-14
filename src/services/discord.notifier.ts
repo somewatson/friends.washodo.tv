@@ -548,19 +548,23 @@ export class DiscordNotifier {
         const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
         
         // Determine session status based on actually connected clients
-        let sessionStatus = 'Fresh';
+        let overallSessionStatus = 'Fresh';
         if (this.clients.size > 0) {
             const firstToken = this.clients.keys().next().value;
             if (firstToken) {
-                sessionStatus = this.sessionSources.get(firstToken) || 'Fresh';
+                overallSessionStatus = this.sessionSources.get(firstToken) || 'Fresh';
             }
-        } else {
-            sessionStatus = 'Fresh';
         }
 
         const connected = this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited;
         
-        console.log(`[DiscordNotifier] Status check: connected=${connected}, clients=${this.clients.size}, disabled=${this.isDisabledDueToFailure}, rateLimited=${isRateLimited}`);
+        // Collect identity for all connected bots
+        const bots = Array.from(this.clients.values()).map(client => ({
+            tag: client.user?.tag || 'Unknown Bot',
+            id: client.user?.id || 'Unknown ID',
+            avatar: client.user?.displayAvatarURL() || null,
+            status: client.user?.presence?.status || 'offline'
+        }));
         
         return {
             connected,
@@ -569,10 +573,11 @@ export class DiscordNotifier {
             rateLimitUntil: isRateLimited ? parseInt(rateLimitUntil) : null,
             lastPing: lastPing ? parseInt(lastPing) : null,
             retryAfter: retryAfter ? parseInt(retryAfter) : null,
-            sessionStatus,
+            sessionStatus: overallSessionStatus,
             lastError: this.lastFailureError,
             lastFailureTime: this.lastFailureTime,
             botCount: this.clients.size,
+            bots,
             activeChannels: this.configs.filter(c => c.isActive).length,
             totalConfigs: this.configs.length
         };
