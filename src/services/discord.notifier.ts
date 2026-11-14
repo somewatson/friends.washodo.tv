@@ -194,9 +194,9 @@ export class DiscordNotifier {
 
                 this.clients.set(config.token, client);
                 
-                const usedCached = tokenToUse !== config.token;
-                this.sessionSources.set(config.token, usedCached ? 'Cached' : 'Fresh');
-                console.log(`${env}[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId} ${usedCached ? '(using saved session token)' : '(using primary bot token)'}`);
+                // Use the actual session info if it was found and used, otherwise 'Fresh'
+                this.sessionSources.set(config.token, sessionInfo ? 'Cached' : 'Fresh');
+                console.log(`${env}[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId} ${sessionInfo ? '(session resumed)' : '(fresh login)'}`);
                 
                 // Reset failure state and count upon any successful bot login
                 this.isDisabledDueToFailure = false;
@@ -555,9 +555,7 @@ export class DiscordNotifier {
                 sessionStatus = this.sessionSources.get(firstToken) || 'Fresh';
             }
         } else {
-            // Fallback to DB state if no clients are connected
-            const sessionToken = await this.stateRepo.getGlobalState('discord_session_token');
-            sessionStatus = (sessionToken && sessionToken !== '0') ? 'Cached' : 'Fresh';
+            sessionStatus = 'Fresh';
         }
 
         const connected = this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited;
