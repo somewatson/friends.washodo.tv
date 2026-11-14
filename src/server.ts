@@ -315,11 +315,10 @@ export class ApiServer {
                 const hydratedIntegrations = await Promise.all(integrations.map(async (integration) => {
                     try {
                         // Prevent pinging Discord if we know we are rate limited or not logged in
-                        const rateLimitUntil = await this.stateRepo.getGlobalState('discord_rate_limit_until');
-                        if (rateLimitUntil && parseInt(rateLimitUntil) > Date.now()) {
+                        if (await (this.mainApp as any).discordNotifier.isRateLimited()) {
                             throw new Error('Rate limited');
                         }
-
+                        
                         // Use the DiscordNotifier to get the logged-in client and guild details
                         const details = await (this.mainApp as any).discordNotifier.getGuildDetails(integration.guild_id, integration.bot_token || process.env.DISCORD_BOT_TOKEN);
                         return {
