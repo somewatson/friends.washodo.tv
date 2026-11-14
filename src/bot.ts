@@ -63,6 +63,8 @@ async function runBot() {
             const shard = (client.ws as any).shard;
             if (shard && shard.sessionInfo) {
                 console.log(`${env}[DiscordBot] Capturing session info for bot ...${token.slice(-4)}`);
+                
+                // Save to DB from the worker as well for redundancy
                 await stateRepo.saveDiscordSession(token, {
                     sessionId: shard.sessionInfo.sessionId,
                     userSequence: shard.sessionInfo.sequence,
@@ -73,12 +75,17 @@ async function runBot() {
                 
                 // Notify parent process via IPC
                 if (process.send) {
+                    console.log(`${env}[DiscordBot] Sending SESSION_UPDATE to parent via IPC...`);
                     process.send({
                         type: 'SESSION_UPDATE',
                         token: token,
                         session: shard.sessionInfo
                     });
+                } else {
+                    console.warn(`${env}[DiscordBot] process.send is not available; cannot notify parent of session update`);
                 }
+            } else {
+                console.warn(`${env}[DiscordBot] Ready event fired but no sessionInfo found on shard.`);
             }
             console.log(`${env}[DiscordBot] Logged in as ${client.user?.tag}`);
         } catch (err) {
