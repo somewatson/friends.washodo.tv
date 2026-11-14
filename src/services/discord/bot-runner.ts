@@ -68,9 +68,12 @@ app.get('/channel/:channelId', async (req, res) => {
         const channel = await client.channels.fetch(channelId);
         if (!channel) throw new Error('Channel not found');
         
+        const guild = (channel as any).guild;
+        const name = (channel as any).name;
+
         res.json({
-            guildName: channel.guild?.name || 'Unknown Guild',
-            channelName: channel.name || 'Unknown Channel'
+            guildName: guild?.name || 'Unknown Guild',
+            channelName: name || 'Unknown Channel'
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
