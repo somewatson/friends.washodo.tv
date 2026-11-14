@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, ShardingManager } from 'discord.js';
 import axios from 'axios';
 import { withRetry, LogThrottler } from '../utils/resilience';
 import { getEnvPrefix } from '../utils/env';
@@ -160,7 +160,7 @@ export class DiscordNotifier {
                     )
                 ]);
 
-                client.on('ready', async () => {
+                client.on('clientReady', async () => {
                     try {
                         const shard = (client.ws as any).shard;
                         if (shard && shard.sessionInfo) {
@@ -575,6 +575,7 @@ export class DiscordNotifier {
             lastError: this.lastFailureError,
             lastFailureTime: this.lastFailureTime,
             botCount: this.clients.size,
+            activeChannels: this.configs.filter(c => c.isActive).length,
             totalConfigs: this.configs.length
         };
     }
