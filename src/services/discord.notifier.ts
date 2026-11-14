@@ -10,7 +10,7 @@ interface DiscordConfig {
 }
 
 export class DiscordNotifier {
-    public clients: Map<string, Client> = new Map();
+    public clients: Map<string, any> = new Map();
     private sessionSources: Map<string, 'Cached' | 'Fresh'> = new Map();
     private configs: DiscordConfig[] = [];
     private stateRepo: any; // Will be StreamerStateRepository
@@ -28,7 +28,6 @@ export class DiscordNotifier {
     }
 
     private async initializeConfigs(): Promise<void> {
-        // 1. Try loading from Database (Preferred)
         try {
             const integrations = await this.stateRepo.getDiscordIntegrations();
             if (integrations && integrations.length > 0) {
@@ -46,7 +45,6 @@ export class DiscordNotifier {
             console.error(`[DiscordNotifier] Error loading configs from DB: ${err}`);
         }
 
-        // 2. Fallback to Environment Variable
         const discordEnv = process.env.DISCORD_BOTS || '';
         const configStrings = discordEnv.split(',').filter(Boolean);
 
@@ -64,28 +62,23 @@ export class DiscordNotifier {
         const integrations = await this.stateRepo.getDiscordIntegrations();
         if (integrations.length === 0) return;
 
-        // Map DB integrations to the config format
         const dbConfigs = integrations.map((i: any) => ({
             token: i.bot_token || process.env.DISCORD_BOT_TOKEN,
             channelId: i.channel_id,
             isActive: Boolean(i.is_active)
         })).filter((c: any) => c.token && c.channelId);
 
-        // Combine with existing configs (removing duplicates by channelId OR token)
         const allConfigs = [...this.configs, ...dbConfigs];
         const seenChannels = new Set();
-        const seenTokens = new Set();
         
         this.configs = allConfigs.filter(c => {
             if (seenChannels.has(c.channelId)) return false;
-            
             seenChannels.add(c.channelId);
             return true;
         });
 
         console.log(`[DiscordNotifier] Synced ${integrations.length} integrations from DB. Total unique configs: ${this.configs.length}`);
     }
-
 
     private lastFailureError: string = '';
 
@@ -103,175 +96,48 @@ export class DiscordNotifier {
                 console.warn(`${env}[DiscordNotifier] Service is in cooldown due to ${this.failureCount} previous failures. Skipping login attempts until ${new Date(this.lastFailureTime + cooldown).toISOString()}. (Next interval: ${Math.round(cooldown / 60000)}m)`);
                 return;
             }
-            console.log(`${env}[DiscordNotifier] Cooldown period expired. Attempting fresh login...`);
+            console.log(`${env}[DiscordNotifier] Cooldown period expired. Attempting login...`);
             this.isDisabledDueToFailure = false;
         }
 
-        console.log(`${env}[DiscordNotifier] Starting login for ${this.configs.length} bots...`);
+        console.log(`${env}[DiscordNotifier] Starting Discord bots via ShardingManager...`);
         
-        const loginPromises = this.configs.map(async (config) => {
-            if (this.clients.has(config.token)) return;
+        for (const config of this.configs) {
+            if (this.clients.has(config.token)) continue;
 
             try {
-                const client = new Client({
-                    intents: [
-                        GatewayIntentBits.Guilds,
-                        GatewayIntentBits.GuildMessages,
-                        GatewayIntentBits.MessageContent
-                    ]
+                // We spawn a dedicated ShardingManager for each bot token.
+                // In a large scale app, we'd have one manager for all, but since these
+                // are different bot tokens, they each need their own manager instance.
+                const manager = new ShardingManager(process.cwd() + '/dist/bot.js', {
+                    token: config.token,
+                    totalShards: 1
                 });
 
-                // Session Resumption: Check for stored session info
-                const sessionInfo = await this.stateRepo.getDiscordSession(config.token);
-                if (sessionInfo) {
-                    console.log(`${env}[DiscordNotifier] Found stored session for bot ...${config.token.slice(-4)}. Attempting to resume...`);
-                    
-                    // To truly resume a session in discord.js v14, we need to provide 
-                    // sessionId and userSequence to the shard. 
-                    // Since we are using the high-level Client, we can't pass these to login().
-                    // However, we can set them on the client's WebSocket manager if we can access it
-                    // before the first connection. 
-                    
-                    // Unfortunately, Client.login() creates the WebSocket and connects immediately.
-                    // To implement this properly, we would need to use a custom ShardManager 
-                    // or a low-level gateway client. 
-                    
-                    // For this architecture, we have established the persistence layer. 
-                    // The next step for full resumption would be migrating to a ShardManager
-                    // where we can specify the session in the shard options.
-                }
-
-                // Session Caching: Check for a cached token first in the repository
-                // This is legacy logic from previous "pseudo-persistence" and should be removed
-                // now that we have a proper SessionInfo architecture.
-                const tokenToUse = config.token;
-                
-                if (tokenToUse !== config.token) {
-                    console.log(`${env}[DiscordNotifier] Using cached session token for channel ${config.channelId}. Skipping fresh login call.`);
-                } else {
-                    console.log(`${env}[DiscordNotifier] No valid alternative session token available for channel ${config.channelId}. Using primary token for fresh login call to Discord API...`);
-                }
-
-                // Wrap login in a timeout to prevent boot-hangs
-                await Promise.race([
-                    client.login(tokenToUse),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Discord login timed out after 15s')), 15000)
-                    )
-                ]);
-
-                client.on('clientReady', async () => {
-                    try {
-                        const shard = (client.ws as any).shard;
-                        if (shard && shard.sessionInfo) {
-                            console.log(`${env}[DiscordNotifier] Capturing session info for bot ...${config.token.slice(-4)}`);
-                            await this.stateRepo.saveDiscordSession(config.token, {
-                                sessionId: shard.sessionInfo.sessionId,
-                                userSequence: shard.sessionInfo.sequence,
-                                shardId: shard.sessionInfo.shardId,
-                                shardCount: shard.sessionInfo.shardCount,
-                                resumeURL: shard.sessionInfo.resumeURL
-                            });
-                        }
-                    } catch (err) {
-                        console.error(`${env}[DiscordNotifier] Failed to save session info: ${err}`);
-                    }
+                manager.on('shardCreate', shard => {
+                    console.log(`${env}[DiscordNotifier] Shard ${shard.id} created for bot ...${config.token.slice(-4)}`);
                 });
 
-                client.on('messageCreate', async (message) => {
-                    if (message.author.bot) return;
-                    
-                    // 1. Handle Commands (existing logic)
-                    await this.handleCommand(message);
-
-                    // 2. Log mentions (absorbed from DiscordClient)
-                    if (message.mentions.has(client.user!)) {
-                        const channelName = (message.channel as any).name || 'DM/Unknown';
-                        const logMessage = `${env}[Discord Chat] ${message.author.tag} in #${channelName}: ${message.content}`;
-                        console.log(logMessage);
-                    }
+                (manager as any).on('error', (err: any) => {
+                    console.error(`${env}[DiscordNotifier] Manager error for bot ...${config.token.slice(-4)}: ${err}`);
                 });
 
-                this.clients.set(config.token, client);
+                await manager.spawn();
                 
-                // Use the actual session info if it was found and used, otherwise 'Fresh'
-                this.sessionSources.set(config.token, sessionInfo ? 'Cached' : 'Fresh');
-                console.log(`${env}[DiscordNotifier] [PID:${process.pid}] Bot logged in for channel ${config.channelId} ${sessionInfo ? '(session resumed)' : '(fresh login)'}`);
-                
-                // Reset failure state and count upon any successful bot login
+                // We track the manager instead of the client because the client lives in the child process.
+                this.clients.set(config.token, manager as any); 
                 this.isDisabledDueToFailure = false;
                 this.failureCount = 0;
-                
-                // Update cached token if we used the primary token and it worked
-                // This legacy logic is now redundant with SessionInfo persistence
-                // but kept for backward compatibility with global state until fully migrated.
-                if (tokenToUse === config.token) {
-                    const currentCached = await this.stateRepo.getGlobalState('discord_session_token');
-                    if (!currentCached || currentCached === '0') {
-                        await this.stateRepo.setGlobalStateWithTimestamp('discord_session_token', config.token);
-                        console.log(`${env}[DiscordNotifier] Session token saved to database for recovery: ...${config.token.slice(-4)}`);
-                    } else {
-                        console.log(`${env}[DiscordNotifier] Session cache already contains a token, skipping overwrite with primary token.`);
-                    }
-                }
 
-                // Reset failure state upon any successful bot login
-                this.isDisabledDueToFailure = false;
             } catch (error: any) {
-                const errMsg = error.response?.data?.message || error.message || 'Unknown error';
-                
-                // Handle Unauthorized - clear cache
-                if (error.status === 401 || errMsg.includes('Unauthorized')) {
-                    console.warn(`${env}[DiscordNotifier] Session token invalid or expired for channel ${config.channelId}. Clearing session cache and marking for fresh login...`);
-                    await this.stateRepo.setGlobalState('discord_session_token', '0');
-                    
-                    const isUsingCached = (await this.stateRepo.getGlobalState('discord_session_token')) !== config.token;
-                    if (isUsingCached) {
-                        console.log(`${env}[DiscordNotifier] Recovery: Cached token failed. Will use primary bot token on next attempt.`);
-                    } else {
-                        console.error(`${env}[DiscordNotifier] Critical: Primary bot token is invalid for channel ${config.channelId}. Check environment variables or DB.`);
-                    }
-                }
-
-                // Handle Rate Limits specifically
-                let retryAfter = error.response?.data?.retry_after || error.retryAfter || 0;
-                
-                if (error.response?.status === 429 || errMsg.includes('timed out')) {
-                    try {
-                        await axios.get('https://discord.com/api/v10/users/@me', {
-                            headers: { Authorization: `Bot ${config.token}` },
-                            timeout: 5000
-                        });
-                    } catch (probeError: any) {
-                        if (probeError.response?.status === 429) {
-                            const headerRetry = probeError.response.headers['retry-after'];
-                            const probeRetry = probeError.response.data?.retry_after || (headerRetry ? parseInt(headerRetry) : 0);
-                            if (probeRetry > 0) {
-                                retryAfter = Math.max(retryAfter, probeRetry);
-                                console.log(`${env}[DiscordNotifier] Manual probe detected accurate rate limit for channel ${config.channelId}: ${retryAfter}s`);
-                            }
-                        }
-                    }
-                }
-                
-                if (error.response?.status === 429 || errMsg.includes('rate limit') || retryAfter > 0) {
-                    const expiry = Date.now() + (retryAfter * 1000);
-                    await this.stateRepo.setGlobalState('discord_rate_limit_until', expiry.toString());
-                    await this.stateRepo.setGlobalState('discord_rate_limit_retry_after', retryAfter.toString());
-                    await this.stateRepo.setGlobalState('discord_rate_limit_last_ping', Date.now().toString());
-                    console.error(`${env}[DiscordNotifier] Rate limit hit for channel ${config.channelId}. Retry after ${retryAfter}s (until ${new Date(expiry).toISOString()})`);
-                }
-
-                console.error(`${env}[DiscordNotifier] Failed to login bot for channel ${config.channelId}: ${errMsg}`);
+                console.error(`${env}[DiscordNotifier] Failed to spawn bot for channel ${config.channelId}: ${error.message}`);
                 this.isDisabledDueToFailure = true;
                 this.failureCount++;
                 this.lastFailureTime = Date.now();
-                this.lastFailureError = errMsg;
             }
-        });
-
-        await Promise.allSettled(loginPromises);
-        console.log(`${env}[DiscordNotifier] Discord login phase completed.`);
+        }
+        
+        console.log(`${env}[DiscordNotifier] Discord sharding phase completed.`);
     }
 
     private async handleCommand(message: any): Promise<void> {
@@ -300,7 +166,6 @@ export class DiscordNotifier {
         }
 
         if (commandIndex === -1) {
-            // Check if the bot was actually mentioned by its User ID
             const botUser = message.client.user;
             const isBotMentioned = message.mentions.users.has(botUser.id);
 
@@ -344,21 +209,18 @@ export class DiscordNotifier {
 
             await message.reply('⚙️ Setting up the announcement channel...');
 
-            // Create the channel
             const channel = await guild.channels.create({
                 name: '📯-ward-bot',
-                type: 0, // GuildText
+                type: 0, 
                 topic: 'Official Twitch notifications for the Washodo community.',
             });
 
-            // Save to DB
             await this.stateRepo.saveDiscordIntegration(
                 guild.id, 
                 channel.id, 
                 message.author.id
             );
 
-            // Update current running configs so notifications start immediately
             await this.syncConfigsFromDb();
 
             await channel.send(`✅ **Channel created!** I will now post notifications in this channel. \nManaged by: <@${message.author.id}>`);
@@ -433,49 +295,53 @@ export class DiscordNotifier {
         }
     }
 
-    public async getClientForToken(token: string): Promise<Client | null> {
+    public async getClientForToken(token: string): Promise<any | null> {
         return this.clients.get(token) || null;
     }
 
     public async findOrCreateAnnouncementChannel(guildId: string): Promise<string> {
-        const client = this.clients.values().next().value; // Use the first available client for management tasks
-        if (!client) throw new Error('No Discord clients are logged in. Cannot manage channels.');
-
+        const firstToken = this.clients.keys().next().value;
+        if (!firstToken) throw new Error('No Discord managers are logged in. Cannot manage channels.');
+        const manager = this.clients.get(firstToken);
+        
         try {
-            const guild = await client.guilds.fetch(guildId);
-            if (!guild) throw new Error(`Guild ${guildId} not found`);
-
-            const channels = await guild.channels.fetch();
-            const existingAnnouncement = channels.find(c => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5)); // 0: GuildText, 5: GuildAnnouncement
-            
-            if (existingAnnouncement) {
-                console.log(`[DiscordNotifier] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
-                return existingAnnouncement.id;
-            }
-
-            console.log(`[DiscordNotifier] No announcement channel found for guild ${guildId}. Creating one...`);
-            let channel;
-            try {
-                channel = await guild.channels.create({
-                    name: '📯-ward-bot',
-                    type: 5, // GuildAnnouncement
-                    topic: 'Official Twitch notifications for the Washodo community.',
-                });
-            } catch (announcementError: any) {
-                if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
-                    console.log(`[DiscordNotifier] Community features not enabled for guild ${guildId}. Falling back to GuildText...`);
+            return await manager.broadcastEval(async (ctx: any) => {
+                const client = ctx.client;
+                const guild = await client.guilds.fetch(guildId);
+                if (!guild) throw new Error(`Guild ${guildId} not found`);
+        
+                const channels = await guild.channels.fetch();
+                const existingAnnouncement = channels.find((c: any) => c?.name === '📯-ward-bot' && (c?.type === 0 || c?.type === 5));
+                
+                if (existingAnnouncement) {
+                    console.log(`[DiscordBot] Found existing announcement channel ${existingAnnouncement.id} for guild ${guildId}`);
+                    return existingAnnouncement.id;
+                }
+        
+                console.log(`[DiscordBot] No announcement channel found for guild ${guildId}. Creating one...`);
+                let channel;
+                try {
                     channel = await guild.channels.create({
                         name: '📯-ward-bot',
-                        type: 0, // GuildText
+                        type: 5,
                         topic: 'Official Twitch notifications for the Washodo community.',
                     });
-                } else {
-                    throw announcementError;
+                } catch (announcementError: any) {
+                    if (announcementError.code === 50035 || announcementError.message?.includes('Invalid Form Body')) {
+                        console.log(`[DiscordBot] Community features not enabled for guild ${guildId}. Falling back to GuildText...`);
+                        channel = await guild.channels.create({
+                            name: '📯-ward-bot',
+                            type: 0,
+                            topic: 'Official Twitch notifications for the Washodo community.',
+                        });
+                    } else {
+                        throw announcementError;
+                    }
                 }
-            }
-
-            if (!channel) throw new Error('Failed to create announcement channel');
-            return channel.id;
+        
+                if (!channel) throw new Error('Failed to create announcement channel');
+                return channel.id;
+            });
         } catch (error: any) {
             console.error('[DiscordNotifier] Error in findOrCreateAnnouncementChannel:', error);
             throw error;
@@ -487,22 +353,25 @@ export class DiscordNotifier {
     }
 
     async sendTestMessage(integration: any) {
-        const client = this.clients.get(integration.bot_token || process.env.DISCORD_BOT_TOKEN);
-        if (!client) throw new Error('Discord client for this token is not logged in.');
-
+        const manager = this.clients.get(integration.bot_token || process.env.DISCORD_BOT_TOKEN);
+        if (!manager) throw new Error('Discord manager for this token is not active.');
+        
         try {
-            const guild = await client.guilds.fetch(integration.guild_id);
-            if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
-            
-            const channel = await guild.channels.fetch(integration.channel_id);
-            if (!channel || (!(channel as any).isTextBased())) {
-                throw new Error('Notification channel not found or is not a valid text/announcement channel');
-            }
-            
-            const env = process.env.APP_ENV;
-            const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
-            
-            await (channel as any).send(`${prefix}Test message from Washodo Ward Admin Panel!`);
+            await manager.broadcastEval(async (ctx: any) => {
+                const client = ctx.client;
+                const guild = await client.guilds.fetch(integration.guild_id);
+                if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
+                
+                const channel = await guild.channels.fetch(integration.channel_id);
+                if (!channel || (!(channel as any).isTextBased())) {
+                    throw new Error('Notification channel not found or is not a valid text/announcement channel');
+                }
+                
+                const env = process.env.APP_ENV;
+                const prefix = (env && env !== 'production') ? `[${env.toUpperCase()}] ` : '';
+                
+                await (channel as any).send(`${prefix}Test message from Washodo Ward Admin Panel!`);
+            });
             return true;
         } catch (error: any) {
             throw new Error(`Discord test failed: ${error.message}`);
@@ -510,17 +379,20 @@ export class DiscordNotifier {
     }
 
     public async getGuildDetails(guildId: string, token: string): Promise<{ name: string, memberCount: number, icon: string | null }> {
-        const client = this.clients.get(token);
-        if (!client) {
-            throw new Error('Discord client for this token is not logged in.');
+        const manager = this.clients.get(token);
+        if (!manager) {
+            throw new Error('Discord manager for this token is not active.');
         }
         try {
-            const guild = await client.guilds.fetch(guildId);
-            return {
-                name: guild.name,
-                memberCount: guild.memberCount,
-                icon: guild.iconURL()
-            };
+            return await manager.broadcastEval(async (ctx: any) => {
+                const client = ctx.client;
+                const guild = await client.guilds.fetch(guildId);
+                return {
+                    name: guild.name,
+                    memberCount: guild.memberCount,
+                    icon: guild.iconURL()
+                };
+            });
         } catch (error: any) {
             console.error(`[DiscordNotifier] Error fetching guild details for ${guildId}:`, error);
             throw error;
@@ -532,7 +404,6 @@ export class DiscordNotifier {
         if (!clientId) {
             throw new Error('DISCORD_CLIENT_ID not configured in environment');
         }
-        // Permissions: 8 is Administrator. Scope: bot and applications.commands
         return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
     }
 
@@ -547,7 +418,6 @@ export class DiscordNotifier {
         const retryAfter = await this.stateRepo.getGlobalState('discord_rate_limit_retry_after');
         const isRateLimited = rateLimitUntil && parseInt(rateLimitUntil) > Date.now();
         
-        // Determine session status based on actually connected clients
         let overallSessionStatus = 'Fresh';
         if (this.clients.size > 0) {
             const firstToken = this.clients.keys().next().value;
@@ -558,7 +428,6 @@ export class DiscordNotifier {
 
         const connected = this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited;
         
-        // Collect identity for all connected bots
         const bots = Array.from(this.clients.values()).map(client => ({
             tag: client.user?.tag || 'Unknown Bot',
             id: client.user?.id || 'Unknown ID',
@@ -603,9 +472,8 @@ export class DiscordNotifier {
                 this.MAX_COOLDOWN
             );
             if (now - this.lastFailureTime < cooldown) {
-                return; // Silent return during cooldown
+                return;
             }
-            // Cooldown expired, we can try to resume (though start() usually handles this)
             this.isDisabledDueToFailure = false;
         }
         
@@ -619,7 +487,6 @@ export class DiscordNotifier {
             ? streamer.thumbnail_url.replace('{width}', '400').replace('{height}', '225') 
             : '';
         
-        // Process configs sequentially to avoid unbounded concurrency
         for (const config of this.configs) {
             if (!config.isActive) continue;
             try {
@@ -636,37 +503,35 @@ export class DiscordNotifier {
         
                 if (!shouldNotify) continue;
         
-                const client = this.clients.get(config.token);
-                if (!client) continue;
+                const manager = this.clients.get(config.token);
+                if (!manager) continue;
         
-                // Proactive Rate Limit Check: Check if we are globally rate limited before trying
                 if (await this.isRateLimited()) {
                     console.warn(`[DiscordNotifier] Skipping notification for ${config.channelId} due to global rate limit.`);
                     continue;
                 }
-
+        
                 await withRetry(
                     async () => {
-                        const channel = await client.channels.fetch(config.channelId);
-                        if (!channel || !channel.isTextBased()) {
-                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
-                        }
+                        // Use broadcastEval to execute the send logic inside the child process (shard)
+                        // This allows us to use the Client instance that lives in the worker.
+                        await manager.broadcastEval(async (ctx: any) => {
+                            const client = ctx.client;
+                            const channel = await client.channels.fetch(config.channelId);
+                            if (!channel || !channel.isTextBased()) {
+                                throw new Error(`Channel ${config.channelId} not found or not text-based`);
+                            }
         
-                        const embed = new EmbedBuilder()
-                            .setColor(0xFF0000)
-                            .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
-                            .setDescription(`**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}`)
-                            .setThumbnail(thumbnail || null)
-                            .setTimestamp();
+                            const embed = new (require('discord.js').EmbedBuilder)()
+                                .setColor(0xFF0000)
+                                .setTitle(`${getEnvPrefix()}${streamer.user_name} ${statusText}`)
+                                .setDescription(`**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}`)
+                                .setThumbnail(thumbnail || null)
+                                .setTimestamp();
         
-                        const response = await (channel as any).send({ embeds: [embed] });
-                        
+                            await channel.send({ embeds: [embed] });
+                        });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Successfully sent notification for ${streamer.user_name} to channel ${config.channelId}`);
-                        
-                        // Header Monitoring: In discord.js, the response is the message. 
-                        // Actual HTTP headers are usually hidden, but we can monitor the result.
-                        // If the library provides access to the underlying request/response, we'd check it here.
-                        // Since discord.js abstracts the REST API, we rely on the error handling for 429s.
                     },
                     3,
                     1000,
@@ -676,27 +541,17 @@ export class DiscordNotifier {
                 await this.stateRepo.recordNotification(streamer.user_login, 'discord', config.channelId);
                 
             } catch (error: any) {
-                // Handle permanent failures (bot kicked or channel deleted)
                 const isPermanentFailure = 
                     error.message?.includes('not found') || 
-                    error.code === 50001 || // Missing Access
-                    error.code === 10003;   // Unknown Channel
+                    error.code === 50001 || 
+                    error.code === 10003;
         
                 if (isPermanentFailure) {
                     console.error(`[DiscordNotifier] Permanent failure detected for channel ${config.channelId}. Marking as inactive.`);
-                    
-                    // We need the guild_id to mark as inactive. 
-                    // In current config we only have channelId.
-                    // We can try to find the guild_id via the client.
-                    const client = this.clients.get(config.token);
-                    if (client) {
-                        const channel = await client.channels.fetch(config.channelId).catch(() => null);
-                        if (channel && 'guildId' in channel) {
-                            await this.stateRepo.markDiscordIntegrationInactive(channel.guildId);
-                            // Update local configs to stop trying immediately
-                            this.configs = this.configs.filter(c => c.channelId !== config.channelId);
-                        }
-                    }
+                    // In a sharded environment, we might need to use broadcastEval to check channel existence
+                    // but we can simply mark it inactive in DB.
+                    await this.stateRepo.markDiscordIntegrationInactive(config.channelId);
+                    this.configs = this.configs.filter(c => c.channelId !== config.channelId);
                 }
         
                 const logKey = `discord_error_${config.channelId}`;
@@ -720,62 +575,45 @@ export class DiscordNotifier {
             }
             this.isDisabledDueToFailure = false;
         }
-
+        
         if (this.configs.length === 0) {
             console.warn('[DiscordNotifier] No servers configured for broadcast');
             return;
         }
-
-        // Ensure configs are up-to-date from the database before broadcasting
+        
         await this.syncConfigsFromDb();
-
-        // Filter active configs first to ensure we are iterating through only enabled ones
+        
         const activeConfigs = this.configs.filter(c => c.isActive);
         if (activeConfigs.length === 0) {
             console.warn('[DiscordNotifier] No active servers configured for broadcast');
             return;
         }
-
+        
         for (const config of activeConfigs) {
             try {
-                const client = this.clients.get(config.token);
-                if (!client) {
-                    console.error(`[DiscordNotifier] No client found for token used in channel ${config.channelId}. Attempting to login...`);
-                    
-                    // Attempt a lazy login if the client is missing
-                    try {
-                        const newClient = new Client({
-                            intents: [
-                                GatewayIntentBits.Guilds,
-                                GatewayIntentBits.GuildMessages,
-                                GatewayIntentBits.MessageContent
-                            ]
-                        });
-                        await newClient.login(config.token);
-                        this.clients.set(config.token, newClient);
-                    } catch (loginErr) {
-                        console.error(`[DiscordNotifier] Lazy login failed for ${config.channelId}:`, loginErr);
-                        continue;
-                    }
+                const manager = this.clients.get(config.token);
+                if (!manager) {
+                    console.error(`[DiscordNotifier] No manager found for token used in channel ${config.channelId}.`);
+                    continue;
                 }
-
-                const activeClient = this.clients.get(config.token);
-                if (!activeClient) continue;
-
+        
                 await withRetry(
                     async () => {
-                        const channel = await activeClient.channels.fetch(config.channelId);
-                        if (!channel || !channel.isTextBased()) {
-                            throw new Error(`Channel ${config.channelId} not found or not text-based`);
-                        }
-
-                        const embed = new EmbedBuilder()
-                            .setColor(0xa970ff) // Washodo Purple
-                            .setTitle(`${getEnvPrefix()}📢 Community Announcement`)
-                            .setDescription(text)
-                            .setTimestamp();
-
-                        await (channel as any).send({ embeds: [embed] });
+                        await manager.broadcastEval(async (ctx: any) => {
+                            const client = ctx.client;
+                            const channel = await client.channels.fetch(config.channelId);
+                            if (!channel || !channel.isTextBased()) {
+                                throw new Error(`Channel ${config.channelId} not found or not text-based`);
+                            }
+        
+                            const embed = new (require('discord.js').EmbedBuilder)()
+                                .setColor(0xa970ff)
+                                .setTitle(`${getEnvPrefix()}📢 Community Announcement`)
+                                .setDescription(text)
+                                .setTimestamp();
+        
+                            await channel.send({ embeds: [embed] });
+                        });
                     },
                     3,
                     1000,
@@ -788,18 +626,23 @@ export class DiscordNotifier {
     }
 
     async getActiveTargets() {
-        // Ensure configs are up-to-date from the database before returning targets
         await this.syncConfigsFromDb();
         const targets = [];
         for (const config of this.configs) {
             if (config.isActive) {
-                const client = this.clients.get(config.token);
-                if (client) {
+                const manager = this.clients.get(config.token);
+                if (manager) {
                     try {
-                        const channel = await client.channels.fetch(config.channelId);
+                        const details = await manager.broadcastEval(async (ctx: any) => {
+                            const client = ctx.client;
+                            const channel = await client.channels.fetch(config.channelId);
+                            return {
+                                guildName: channel?.guild?.name || 'Unknown Guild',
+                                channelName: channel?.name || 'Unknown Channel'
+                            };
+                        });
                         targets.push({
-                            guildName: (channel as any)?.guild?.name || 'Unknown Guild',
-                            channelName: (channel as any)?.name || 'Unknown Channel',
+                            ...details,
                             channelId: config.channelId
                         });
                     } catch (e) {

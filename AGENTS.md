@@ -27,7 +27,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **Centralized State Logic**: Never perform raw database queries (e.g., checking `discord_rate_limit_until`) in controllers or API handlers to determine service state. Always use the corresponding service method (e.g., `discordNotifier.isRateLimited()`) to ensure consistent logic and avoid state contradictions.
   - **Session Persistence**: To avoid full identify handshakes (which can trigger rate limits and "bot joined" spam) and enable faster recovery, the system persists `SessionInfo` (sessionId, sequence, shardId, shardCount, resumeURL) in the `discord_sessions` table.
     - **Capture**: Session information must be captured from `client.ws.shard.sessionInfo` during the `ready` event and saved to the database.
-    - **Resumption**: On startup, retrieve the stored `SessionInfo` for the bot token. While high-level `Client.login()` does not support session injection, this data is a prerequisite for moving to a `ShardingManager` for silent resumption.
+    - **Resumption**: On startup, retrieve the stored `SessionInfo` for the bot token. **CRITICAL**: In the current high-level `Client.login()` implementation, this data is persisted but not actively used for resumption because `discord.js`'s `Client` handles the gateway connection internally and defaults to a fresh identify. To achieve silent resumption, the architecture must migrate to a `ShardingManager` where `SessionInfo` can be explicitly passed to shards.
     - **Forbidden**: Do not use a simple cached bot token in `discord_global_state` as a substitute for a proper session; this only performs a fresh login with a different token and does not resume the session.
   - **Rate Limit Compliance**: To avoid Discord/Cloudflare bans, login attempts are governed by a cooldown period (`COOLDOWN_PERIOD`) after repeated failures. Never implement tight-loop retries for authentication.
   - Do not instantiate separate `DiscordClient` objects in the API server or other services; instead, use the `discordNotifier` instance attached to the main application to avoid session mismatch and "not logged in" errors.
@@ -73,6 +73,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 
 ## 🎨 Style & Conventions
 - **File Edits**: Always read the file in its entirety (or the relevant section) immediately before performing any edit to ensure context is current and minimize errors.
+- **Forbidden**: Do not "monkey-patch" existing methods, classes, or prototype objects. If a change is needed in a service or library, modify the source code directly or use proper inheritance/composition.
 - **Verification**: Always run `npm run build` and verify it succeeds before performing any `git commit`.
 - **File Size Limit**: Cap source code files at 1,000 lines. When a file exceeds this limit, reorganize and break it into smaller files based on responsibility (e.g., extract logic into services, move types to a dedicated file, or use feature-based folder structures).
 - **UI/UX**: Follow `washodo_style_guide.md` for the status page (Dark Mode, Washodo Purple `#a970ff`, Sky Blue `#38bdf8`).
