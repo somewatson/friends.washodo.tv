@@ -141,6 +141,8 @@ app.post('/create-channel', async (req, res) => {
 app.get('/status', (req, res) => {
     const bots = Array.from(sessionManager.clients.entries()).map(([token, client]) => ({
         tag: client.user?.tag,
+        id: client.user?.id,
+        avatar: client.user?.displayAvatarURL(),
         status: client.user?.presence?.status || 'online',
         presence: client.user?.presence?.status || 'online'
     }));
