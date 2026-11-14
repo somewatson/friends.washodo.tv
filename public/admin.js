@@ -264,7 +264,10 @@ async function updateDiscordGlobalStatus() {
         }
 
         if (status.sessionStatus) {
-            statusHtml += `<br>Session: <strong>${status.sessionStatus}</strong>`;
+            const sessionDesc = status.sessionStatus === 'Cached' 
+                ? 'Using a saved session token from the database for faster reconnection.' 
+                : 'Using the primary bot token for a fresh authentication handshake.';
+            statusHtml += `<br>Session: <strong title="${sessionDesc}">${status.sessionStatus}</strong> <span style="font-size: 0.8em; color: #aaa; cursor: help;" title="${sessionDesc}">ⓘ</span>`;
         }
 
         statusTextEl.innerHTML = statusHtml;
