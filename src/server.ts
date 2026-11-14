@@ -592,7 +592,9 @@ export class ApiServer {
         this.app.get('/api/admin/discord/status', async (req, res) => {
             if (!this.mainApp) return res.status(500).json({ error: 'Main app not initialized' });
             const discordNotifier = (this.mainApp as any).discordNotifier;
-            res.json(discordNotifier.getStatus());
+            const status = await discordNotifier.getStatus();
+            console.log(`[Admin API] Discord Status Response:`, status);
+            res.json(status);
         });
 
         this.app.post('/api/admin/discord/retry', async (req, res) => {
