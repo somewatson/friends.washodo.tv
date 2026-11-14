@@ -1,4 +1,21 @@
 services:
+  discord-bot:
+    build: .
+    container_name: discord-bot
+    restart: unless-stopped
+    user: "${UID}:${GID}"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: npm run start:discord
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   twitch-notifier:
     build: .
     container_name: twitch-notifier
@@ -6,8 +23,14 @@ services:
     user: "${UID}:${GID}"
     env_file:
       - .env
+    environment:
+      - DISCORD_BOT_RUNNER_URL=http://discord-bot:3001
     volumes:
       - ./data:/app/data
     ports:
-      - "3001:3001"
+      - "3000:3000" # Or whatever your main app port is
+    command: npm run start
+    depends_on:
+      discord-bot:
+        condition: service_healthy
 
