@@ -242,7 +242,7 @@ async function updateDiscordGlobalStatus() {
 
         let statusHtml = '';
         if (status.rateLimited) {
-            const retryAt = new Date(status.rateLimitUntil);
+            const retryAt = status.rateLimitUntil ? new Date(status.rateLimitUntil) : new Date();
             const now = new Date();
             const diffMs = retryAt - now;
             const diffMins = Math.ceil(diffMs / 1000 / 60);
