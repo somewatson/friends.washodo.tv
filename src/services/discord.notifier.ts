@@ -353,7 +353,10 @@ export class DiscordNotifier {
         
         try {
             return await manager.broadcastEval(async (ctx: any) => {
-                const client = ctx.client;
+                const client = ctx.client || ctx;
+                if (!client || !client.guilds) {
+                    throw new Error('Discord client or guilds manager not available in shard context');
+                }
                 const guild = await client.guilds.fetch(guildId);
                 if (!guild) throw new Error(`Guild ${guildId} not found`);
         
@@ -405,7 +408,10 @@ export class DiscordNotifier {
         
         try {
             await manager.broadcastEval(async (ctx: any) => {
-                const client = ctx.client;
+                const client = ctx.client || ctx;
+                if (!client || !client.guilds) {
+                    throw new Error('Discord client or guilds manager not available in shard context');
+                }
                 const guild = await client.guilds.fetch(integration.guild_id);
                 if (!guild) throw new Error(`Guild ${integration.guild_id} not found`);
                 
@@ -432,7 +438,11 @@ export class DiscordNotifier {
         }
         try {
             return await manager.broadcastEval(async (ctx: any) => {
-                const client = ctx.client;
+                // In some versions of discord.js, the client is at ctx.client, in others it might be the ctx itself.
+                const client = ctx.client || ctx;
+                if (!client || !client.guilds) {
+                    throw new Error('Discord client or guilds manager not available in shard context');
+                }
                 const guild = await client.guilds.fetch(guildId);
                 return {
                     name: guild.name,
@@ -472,15 +482,31 @@ export class DiscordNotifier {
                 overallSessionStatus = this.sessionSources.get(firstToken) || 'Fresh';
             }
         }
-
+ 
         const connected = this.clients.size > 0 && !this.isDisabledDueToFailure && !isRateLimited;
         
-        const bots = Array.from(this.clients.values()).map(client => ({
-            tag: client.user?.tag || 'Unknown Bot',
-            id: client.user?.id || 'Unknown ID',
-            avatar: client.user?.displayAvatarURL() || null,
-            status: client.user?.presence?.status || 'offline'
-        }));
+        const botDetails = await Promise.all(
+            Array.from(this.clients.entries()).map(async ([token, manager]) => {
+                try {
+                    return await manager.broadcastEval(async (ctx: any) => {
+                        const client = ctx.client || ctx;
+                        return {
+                            tag: client.user?.tag || 'Unknown Bot',
+                            id: client.user?.id || 'Unknown ID',
+                            avatar: client.user?.displayAvatarURL() || null,
+                            status: client.user?.presence?.status || 'offline'
+                        };
+                    });
+                } catch (e) {
+                    return {
+                        tag: 'Error',
+                        id: 'Error',
+                        avatar: null,
+                        status: 'offline'
+                    };
+                }
+            })
+        );
         
         return {
             connected,
@@ -493,7 +519,7 @@ export class DiscordNotifier {
             lastError: this.lastFailureError,
             lastFailureTime: this.lastFailureTime,
             botCount: this.clients.size,
-            bots,
+            bots: botDetails,
             activeChannels: this.configs.filter(c => c.isActive).length,
             totalConfigs: this.configs.length
         };
@@ -681,7 +707,10 @@ export class DiscordNotifier {
                 if (manager) {
                     try {
                         const details = await manager.broadcastEval(async (ctx: any) => {
-                            const client = ctx.client;
+                            const client = ctx.client || ctx;
+                            if (!client || !client.guilds) {
+                                throw new Error('Discord client or guilds manager not available in shard context');
+                            }
                             const channel = await client.channels.fetch(config.channelId);
                             return {
                                 guildName: channel?.guild?.name || 'Unknown Guild',
