@@ -167,9 +167,16 @@ export class DiscordNotifier {
                 this.failureCount = 0;
                 
                 // Update cached token if we used the primary token and it worked
+                // Note: We only want to store a DIFFERENT token as a session token if we actually got one.
+                // discord.js's .login() doesn't explicitly return a session token.
+                // If we are just saving the primary token, it's not really a "session cache".
                 if (tokenToUse === config.token) {
-                    await this.stateRepo.setGlobalStateWithTimestamp('discord_session_token', config.token);
-                    console.log(`[DiscordNotifier] Session token saved to database for recovery: ...${config.token.slice(-4)}`);
+                    // Only save if the current cached token is empty or invalid, to avoid overwriting a potentially better session token
+                    const currentCached = await this.stateRepo.getGlobalState('discord_session_token');
+                    if (!currentCached || currentCached === '0') {
+                        await this.stateRepo.setGlobalStateWithTimestamp('discord_session_token', config.token);
+                        console.log(`[DiscordNotifier] Primary token saved to database as fallback: ...${config.token.slice(-4)}`);
+                    }
                 }
 
                 // Reset failure state upon any successful bot login
