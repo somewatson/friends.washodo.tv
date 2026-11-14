@@ -1,7 +1,7 @@
 services:
   discord-bot:
     build: .
-    container_name: discord-bot
+    container_name: ${APP_ENV}-discord-bot
     restart: unless-stopped
     user: "${UID}:${GID}"
     env_file:
@@ -18,7 +18,7 @@ services:
 
   twitch-notifier:
     build: .
-    container_name: twitch-notifier
+    container_name: ${APP_ENV}-twitch-notifier
     restart: unless-stopped
     user: "${UID}:${GID}"
     env_file:
