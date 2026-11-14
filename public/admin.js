@@ -48,7 +48,7 @@ async function handlePageLoad() {
     // Update nav active state
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     
-    let loadPromise = Promise.resolve();
+    let loadPromise;
 
     if (path === '/warden/streamers') {
         document.getElementById('nav-streamers').classList.add('active');
@@ -84,8 +84,8 @@ async function handlePageLoad() {
         window.location.href = '/warden/streamers';
         return;
     }
-
-    await loadPromise;
+    
+    await (loadPromise || Promise.resolve());
     document.body.dataset.loaded = 'true';
 }
 
@@ -250,7 +250,7 @@ async function updateDiscordGlobalStatus() {
             statusHtml = `🔴 <span style="color: var(--danger-color)">Rate Limited</span><br>`;
             statusHtml += `<small>Last Ping: ${status.lastPing ? new Date(status.lastPing).toLocaleString() : 'Unknown'}</small><br>`;
             statusHtml += `<small>Retry after: ${status.retryAfter ? status.retryAfter + 's' : 'Unknown'}</small><br>`;
-            statusHtml += `<small>Retry at: ${retryAt.toLocaleString()} (in ${diffMins}m)</small>`;
+            statusHtml += `<small>Retry at: ${retryAt ? retryAt.toLocaleString() : 'Unknown'} (in ${diffMins}m)</small>`;
             retryBtn.style.display = 'block';
         } else if (status.disabled) {
             statusHtml = `🟡 <span style="color: #fbbf24">Disabled/Cooldown</span> - ${status.lastError || 'Unknown error'}`;

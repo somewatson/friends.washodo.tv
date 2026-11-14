@@ -115,7 +115,8 @@ export class DiscordNotifier {
                 // Retrieve persisted session for this token
                 const session = await this.stateRepo.getDiscordSession(config.token);
                 if (session) {
-                    console.log(`${env}[DiscordNotifier] Found persisted session for bot ...${config.token.slice(-4)}. Injecting into shard...`);
+                    console.log(`${env}[DiscordNotifier] Found persisted session for bot ...${config.token.slice(-4)}. Attempting to resume session...`);
+                    this.sessionSources.set(config.token, 'Cached');
                     // Inject session data as environment variable for the shard process
                     // We use (manager as any) because options.env is not explicitly typed in some versions of ShardingManager
                     (manager as any).options = {
@@ -131,6 +132,9 @@ export class DiscordNotifier {
                             })
                         }
                     };
+                } else {
+                    console.log(`${env}[DiscordNotifier] No persisted session found for bot ...${config.token.slice(-4)}. Performing fresh login...`);
+                    this.sessionSources.set(config.token, 'Fresh');
                 }
 
                 manager.on('shardCreate', shard => {
