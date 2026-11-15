@@ -15,8 +15,9 @@ export class DiscordCommandHandler {
             const botUser = message.client.user;
             const isBotMentioned = message.mentions.users.has(botUser.id);
             const startsWithPrefix = text.startsWith('!');
+            const startsWithMention = text.startsWith('<@');
 
-            if (!isBotMentioned && !startsWithPrefix) return;
+            if (!startsWithPrefix && !startsWithMention) return;
 
             const parts = text.split(/\\s+/);
             const lowerParts = parts.map((p: string) => p.toLowerCase());
