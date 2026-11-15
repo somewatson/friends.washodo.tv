@@ -45,11 +45,16 @@ async function handlePageLoad() {
     const titleEl = document.getElementById('page-title');
     const descEl = document.getElementById('page-desc');
 
+    // Ensure a default theme is set if none exists
+    if (!document.documentElement.dataset.theme) {
+        document.documentElement.dataset.theme = 'agency';
+    }
+
     // Update nav active state
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     
     let loadPromise;
-
+    
     if (path === '/warden/streamers') {
         document.getElementById('nav-streamers').classList.add('active');
         titleEl.textContent = 'Manage Streamers';
@@ -87,6 +92,11 @@ async function handlePageLoad() {
     
     await (loadPromise || Promise.resolve());
     document.body.dataset.loaded = 'true';
+}
+
+function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    notify(`Theme switched to ${theme}`);
 }
 
 async function renderStreamers(container) {
@@ -143,7 +153,7 @@ async function renderStreamers(container) {
                     ${s.profileImage ? `<img src="${s.profileImage}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
                     ${s.username} ↗
                 </a></td>
-                <td><span class="status-pill pill-${s.category}">${s.category}</span></td>
+                <td><span class="status-pill pill-category" style="--pill-color: var(--vibe-${s.category === 'streamer' ? 'partner' : s.category})">${s.category}</span></td>
                 <td>${s.followerCount.toLocaleString()}</td>
                 <td class="col-toggle text-center" onclick="toggleStreamerNotify('${s.username}', !${s.notify_enabled})">
                     <label class="switch">

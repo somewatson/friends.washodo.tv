@@ -2,13 +2,29 @@
             --bg-color: #0f0f0f;
             --card-bg: #161616;
             --text-color: #f3f4f6;
-            --accent-color: #a970ff;
-            --secondary-color: #38bdf8;
             --danger-color: #ef4444;
             --success-color: #22c55e;
             --washodo-red: #e63946;
             --sidebar-width: 260px;
             --sidebar-collapsed-width: 70px;
+        }
+
+        [data-theme="agency"] {
+            --accent-color: #a970ff;
+            --accent-rgb: 169, 112, 255;
+            --secondary-color: #38bdf8;
+            --vibe-member: #a970ff;
+            --vibe-friend: #38bdf8;
+            --vibe-partner: #facc15;
+        }
+
+        [data-theme="collective"] {
+            --accent-color: #e63946;
+            --accent-rgb: 230, 57, 70;
+            --secondary-color: #a970ff;
+            --vibe-member: #e63946;
+            --vibe-friend: #a970ff;
+            --vibe-partner: #facc15;
         }
         
         body {
@@ -304,10 +320,10 @@
             margin-right: 12px;
             background: #222;
             border: 2px solid var(--accent-color);
-            box-shadow: 0 0 8px rgba(169, 112, 255, 0.3);
+            box-shadow: 0 0 8px rgba(var(--accent-rgb, 169, 112, 255), 0.3);
             object-fit: cover;
         }
-    
+        
         /* Responsive Table Wrapper */
         .table-responsive {
             width: 100%;
@@ -417,6 +433,8 @@
             font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
+            background: var(--pill-color, #444);
+            color: white;
         }
         
         .search-result-item {
