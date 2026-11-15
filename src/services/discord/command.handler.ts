@@ -1,4 +1,5 @@
 import { DiscordConfig } from './types';
+import { UmamiAnalytics } from '../umami.service';
 
 export class DiscordCommandHandler {
     constructor(private stateRepo: any, private twitchClient: any) {}
@@ -11,6 +12,24 @@ export class DiscordCommandHandler {
             console.log(`[DiscordCommandHandler] Received message: "${text}" from ${message.author.tag}`);
 
             if (!text) return;
+
+            // Track Discord interaction in Umami
+            await UmamiAnalytics.trackEvent('Discord Chat', {
+                user: message.author.tag,
+                guild: message.guild?.name || 'DM',
+                channel: message.channel?.name || 'DM',
+                content: text.length > 100 ? text.slice(0, 97) + '...' : text
+            });
+
+            // Log Discord interaction to Database
+            await this.stateRepo.saveDiscordLog({
+                username: message.author.tag,
+                guild_name: message.guild?.name || 'DM',
+                channel_name: message.channel?.name || 'DM',
+                content: text,
+                command: (text.startsWith('!') || text.startsWith('<@')) ? text.split(/\s+/)[0] : null
+            });
+
 
             const botUser = message.client.user;
             const isBotMentioned = message.mentions.users.has(botUser.id);
@@ -50,13 +69,20 @@ export class DiscordCommandHandler {
             console.log(`[DiscordCommandHandler] Matched command: ${command} with args: ${args}`);
 
             if (command === '!help') {
-                await message.reply('🤖 **Bot Help Menu**\\n- `!status`: Check current monitoring status\\n- `!streamers`: Show all tracked streamers and their status\\n- `!check <username>`: Check a specific streamer\\n- `!schedule`: View the current stream schedule\\n- `!setup`: Automatically create the announcement channel\\n- `!help`: Show this menu');
+                await message.reply(`🤖 **Bot Help Menu**
+- \`!status\`: Check current monitoring status
+- \`!streamers\`: Show all tracked streamers and their status
+- \`!check <username>\`: Check a specific streamer
+- \`!schedule\`: View the current stream schedule
+- \`!setup\`: Automatically create the announcement channel
+- \`!help\`: Show this menu`);
             } else if (command === '!status') {
                 await message.reply('✅ Bot is active and monitoring streamers!');
             } else if (command === '!schedule') {
                 const setting = await this.stateRepo.getBotSetting('schedule_text');
                 const schedule = setting?.value || 'No schedule configured.';
-                await message.reply(`📅 **Current Schedule**\\n${schedule}`);
+                await message.reply(`📅 **Current Schedule**
+${schedule}`);
             } else if (command === '!streamers') {
                 await this.handleListStreamers(message);
             } else if (command === '!check') {
@@ -100,7 +126,8 @@ export class DiscordCommandHandler {
                 message.author.id
             );
 
-            await channel.send(`✅ **Channel created!** I will now post notifications in this channel. \\nManaged by: <@${message.author.id}>`);
+            await channel.send(`✅ **Channel created!** I will now post notifications in this channel.
+Managed by: <@${message.author.id}>`);
             await message.reply(`✅ Success! I've created the channel <#${channel.id}>.`);
 
         } catch (error) {
@@ -129,22 +156,22 @@ export class DiscordCommandHandler {
             const liveStreams = await this.twitchClient.getStreamStatus(allStreamers);
             const liveUsernames = liveStreams.map((s: any) => s.user_login.toLowerCase());
 
-            let response = '👥 **Tracked Streamers**\\n';
+            let responseLines = ['👥 **Tracked Streamers**'];
             const formatGroup = (title: string, list: string[]) => {
-                if (list.length === 0) return '';
-                let groupText = `\\n**${title}**\\n`;
+                if (list.length === 0) return [];
+                const groupLines = [`\n**${title}**`];
                 list.forEach(user => {
                     const isLive = liveUsernames.includes(user.toLowerCase());
-                    groupText += `- ${user}: ${isLive ? '🔴 Live' : '⚪ Offline'}\\n`;
+                    groupLines.push(`- ${user}: ${isLive ? '🔴 Live' : '⚪ Offline'}`);
                 });
-                return groupText;
+                return groupLines;
             };
 
-            response += formatGroup('Members', members);
-            response += formatGroup('Friends', friends);
-            response += formatGroup('Other', others);
+            responseLines.push(...formatGroup('Members', members));
+            responseLines.push(...formatGroup('Friends', friends));
+            responseLines.push(...formatGroup('Other', others));
 
-            await message.reply(response.trim());
+            await message.reply(responseLines.join('\n').trim());
         } catch (error) {
             console.error('[DiscordNotifier] Error listing streamers:', error);
             await message.reply('❌ Error fetching streamer statuses.');
@@ -162,7 +189,9 @@ export class DiscordCommandHandler {
             const stream = liveStreams[0];
 
             if (stream) {
-                await message.reply(`🔴 **${stream.user_name}** is currently LIVE!\\nTitle: ${stream.title || 'No title provided'}\\nLink: https://twitch.tv/${stream.user_login}`);
+                await message.reply(`🔴 **${stream.user_name}** is currently LIVE!
+Title: ${stream.title || 'No title provided'}
+Link: https://twitch.tv/${stream.user_login}`);
             } else {
                 await message.reply(`⚪ **${username}** is currently offline.`);
             }

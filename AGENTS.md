@@ -71,6 +71,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 - **Verification**: Use `npm run verify` to check deployment status via the helper script.
 
 ## 🎨 Style & Conventions
+- **Discord Messaging**: For multi-line messages in `discord.js`, prefer using template literals (backticks) with actual line breaks in the source code rather than `\n` characters. This improves readability and prevents accidental double-escaping (`\\n`).
 - **File Edits**: Always read the file in its entirety (or the relevant section) immediately before performing any edit to ensure context is current and minimize errors.
 - **Forbidden**: Do not "monkey-patch" existing methods, classes, or prototype objects. If a change is needed in a service or library, modify the source code directly or use proper inheritance/composition.
 - **Verification**: Always run `npm run build` and verify it succeeds before performing any `git commit`.
