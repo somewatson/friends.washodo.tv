@@ -17,10 +17,9 @@ export class MattermostNotifier {
 
   constructor(stateRepo: any) {
     this.stateRepo = stateRepo;
-    this.initializeServers().catch(err => console.error(`[MattermostNotifier] Initialization failed: ${err}`));
   }
 
-  private async initializeServers(): Promise<void> {
+  async initializeServers(): Promise<void> {
     // 1. Try loading from Database (Preferred)
       try {
         const dbConfigs = await this.stateRepo.getMattermostConfigs();
@@ -54,6 +53,7 @@ export class MattermostNotifier {
   }
 
   async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
+    await this.initializeServers();
     if (this.servers.length === 0) {
       console.warn('[MattermostNotifier] No servers configured in database or MATTERMOST_BOTS');
       return;

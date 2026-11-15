@@ -185,6 +185,7 @@ class WashodoWardApp {
 
             // Initialize Notifiers
             const mattermostNotifier = new MattermostNotifier(stateRepo);
+            await mattermostNotifier.initializeServers().catch(err => console.error(`[Bootstrap] Mattermost initialization failed: ${err}`));
             const discordNotifier = new DiscordNotifier(stateRepo, twitchClient);
             const twitchChatClient = new TwitchChatClient(stateRepo, twitchClient);
             
