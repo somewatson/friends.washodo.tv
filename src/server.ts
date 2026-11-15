@@ -215,7 +215,7 @@ export class ApiServer {
         });
 
         // Catch-all for any /warden/* route to support client-side routing (deep linking)
-        this.app.get('/warden/*', (req, res) => {
+        this.app.get('/warden/(.*)', (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
 
