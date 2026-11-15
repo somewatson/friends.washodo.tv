@@ -41,12 +41,13 @@ export class InteractiveReceiver {
       const dbConfigs = await this.stateRepo.getMattermostConfigs();
       if (dbConfigs && dbConfigs.length > 0) {
         dbConfigs.forEach((cfg: any) => {
-          this.servers.set(cfg.webhook_token, { 
+          const key = `${cfg.webhook_token}:${cfg.channel_id}`;
+          this.servers.set(key, { 
             webhookToken: cfg.webhook_token, 
             serverUrl: cfg.server_url, 
             botToken: cfg.bot_token 
           });
-          console.log(`[Receiver] Configured server from DB: ${cfg.server_url}`);
+          console.log(`[Receiver] Configured server from DB: ${cfg.server_url} (Channel: ${cfg.channel_id})`);
         });
         return;
       }
@@ -73,11 +74,12 @@ export class InteractiveReceiver {
     this.app.post('/mattermost/webhook', async (req, res) => {
       const { token, text, channel_id, root_id, user_name } = req.body as any;
 
-      // Look up server config by the incoming webhook token
-      const serverConfig = this.servers.get(token);
+      // Look up server config by the combined webhook token and channel ID
+      const key = `${token}:${channel_id}`;
+      const serverConfig = this.servers.get(key);
 
       if (!serverConfig) {
-        console.error(`[Security] Unauthorized webhook attempt from ${req.ip} with token ${token}`);
+        console.error(`[Security] Unauthorized webhook attempt from ${req.ip} with token ${token} for channel ${channel_id}`);
         return res.status(401).send('Unauthorized');
       }
 
