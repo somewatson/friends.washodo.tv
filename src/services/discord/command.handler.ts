@@ -19,7 +19,7 @@ export class DiscordCommandHandler {
 
             if (!startsWithPrefix && !startsWithMention) return;
 
-            const parts = text.split(/\\s+/);
+            const parts = text.split(/\s+/);
             const lowerParts = parts.map((p: string) => p.toLowerCase());
 
             const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule', 'setup'];
@@ -30,7 +30,6 @@ export class DiscordCommandHandler {
                 const word = lowerParts[i];
                 if (!word) continue;
                 const cleanWord = word.startsWith('!') ? word.slice(1) : word;
-                console.log(`[DiscordCommandHandler] Checking word: "${word}" -> cleanWord: "${cleanWord}"`);
                 if (commandKeywords.includes(cleanWord)) {
                     commandIndex = i;
                     matchedKeyword = cleanWord;
