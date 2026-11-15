@@ -201,7 +201,7 @@ export class ApiServer {
         });
 
         // Warden Interface
-        this.app.get(Object.values(this.WARDEN_ROUTES), (req, res) => {
+        this.app.get(['/warden-access', ...Object.values(this.WARDEN_ROUTES)], (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
             
@@ -211,6 +211,20 @@ export class ApiServer {
             // Extract route name from path for the handshake
             const route = Object.entries(this.WARDEN_ROUTES).find(([_, path]) => path === req.path)?.[0] || 'warden-unknown';
             
+            res.send(this.injectEnvBanner(template));
+        });
+
+        // Catch-all for any /warden/* route to support client-side routing (deep linking)
+        this.app.get('/warden/*', (req, res) => {
+            const auth = req.cookies['warden_auth'];
+            if (!auth) return res.redirect('/warden-gate');
+
+            let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
+            template = template.replace('{{API_KEY}}', this.apiKey || '');
+
+            // For deep links, we use the current path as the route name for the handshake
+            const route = req.path.replace('/warden/', 'warden-');
+
             res.send(this.injectEnvBanner(template, route));
         });
 
