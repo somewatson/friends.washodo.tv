@@ -4,68 +4,76 @@ export class DiscordCommandHandler {
     constructor(private stateRepo: any, private twitchClient: any) {}
 
     async handleCommand(message: any): Promise<void> {
-        if (message.author.bot) return;
+        try {
+            if (message.author.bot) return;
 
-        const text = message.content.trim();
-        console.log(`[DiscordCommandHandler] Received message: "${text}" from ${message.author.tag}`);
+            const text = message.content.trim();
+            console.log(`[DiscordCommandHandler] Received message: "${text}" from ${message.author.tag}`);
 
-        if (!text) return;
+            if (!text) return;
 
-        const botUser = message.client.user;
-        const isBotMentioned = message.mentions.users.has(botUser.id);
-        const startsWithPrefix = text.startsWith('!');
-
-        if (!isBotMentioned && !startsWithPrefix) return;
-
-        const parts = text.split(/\\s+/);
-        const lowerParts = parts.map((p: string) => p.toLowerCase());
-
-        const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule', 'setup'];
-        let commandIndex = -1;
-        let matchedKeyword = '';
-
-        for (let i = 0; i < lowerParts.length; i++) {
-            const word = lowerParts[i];
-            if (!word) continue;
-            const cleanWord = word.startsWith('!') ? word.slice(1) : word;
-            if (commandKeywords.includes(cleanWord)) {
-                commandIndex = i;
-                matchedKeyword = cleanWord;
-                break;
-            }
-        }
-
-        if (commandIndex === -1) {
             const botUser = message.client.user;
             const isBotMentioned = message.mentions.users.has(botUser.id);
+            const startsWithPrefix = text.startsWith('!');
 
-            if (isBotMentioned && (parts[0]?.startsWith('!') || parts[0]?.startsWith('@'))) {
-                await message.reply(`I heard you mention me, but I don't recognize a command. Try \`!help\`.`);
+            if (!isBotMentioned && !startsWithPrefix) return;
+
+            const parts = text.split(/\\s+/);
+            const lowerParts = parts.map((p: string) => p.toLowerCase());
+
+            const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule', 'setup'];
+            let commandIndex = -1;
+            let matchedKeyword = '';
+
+            for (let i = 0; i < lowerParts.length; i++) {
+                const word = lowerParts[i];
+                if (!word) continue;
+                const cleanWord = word.startsWith('!') ? word.slice(1) : word;
+                if (commandKeywords.includes(cleanWord)) {
+                    commandIndex = i;
+                    matchedKeyword = cleanWord;
+                    break;
+                }
             }
-            return;
-        }
 
-        const command = `!${matchedKeyword}`;
-        const args = parts.slice(commandIndex + 1);
-
-        if (command === '!help') {
-            await message.reply('🤖 **Bot Help Menu**\\n- `!status`: Check current monitoring status\\n- `!streamers`: Show all tracked streamers and their status\\n- `!check <username>`: Check a specific streamer\\n- `!schedule`: View the current stream schedule\\n- `!setup`: Automatically create the announcement channel\\n- `!help`: Show this menu');
-        } else if (command === '!status') {
-            await message.reply('✅ Bot is active and monitoring streamers!');
-        } else if (command === '!schedule') {
-            const setting = await this.stateRepo.getBotSetting('schedule_text');
-            const schedule = setting?.value || 'No schedule configured.';
-            await message.reply(`📅 **Current Schedule**\\n${schedule}`);
-        } else if (command === '!streamers') {
-            await this.handleListStreamers(message);
-        } else if (command === '!check') {
-            if (args.length === 0) {
-                await message.reply('❌ Please provide a username. Usage: `!check <username>`');
+            if (commandIndex === -1) {
+                if (isBotMentioned) {
+                    console.log(`[DiscordCommandHandler] Bot mentioned but no command found.`);
+                    await message.reply(`I heard you mention me, but I don't recognize a command. Try \`!help\`.`);
+                }
                 return;
             }
-            await this.handleCheckStreamer(args[0], message);
-        } else if (command === '!setup') {
-            await this.handleSetup(message);
+
+            const command = `!${matchedKeyword}`;
+            const args = parts.slice(commandIndex + 1);
+            console.log(`[DiscordCommandHandler] Matched command: ${command} with args: ${args}`);
+
+            if (command === '!help') {
+                await message.reply('🤖 **Bot Help Menu**\\n- `!status`: Check current monitoring status\\n- `!streamers`: Show all tracked streamers and their status\\n- `!check <username>`: Check a specific streamer\\n- `!schedule`: View the current stream schedule\\n- `!setup`: Automatically create the announcement channel\\n- `!help`: Show this menu');
+            } else if (command === '!status') {
+                await message.reply('✅ Bot is active and monitoring streamers!');
+            } else if (command === '!schedule') {
+                const setting = await this.stateRepo.getBotSetting('schedule_text');
+                const schedule = setting?.value || 'No schedule configured.';
+                await message.reply(`📅 **Current Schedule**\\n${schedule}`);
+            } else if (command === '!streamers') {
+                await this.handleListStreamers(message);
+            } else if (command === '!check') {
+                if (args.length === 0) {
+                    await message.reply('❌ Please provide a username. Usage: `!check <username>`');
+                    return;
+                }
+                await this.handleCheckStreamer(args[0], message);
+            } else if (command === '!setup') {
+                await this.handleSetup(message);
+            }
+        } catch (error: any) {
+            console.error(`[DiscordCommandHandler] Error handling command: ${error.message}`);
+            try {
+                await message.reply('❌ An internal error occurred while processing your command.');
+            } catch (replyError: any) {
+                console.error(`[DiscordCommandHandler] Failed to send error reply: ${replyError.message}`);
+            }
         }
     }
 
