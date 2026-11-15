@@ -475,6 +475,7 @@ export class StreamerStateRepository {
         return this.db.prepare('SELECT * FROM discord_logs ORDER BY timestamp DESC LIMIT ?').all(limit) as any[];
     }
 
+    async getDiscordIntegration(guildId: string) {
         if (!this.db) throw new Error('Database not initialized');
         const row = this.db.prepare('SELECT * FROM discord_integrations WHERE guild_id = ?').get(guildId);
         return row as any;
