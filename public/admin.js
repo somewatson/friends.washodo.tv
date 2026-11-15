@@ -85,10 +85,16 @@ async function handlePageLoad() {
         titleEl.textContent = 'Application Logs';
         descEl.textContent = 'Review system events grouped by type.';
         loadPromise = renderLogs(contentArea);
+    } else if (path === '/warden/discord-logs') {
+        document.getElementById('nav-discord-logs').classList.add('active');
+        titleEl.textContent = 'Discord Interaction Logs';
+        descEl.textContent = 'Review messages and commands received by the Discord bot.';
+        loadPromise = renderDiscordLogs(contentArea);
     } else {
         window.location.href = '/warden/streamers';
         return;
     }
+
     
     await (loadPromise || Promise.resolve());
     document.body.dataset.loaded = 'true';
@@ -739,6 +745,66 @@ async function renderLogs(container) {
     `;
     refreshLogs();
 }
+
+async function renderDiscordLogs(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h3 style="margin: 0;">Recent Interactions</h3>
+                    <p style="color: #888; margin: 5px 0 0 0;">Latest messages and commands received from Discord servers.</p>
+                </div>
+                <button class="btn-primary" onclick="refreshDiscordLogs()">Refresh</button>
+            </div>
+            <div id="discord-logs-container" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Interaction cards injected here -->
+            </div>
+        </div>
+    `;
+    refreshDiscordLogs();
+}
+
+async function refreshDiscordLogs() {
+    const container = document.getElementById('discord-logs-container');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align:center; padding: 20px;">Loading logs...</div>';
+
+    try {
+        const logs = await api('/api/admin/discord/logs');
+        if (logs.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding: 20px;">No interaction logs found.</div>';
+            return;
+        }
+        container.innerHTML = logs.map(l => {
+            const formattedContent = l.content.replace(/\\n/g, '\n');
+            const timestamp = l.timestamp ? new Date(l.timestamp).toLocaleString() : 'Unknown';
+            
+            return `
+                <div class="interaction-card" style="background: rgba(0,0,0,0.2); border-left: 4px solid var(--accent-color, #a970ff); border-radius: 4px; padding: 12px; border-top: 1px solid #444; border-right: 1px solid #444; border-bottom: 1px solid #444;">
+                    <div class="interaction-header" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-size: 0.85em;">
+                        <div>
+                            <strong style="color: #fff; margin-right: 8px;">${l.username}</strong>
+                            <span style="color: #888;">${l.guild_name} <span style="color: #555;">»</span> ${l.channel_name}</span>
+                        </div>
+                        <span style="color: #666; font-family: monospace;">${timestamp}</span>
+                    </div>
+                    <div class="interaction-body" style="font-family: inherit; color: #ddd; line-height: 1.5; white-space: pre-wrap; margin-bottom: 8px;">${formattedContent}</div>
+                    ${l.command ? `
+                        <div class="interaction-footer" style="display: flex; justify-content: flex-end;">
+                            <span class="status-pill pill-discord" style="font-size: 0.7em; background: var(--accent-color, #a970ff); color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${l.command}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        notify('Error loading Discord logs: ' + e.message, 'error');
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color: red;">Failed to load logs.</div>';
+    }
+}
+
+
 
 async function refreshLogs() {
     const type = document.getElementById('log-type-filter')?.value || '';

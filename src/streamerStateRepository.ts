@@ -112,6 +112,21 @@ export class StreamerStateRepository {
         `);
 
         this.db.exec(`
+            CREATE TABLE IF NOT EXISTS discord_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+                username TEXT,
+                guild_name TEXT,
+                channel_name TEXT,
+                content TEXT,
+                command TEXT
+            )
+        `);
+
+
+
+
+        this.db.exec(`
             CREATE TABLE IF NOT EXISTS discord_global_state (
                 key TEXT PRIMARY KEY,
                 value TEXT
@@ -442,7 +457,24 @@ export class StreamerStateRepository {
     }
 
 
-    async getDiscordIntegration(guildId: string) {
+    async saveDiscordLog(log: { username: string, guild_name: string, channel_name: string, content: string, command?: string }) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare(
+            'INSERT INTO discord_logs (username, guild_name, channel_name, content, command) VALUES (?, ?, ?, ?, ?)'
+        ).run(log.username, log.guild_name, log.channel_name, log.content, log.command || null);
+
+        // Retention: Keep only last 1000 logs
+        this.db.prepare(`
+            DELETE FROM discord_logs 
+            WHERE id NOT IN (SELECT id FROM discord_logs ORDER BY timestamp DESC LIMIT 1000)
+        `).run();
+    }
+
+    async getDiscordLogs(limit: number = 100) {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.prepare('SELECT * FROM discord_logs ORDER BY timestamp DESC LIMIT ?').all(limit) as any[];
+    }
+
         if (!this.db) throw new Error('Database not initialized');
         const row = this.db.prepare('SELECT * FROM discord_integrations WHERE guild_id = ?').get(guildId);
         return row as any;

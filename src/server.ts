@@ -576,6 +576,16 @@ export class ApiServer {
             }
         });
 
+        this.app.get('/api/admin/discord/logs', async (req, res) => {
+            try {
+                const logs = await this.stateRepo.getDiscordLogs();
+                res.json(logs);
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to fetch Discord logs', details: error.message });
+            }
+        });
+
+
         this.app.get('/api/admin/cron-next', async (req, res) => {
             const { schedule } = req.query;
             if (!schedule) return res.status(400).json({ error: 'Schedule is required' });

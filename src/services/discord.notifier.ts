@@ -2,6 +2,7 @@ import axios from 'axios';
 import { withRetry, LogThrottler } from '../utils/resilience';
 import { getEnvPrefix } from '../utils/env';
 import { DiscordConfig, DISCORD_COOLDOWNS } from './discord/types';
+import { UmamiAnalytics } from './umami.service';
 
 const BOT_RUNNER_URL = process.env.DISCORD_BOT_RUNNER_URL || 'http://localhost:3001';
 
@@ -229,6 +230,7 @@ export class DiscordNotifier {
                             }
                         });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Successfully sent notification for ${streamer.user_name} to channel ${config.channelId}`);
+                        await UmamiAnalytics.trackEvent('Discord Notification Sent', { streamer: streamer.user_name, channelId: config.channelId });
                     },
                     3,
                     1000,
@@ -285,6 +287,7 @@ export class DiscordNotifier {
                             }
                         });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Broadcast successfully sent to channel ${config.channelId}`);
+                        await UmamiAnalytics.trackEvent('Discord Broadcast Sent', { channelId: config.channelId });
                     },
                     3,
                     1000,
