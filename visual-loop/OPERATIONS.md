@@ -20,7 +20,7 @@ The system consists of three primary components:
 
 ### 3. Browserless Connection
 - **CDP Connection**: The agent connects to Browserless via WebSockets using a token.
-- **Viewport**: Set to `1920x1080` to ensure desktop layout consistency and avoid mobile-stacking in screenshots.
+- **Viewport**: Set to `1920x1080` for standard desktop, `1280x1440` for half-1440p productivity layout, `768x1024` for tablet, and `375x667` for mobile to ensure layout consistency across all common usage patterns.
 - **Headers**: Use `ngrok-skip-browser-warning: true` (for ngrok) and `Bypass-Tunnel-Reminder: true` (for LocalTunnel) to avoid interstitial landing pages.
 - **User-Agent**: Use a non-standard User-Agent (e.g., `WashodoWard-VisualLoop-Bot/1.0`) to further ensure bypass of "friendly reminder" pages.
 

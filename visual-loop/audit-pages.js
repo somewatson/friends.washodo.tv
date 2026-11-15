@@ -6,9 +6,10 @@ const axios = require('axios');
 require('dotenv').config({ path: 'visual-loop/.env' });
 
 const CONFIG = {
-  PORT: 3000,
+  PORT: process.env.PORT || 4000,
   VIEWPORTS: [
     { name: 'desktop', width: 1920, height: 1080 },
+    { name: 'productivity', width: 1280, height: 1440 },
     { name: 'tablet', width: 768, height: 1024 },
     { name: 'mobile', width: 375, height: 667 },
   ],
@@ -18,14 +19,13 @@ const CONFIG = {
   },
   TIMEOUTS: {
     TUNNEL: 20000,
-    NAVIGATION: 60000,
-    SELECTOR: 30000,
-    LOGIN_FIELD: 15000
+    NAVIGATION: 30000,
+    SELECTOR: 15000,
+    LOGIN_FIELD: 10000
   },
   MAX_SESSIONS: 10,
   CORE_ROUTES: [
     { name: 'home', path: '/' },
-    { name: 'status', path: '/api/status/all' }, // This is an API but we might want to check it
   ]
 };
 
