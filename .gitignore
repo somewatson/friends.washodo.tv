@@ -3,4 +3,5 @@ dist
 .env
 state.json
 data/
+visual-loop/screenshots/
 *.log
