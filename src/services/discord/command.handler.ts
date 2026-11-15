@@ -4,16 +4,23 @@ export class DiscordCommandHandler {
     constructor(private stateRepo: any, private twitchClient: any) {}
 
     async handleCommand(message: any): Promise<void> {
+        if (message.author.bot) return;
+
         const text = message.content.trim();
+        console.log(`[DiscordCommandHandler] Received message: "${text}" from ${message.author.tag}`);
+
         if (!text) return;
+
+        const botUser = message.client.user;
+        const isBotMentioned = message.mentions.users.has(botUser.id);
+        const startsWithPrefix = text.startsWith('!');
+
+        if (!isBotMentioned && !startsWithPrefix) return;
 
         const parts = text.split(/\\s+/);
         const lowerParts = parts.map((p: string) => p.toLowerCase());
 
         const commandKeywords = ['help', 'status', 'streamers', 'check', 'schedule', 'setup'];
-        const hasTrigger = parts.some((p: string) => p.startsWith('!') || p.startsWith('@'));
-        if (!hasTrigger) return;
-
         let commandIndex = -1;
         let matchedKeyword = '';
 

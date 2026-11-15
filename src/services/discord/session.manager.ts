@@ -58,6 +58,7 @@ export class DiscordSessionManager {
                 });
 
                 client.on('messageCreate', async (message) => {
+                    console.log(`[SessionManager] Event messageCreate fired. Author: ${message.author.tag}, Content: "${message.content}"`);
                     await this.commandHandler.handleCommand(message);
                 });
 
