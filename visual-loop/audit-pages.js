@@ -7,7 +7,11 @@ require('dotenv').config({ path: 'visual-loop/.env' });
 
 const CONFIG = {
   PORT: 3000,
-  VIEWPORT: { width: 1920, height: 1080 },
+  VIEWPORTS: [
+    { name: 'desktop', width: 1920, height: 1080 },
+    { name: 'tablet', width: 768, height: 1024 },
+    { name: 'mobile', width: 375, height: 667 },
+  ],
   USER_AGENT: 'WashodoWard-VisualLoop-Bot/1.0',
   HEADERS: {
     'Bypass-Tunnel-Reminder': 'true',
@@ -53,63 +57,72 @@ async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
     console.log(`🌐 Connecting for ${route.name}...`);
     browser = await chromium.connectOverCDP(wsUrl);
     
-    const context = await browser.newContext({
-      userAgent: CONFIG.USER_AGENT,
-      viewport: CONFIG.VIEWPORT
-    });
-    await context.setExtraHTTPHeaders(CONFIG.HEADERS);
-    
-    const page = await context.newPage();
+    // Iterate through all configured viewports
+    for (const viewport of CONFIG.VIEWPORTS) {
+      console.log(`  📱 Capturing ${viewport.name} (${viewport.width}x${viewport.height})...`);
+      
+      const context = await browser.newContext({
+        userAgent: CONFIG.USER_AGENT,
+        viewport: viewport
+      });
+      await context.setExtraHTTPHeaders(CONFIG.HEADERS);
+      
+      const page = await context.newPage();
 
-    if (route.name.startsWith('warden')) {
-      console.log(`  🔐 Authenticating...`);
-      await page.goto(`${appUrl}/warden-gate`, { waitUntil: 'networkidle', timeout: CONFIG.TIMEOUTS.NAVIGATION });
-      await page.fill('input[name="username"]', process.env.ADMIN_USERNAME || 'admin');
-      await page.fill('input[name="password"]', process.env.ADMIN_PASSWORD || 'password');
-      await Promise.all([
-        page.click('button[type="submit"]'),
-        page.waitForNavigation({ waitUntil: 'networkidle' }),
-      ]);
-    }
+      if (route.name.startsWith('warden')) {
+        console.log(`    🔐 Authenticating...`);
+        await page.goto(`${appUrl}/warden-gate`, { waitUntil: 'networkidle', timeout: CONFIG.TIMEOUTS.NAVIGATION });
+        await page.fill('input[name="username"]', process.env.ADMIN_USERNAME || 'admin');
+        await page.fill('input[name="password"]', process.env.ADMIN_PASSWORD || 'password');
+        await Promise.all([
+          page.click('button[type="submit"]'),
+          page.waitForNavigation({ waitUntil: 'networkidle' }),
+        ]);
+      }
 
-    const fullPath = route.path.startsWith('http') ? route.path : `${appUrl}${route.path}`;
-    console.log(`  📸 Navigating to ${fullPath}...`);
-    await page.goto(fullPath, { waitUntil: 'networkidle', timeout: CONFIG.TIMEOUTS.NAVIGATION });
-    
-    if (route.name.startsWith('warden')) {
-      const isLoaded = await page.evaluate(() => document.body?.getAttribute('data-loaded') === 'true');
-      if (!isLoaded) {
-        await page.waitForSelector('body[data-loaded="true"]', { timeout: CONFIG.TIMEOUTS.SELECTOR });
+      const fullPath = route.path.startsWith('http') ? route.path : `${appUrl}${route.path}`;
+      console.log(`    📸 Navigating to ${fullPath}...`);
+      await page.goto(fullPath, { waitUntil: 'networkidle', timeout: CONFIG.TIMEOUTS.NAVIGATION });
+      
+      if (route.name.startsWith('warden')) {
+        const isLoaded = await page.evaluate(() => document.body?.getAttribute('data-loaded') === 'true');
+        if (!isLoaded) {
+          await page.waitForSelector('body[data-loaded="true"]', { timeout: CONFIG.TIMEOUTS.SELECTOR });
+        }
+        
+        const actualRoute = await page.evaluate(() => document.body?.getAttribute('data-route'));
+        if (actualRoute !== route.name) {
+          throw new Error(`Route mismatch: Expected ${route.name}, but found ${actualRoute || 'none'}. Possible redirect.`);
+        }
+      } else {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      const category = route.name.startsWith('warden') ? 'warden' : 'core';
+      const viewportDir = path.join(sessionDir, category, viewport.name);
+      if (!fs.existsSync(viewportDir)) fs.mkdirSync(viewportDir, { recursive: true });
+
+      const screenshotPath = path.join(viewportDir, `${route.name}.png`);
+      await page.screenshot({ path: screenshotPath });
+      
+      if (mode === 'full') {
+        const htmlPath = path.join(viewportDir, `${route.name}.html`);
+        fs.writeFileSync(htmlPath, await page.content());
+        
+        const metaPath = path.join(viewportDir, `${route.name}.meta.json`);
+        fs.writeFileSync(metaPath, JSON.stringify({
+          expected_route: route.name,
+          actual_route: await page.evaluate(() => document.body?.getAttribute('data-route')),
+          timestamp: new Date().toISOString(),
+          viewport: viewport.name
+        }, null, 2));
       }
       
-      const actualRoute = await page.evaluate(() => document.body?.getAttribute('data-route'));
-      if (actualRoute !== route.name) {
-        throw new Error(`Route mismatch: Expected ${route.name}, but found ${actualRoute || 'none'}. Possible redirect.`);
-      }
-    } else {
-      await new Promise(r => setTimeout(r, 2000));
-    }
-
-    const category = route.name.startsWith('warden') ? 'warden' : 'core';
-    const categoryDir = path.join(sessionDir, category);
-    if (!fs.existsSync(categoryDir)) fs.mkdirSync(categoryDir, { recursive: true });
-
-    const screenshotPath = path.join(categoryDir, `${route.name}.png`);
-    await page.screenshot({ path: screenshotPath });
-    
-    if (mode === 'full') {
-      const htmlPath = path.join(categoryDir, `${route.name}.html`);
-      fs.writeFileSync(htmlPath, await page.content());
-      
-      const metaPath = path.join(categoryDir, `${route.name}.meta.json`);
-      fs.writeFileSync(metaPath, JSON.stringify({
-        expected_route: route.name,
-        actual_route: await page.evaluate(() => document.body?.getAttribute('data-route')),
-        timestamp: new Date().toISOString()
-      }, null, 2));
+      await page.close();
+      await context.close();
     }
     
-    console.log(`  ✅ Saved ${route.name} assets.`);
+    console.log(`  ✅ Saved ${route.name} assets for all viewports.`);
     return true;
   } catch (err) {
     console.error(`  ❌ Failed ${route.name}: ${err.message}`);

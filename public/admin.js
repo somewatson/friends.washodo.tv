@@ -114,17 +114,35 @@ async function renderStreamers(container) {
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="streamers-tbody"></tbody>
                 </table>
             </div>
         </div>
     `;
     try {
         const data = await api('/api/admin/streamers');
-        const tbody = document.querySelector('#streamers-table tbody');
+        const tbody = document.getElementById('streamers-tbody');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="icon">👥</div>
+                            <h3>No Streamers Tracked</h3>
+                            <p>Start by adding community members or friends to track their live status.</p>
+                            <button class="btn-action" onclick="document.getElementById('streamer-user').focus()">Add First Streamer</button>
+                        </div>
+                    </td>
+                </tr>`;
+            return;
+        }
         tbody.innerHTML = data.map(s => `
             <tr class="draggable-row" data-username="${s.username}">
-                <td><a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold;">${s.username} ↗</a></td>
+                <td><a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold; display: flex; align-items: center;">
+                    ${s.profileImage ? `<img src="${s.profileImage}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
+                    ${s.username} ↗
+                </a></td>
                 <td><span class="status-pill pill-${s.category}">${s.category}</span></td>
                 <td>${s.followerCount.toLocaleString()}</td>
                 <td class="col-toggle text-center" onclick="toggleStreamerNotify('${s.username}', !${s.notify_enabled})">
@@ -197,14 +215,29 @@ async function renderDiscord(container) {
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="discord-tbody"></tbody>
                 </table>
             </div>
         </div>
     `;
     try {
         const data = await api('/api/admin/discord');
-        const tbody = document.querySelector('#discord-table tbody');
+        const tbody = document.getElementById('discord-tbody');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="icon">💬</div>
+                            <h3>No Discord Integrations</h3>
+                            <p>Connect your Discord servers to start sending automated live notifications.</p>
+                            <button class="btn-action" onclick="document.getElementById('discord-guild').focus()">Add First Server</button>
+                        </div>
+                    </td>
+                </tr>`;
+            return;
+        }
         tbody.innerHTML = data.map(d => `
             <tr>
                 <td>
@@ -340,14 +373,29 @@ async function renderMattermost(container) {
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="mm-tbody"></tbody>
                 </table>
             </div>
         </div>
     `;
     try {
         const data = await api('/api/admin/mattermost');
-        const tbody = document.querySelector('#mm-table tbody');
+        const tbody = document.getElementById('mm-tbody');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <div class="icon">🏢</div>
+                            <h3>No Mattermost Configs</h3>
+                            <p>Connect your Mattermost servers to start sending formatted community updates.</p>
+                            <button class="btn-action" onclick="document.getElementById('mm-label').focus()">Add First Server</button>
+                        </div>
+                    </td>
+                </tr>`;
+            return;
+        }
         tbody.innerHTML = data.map(m => `
             <tr>
                 <td>
@@ -798,14 +846,29 @@ async function renderBroadcasts(container) {
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="announcements-tbody"></tbody>
                 </table>
             </div>
         </div>
     `;
     try {
         const data = await api('/api/admin/announcements');
-        const tbody = document.querySelector('#announcements-table tbody');
+        const tbody = document.getElementById('announcements-tbody');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="icon">📢</div>
+                            <h3>No Announcements Scheduled</h3>
+                            <p>Create your first broadcast to notify the community about events or updates.</p>
+                            <button class="btn-action" onclick="openAnnouncementModal()">Create First Announcement</button>
+                        </div>
+                    </td>
+                </tr>`;
+            return;
+        }
         tbody.innerHTML = data.map(a => `
             <tr>
                 <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.text}</td>
