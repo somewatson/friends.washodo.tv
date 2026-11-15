@@ -73,7 +73,11 @@ export class ApiServer {
 
     private injectEnvBanner(template: string, route?: string): string {
         const env = process.env.APP_ENV;
-        if (!env || env === 'production') return template;
+        const umamiId = process.env.UMAMI_WEBSITE_ID || 'cf5643bb-9645-4789-b5fd-a03e9944cf75';
+        if (!env || env === 'production') {
+            // Still replace Umami ID even in production
+            return template.replace('UMAMI_WEBSITE_ID_PLACEHOLDER', umamiId);
+        }
 
         const bannerHtml = `
             <div id="env-banner" style="position: fixed; top: 0; left: 0; width: 100%; background: #a970ff; color: white; text-align: center; padding: 5px 0; font-size: 0.75rem; font-weight: bold; z-index: 1000; text-transform: uppercase; letter-spacing: 0.1em; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
@@ -85,6 +89,9 @@ export class ApiServer {
         `;
 
         let processedTemplate = template;
+        
+        // Replace Umami ID placeholder
+        processedTemplate = processedTemplate.replace('UMAMI_WEBSITE_ID_PLACEHOLDER', umamiId);
         
         // Route Handshake: Inject current route into body tag for visual loop verification
         if (route) {
@@ -707,7 +714,7 @@ export class ApiServer {
                 <html>
                 <head>
                     <title>${title}</title>
-                    <script defer src="https://beancounter.somewatson.com/script.js" data-website-id="cf5643bb-9645-4789-b5fd-a03e9944cf75"></script>
+                    <script defer src="https://beancounter.somewatson.com/script.js" data-website-id="${process.env.UMAMI_WEBSITE_ID || 'cf5643bb-9645-4789-b5fd-a03e9944cf75'}"></script>
                     <style>
                         body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
                         .card { background: #2d2d2d; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 500px; width: 90%; }
