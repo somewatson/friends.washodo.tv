@@ -2,7 +2,7 @@ import axios from 'axios';
 
 export class UmamiAnalytics {
     private static websiteId = process.env.UMAMI_WEBSITE_ID || 'cf5643bb-9645-4789-b5fd-a03e9944cf75';
-    private static endpoint = 'https://gateway.umami.is/api/send';
+    private static endpoint = process.env.UMAMI_ENDPOINT || 'https://beancounter.somewatson.com/api/send';
 
     static async trackEvent(eventName: string, eventData: Record<string, any> = {}) {
         try {
