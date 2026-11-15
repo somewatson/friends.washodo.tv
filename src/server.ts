@@ -26,6 +26,16 @@ export class ApiServer {
     private server: any;
     private mainApp: any;
 
+    private WARDEN_ROUTES = {
+        'warden-dashboard': '/warden-access',
+        'warden-streamers': '/warden/streamers',
+        'warden-discord': '/warden/discord',
+        'warden-mattermost': '/warden/mattermost',
+        'warden-broadcasts': '/warden/broadcasts',
+        'warden-system': '/warden/system',
+        'warden-logs': '/warden/logs',
+    };
+
     constructor(stateRepo: StreamerStateRepository, interactiveReceiver?: any, mainApp?: any) {
         this.stateRepo = stateRepo;
         this.mainApp = mainApp;
@@ -45,7 +55,7 @@ export class ApiServer {
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
             // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path.startsWith('/api/streamers') || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/warden/') || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback') || req.path === '/admin.css' || req.path === '/admin.js') {
+            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path.startsWith('/api/streamers') || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/warden/') || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback') || req.path === '/admin.css' || req.path === '/admin.js' || req.path === '/api/visual-loop/routes') {
                 return next();
             }
             
@@ -56,12 +66,12 @@ export class ApiServer {
             }
         });
 
-        // Move static middleware AFTER the root route handler in setupRoutes
-        // We'll actually remove it from here and put it at the end of setupRoutes 
-        // or just after the dynamic routes.
+        this.app.get('/api/visual-loop/routes', (req, res) => {
+            res.json(this.WARDEN_ROUTES);
+        });
     }
 
-    private injectEnvBanner(template: string): string {
+    private injectEnvBanner(template: string, route?: string): string {
         const env = process.env.APP_ENV;
         if (!env || env === 'production') return template;
 
@@ -74,13 +84,22 @@ export class ApiServer {
             </style>
         `;
 
-        if (template.includes('<body style="position: relative;">')) {
-            return template.replace('<body style="position: relative;">', `<body style="position: relative;">${bannerHtml}`);
-        } else if (template.includes('<body>')) {
-            return template.replace('<body>', `<body>${bannerHtml}`);
+        let processedTemplate = template;
+        
+        // Route Handshake: Inject current route into body tag for visual loop verification
+        if (route) {
+            processedTemplate = processedTemplate.replace('<body>', `<body data-loaded="true" data-route="${route}">`);
+        }
+
+        if (processedTemplate.includes('<body style="position: relative;">')) {
+            return processedTemplate.replace('<body style="position: relative;">', `<body style="position: relative;">${bannerHtml}`);
+        } else if (processedTemplate.includes('<body style="position: relative;">')) {
+            return processedTemplate.replace('<body style="position: relative;">', `<body style="position: relative;">${bannerHtml}`);
+        } else if (processedTemplate.includes('<body>')) {
+            return processedTemplate.replace('<body>', `<body>${bannerHtml}`);
         }
         
-        return template;
+        return processedTemplate;
     }
 
     private formatUptime(startTime: string | null): string {
@@ -175,13 +194,17 @@ export class ApiServer {
         });
 
         // Warden Interface
-        this.app.get(['/warden-access', '/warden/streamers', '/warden/discord', '/warden/mattermost', '/warden/broadcasts', '/warden/system', '/warden/logs'], (req, res) => {
+        this.app.get(Object.values(this.WARDEN_ROUTES), (req, res) => {
             const auth = req.cookies['warden_auth'];
             if (!auth) return res.redirect('/warden-gate');
             
             let template = fs.readFileSync(path.join(__dirname, '../public/admin.html'), 'utf8');
             template = template.replace('{{API_KEY}}', this.apiKey || '');
-            res.send(this.injectEnvBanner(template));
+            
+            // Extract route name from path for the handshake
+            const route = Object.entries(this.WARDEN_ROUTES).find(([_, path]) => path === req.path)?.[0] || 'warden-unknown';
+            
+            res.send(this.injectEnvBanner(template, route));
         });
 
         // Admin APIs
