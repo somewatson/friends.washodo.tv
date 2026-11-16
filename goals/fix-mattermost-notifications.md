@@ -1,16 +1,27 @@
 # Goal: Fix Mattermost Live Notifications
 
 ## Problem
-Users are receiving Discord notifications when streamers go live, but Mattermost notifications are not being sent.
+Users are receiving Discord notifications when streamers go live, but Mattermost notifications are not being sent. The "Test" button in the Admin Panel works, indicating that the API credentials and connectivity are correct, but the automated "Live" alerts are missing.
 
-## Analysis
-The `MattermostNotifier` class initializes its server configurations asynchronously in the constructor without being awaited. While the `broadcast` method explicitly calls `initializeServers()` to ensure configurations are loaded, the `notify` method (used for "Live" alerts) does not. This creates a race condition where `notify` may execute while the `servers` list is still empty, leading to skipped notifications.
+## Investigation & Hypothesis
+The `MattermostNotifier.notify` method is responsible for sending live alerts. Potential causes:
+1. **Notification Cooldown/State**: The `stateRepo.shouldNotify` check may be returning `false` incorrectly, preventing the notification from firing.
+2. **Database State**: Streamers might be marked as "notified" in the database, suppressing new alerts.
+3. **Race Conditions**: While `initializeServers()` is called, there might be an issue with how `servers` are loaded or filtered.
+4. **Silent Failures**: Errors during the `axios.post` loop might be suppressed by the `LogThrottler` or caught without sufficient logging.
 
-## Proposed Solution
-1.  **Ensure Initialization in `notify`**: Update `src/services/mattermost.notifier.ts` to call `await this.initializeServers()` at the beginning of the `notify` method.
-2.  **Improve Bootstrap Flow**: Move the server initialization out of the constructor and into an explicit `init()` method that can be awaited during the application bootstrap process in `src/index.ts`, reducing redundant database calls.
+## Action Plan
+1. **Log Audit**: Add temporary verbose logging to `src/services/mattermost.notifier.ts` in the `notify` method to trace:
+    - Whether `initializeServers()` finds servers.
+    - The result of `stateRepo.shouldNotify`.
+    - Whether the code reaches the `axios.post` call.
+2. **State Repository Review**: Examine `src/streamerStateRepository.ts` to see how `shouldNotify` and `recordNotification` are implemented for the 'mattermost' provider.
+3. **Verification**: Trigger a live state for a streamer and monitor logs to find exactly where the process stops.
+4. **Admin Panel Improvements (Debuggability)**:
+    - Implement a "Notification History" log in the database and Admin UI.
+    - Add a "Force Reset Notification State" button for specific streamers in the Admin UI.
 
-## Verification Plan
-1.  **Log Verification**: Check the logs for the warning `[MattermostNotifier] No servers configured in database or MATTERMOST_BOTS` during the first check cycle.
-2.  **Manual Test**: Trigger a "Live" notification state and verify that the Mattermost channel receives the alert.
-3.  **Regression Test**: Verify that "Broadcast" announcements still function correctly.
+## Success Criteria
+- Mattermost notifications are sent immediately when a streamer goes live.
+- Recurring notifications fire according to the configured interval.
+- Admin panel provides visibility into why a notification was or was not sent.

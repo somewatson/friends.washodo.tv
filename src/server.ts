@@ -590,6 +590,17 @@ export class ApiServer {
             }
         });
 
+        this.app.post('/api/admin/streamers/reset-notifications', async (req, res) => {
+            try {
+                const { username } = req.body;
+                if (!username) return res.status(400).json({ error: 'Username is required' });
+                await this.stateRepo.clearNotificationsForStreamer(username);
+                res.json({ success: true, message: `Cleared notification state for ${username}` });
+            } catch (error: any) {
+                res.status(500).json({ error: 'Failed to reset notifications', details: error.message });
+            }
+        });
+
         this.app.get('/api/admin/discord/logs', async (req, res) => {
             try {
                 const logs = await this.stateRepo.getDiscordLogs();

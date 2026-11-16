@@ -138,9 +138,7 @@ class WashodoWardApp {
                     
                     // For "Live" notifications, we check if ANY announcement is enabled for the platform
                     // because the assembler already filters for is_active and date range.
-                    if (assembled.mattermost) {
-                        notifications.push(mattermostNotifier.notify(streamData, isRecurring, assembled.mattermost));
-                    }
+                    notifications.push(mattermostNotifier.notify(streamData, isRecurring, assembled.mattermost || ''));
                     
                     // FIX: Call notify even if assembled.discord is empty. 
                     // The notifier handles the primary "Live" embed, and uses the assembled text as additional info.

@@ -95,7 +95,9 @@ export class StreamerStateRepository {
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
                 type TEXT,
                 message TEXT,
-                level TEXT DEFAULT 'INFO'
+                level TEXT DEFAULT 'INFO',
+                platform TEXT,
+                target_id TEXT
             )
         `);
 
@@ -399,11 +401,11 @@ export class StreamerStateRepository {
         this.db.prepare('INSERT INTO discord_global_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(`${key}_timestamp`, timestamp);
     }
 
-    async saveLog(type: string, message: string, level: string = 'INFO') {
+    async saveLog(type: string, message: string, level: string = 'INFO', platform?: string, targetId?: string) {
         if (!this.db) throw new Error('Database not initialized');
         this.db.prepare(
-            'INSERT INTO application_logs (type, message, level) VALUES (?, ?, ?)'
-        ).run(type, message, level);
+            'INSERT INTO application_logs (type, message, level, platform, target_id) VALUES (?, ?, ?, ?, ?)'
+        ).run(type, message, level, platform || null, targetId || null);
     }
 
     async getLogs(type?: string, limit: number = 1000) {
@@ -412,6 +414,11 @@ export class StreamerStateRepository {
             return this.db.prepare('SELECT * FROM application_logs WHERE type = ? ORDER BY timestamp DESC LIMIT ?').all(type, limit) as any[];
         }
         return this.db.prepare('SELECT * FROM application_logs ORDER BY timestamp DESC LIMIT ?').all(limit) as any[];
+    }
+
+    async clearNotificationsForStreamer(username: string) {
+        if (!this.db) throw new Error('Database not initialized');
+        this.db.prepare('DELETE FROM notification_log WHERE username = ?').run(username.toLowerCase());
     }
 
     async saveDiscordSession(token: string, session: { sessionId: string, userSequence: number, shardId: number, shardCount: number, resumeURL: string }) {
@@ -496,17 +503,26 @@ export class StreamerStateRepository {
 
     async shouldNotify(username: string, platform: string, targetId: string, intervalMinutes: number): Promise<boolean> {
         if (!this.db) throw new Error('Database not initialized');
+        
+        const lowerUser = username.toLowerCase();
         const row = this.db.prepare(
             'SELECT sent_at FROM notification_log WHERE username = ? AND platform = ? AND target_id = ?'
-        ).get(username.toLowerCase(), platform, targetId) as { sent_at: string } | undefined;
+        ).get(lowerUser, platform, targetId) as { sent_at: string } | undefined;
 
-        if (!row) return true;
+        if (!row) {
+            console.log(`[NotificationCheck] No previous notification found for ${lowerUser} on ${platform} (${targetId}). Allowing notification.`);
+            return true;
+        }
 
         const sentAt = new Date(row.sent_at).getTime();
         const now = Date.now();
         const diffMinutes = (now - sentAt) / (1000 * 60);
 
-        return diffMinutes >= intervalMinutes;
+        const result = diffMinutes >= intervalMinutes;
+        
+        console.log(`[NotificationCheck] ${platform} cooldown for ${lowerUser} (${targetId}): ${diffMinutes.toFixed(2)}m elapsed, required: ${intervalMinutes}m. Result: ${result ? 'ALLOW' : 'SKIP'}`);
+        
+        return result;
     }
 
     async recordNotification(username: string, platform: string, targetId: string) {

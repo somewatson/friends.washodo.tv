@@ -52,12 +52,13 @@ export class MattermostNotifier {
     }).filter((s): s is ServerConfig => s !== null);
   }
 
-  async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
-    await this.initializeServers();
-    if (this.servers.length === 0) {
-      console.warn('[MattermostNotifier] No servers configured in database or MATTERMOST_BOTS');
-      return;
-    }
+    async notify(streamer: any, isRecurring: boolean = false, scheduleText: string = ''): Promise<void> {
+      await this.initializeServers();
+      console.log(`[MattermostNotifier] notify called for ${streamer.user_name}. Servers found: ${this.servers.length}`);
+      if (this.servers.length === 0) {
+        console.warn('[MattermostNotifier] No servers configured in database or MATTERMOST_BOTS');
+        return;
+      }
 
     const statusText = isRecurring ? 'is STILL LIVE!' : 'is now LIVE!';
     const prefix = isRecurring ? '🔔 *Reminder:* ' : '';
@@ -81,10 +82,11 @@ export class MattermostNotifier {
           server.channelId, 
           cooldown
         );
+        console.log(`[MattermostNotifier] shouldNotify for ${streamer.user_login} on channel ${server.channelId}: ${shouldNotify}`);
 
         if (!shouldNotify) continue;
 
-        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title || 'No title provided'}\nLink: https://twitch.tv/${streamer.user_login}`;
+        const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title || 'No title provided'}\nLink: https://twitch.tv/${streamer.user_login}${scheduleText ? `\n\n${scheduleText}` : ''}`;
 
         await withRetry(
           () => axios.post(`${server.serverUrl}/api/v4/posts`, {
@@ -98,12 +100,14 @@ export class MattermostNotifier {
           1000,
           (err, attempt) => console.log(`[MattermostNotifier] Retry ${attempt} for ${server.serverUrl} due to: ${err.message}`)
         );
+        await this.stateRepo.saveLog('MATTERMOST_NOTIFY', `Successfully notified ${streamer.user_name} on ${server.label || server.serverUrl}`, 'INFO', 'mattermost', server.channelId);
 
         await this.stateRepo.recordNotification(streamer.user_login, 'mattermost', server.channelId);
       } catch (error: any) {
         const logKey = `mattermost_error_${server.serverUrl}`;
         if (LogThrottler.shouldLog(logKey)) {
           console.error(`[MattermostNotifier] Persistent failure for ${server.serverUrl}:`, error.response?.data || error.message);
+          await this.stateRepo.saveLog('MATTERMOST_NOTIFY', `Failed to notify ${streamer.user_name}: ${error.response?.data || error.message}`, 'ERROR', 'mattermost', server.channelId);
         }
       }
     }
