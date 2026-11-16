@@ -39,6 +39,8 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
   - **Proactive Rate Limiting**: Before making requests to external APIs (especially Discord), check for known rate-limit state in the database. If a rate limit is active, skip the request and return a fallback/cached value instead of triggering further API errors.
 - **Observability & I/O**:
   - **Avoid log storms**: Do not log every single failure in tight loops. Implement throttled, deduplicated, or summarized logging to prevent disk I/O spikes that can trigger filesystem read-only locks.
+  - **Anti-Silent-Failure**: Every `if` condition that results in a `return` or `continue` (especially in the notification pipeline) must be logged at the `DEBUG` or `INFO` level. This ensures that "skipped" actions are traceable.
+  - **Log Formatting**: Use structured prefixes: `[COMPONENT] Message | Context: { key: value }`. Example: `[DiscordNotifier] Skipping inactive config for channel 12345`.
 - **Notifications**: 
   - **Environment Tagging**: All outgoing notifications (Discord, Mattermost, etc.) **must** be prefixed with the current environment if it is not `production` (e.g., `[STAGING]`, `[DEV]`). This prevents confusion between test and live notifications.
   - **Broadcasts vs Live Alerts**: "Broadcast messages" (scheduled global announcements) are a distinct concept from "Live Streamer announcements" (triggered by Twitch status). The broadcast preview should only display global broadcast messages.

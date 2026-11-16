@@ -197,7 +197,10 @@ export class DiscordNotifier {
             : '';
 
         for (const config of this.configs) {
-            if (!config.isActive) continue;
+            if (!config.isActive) {
+                console.log(`[DiscordNotifier] Skipping inactive config for channel ${config.channelId}`);
+                continue;
+            }
             try {
                 const cooldown = isRecurring
                     ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180'))
@@ -210,7 +213,10 @@ export class DiscordNotifier {
                     cooldown
                 );
 
-                if (!shouldNotify) continue;
+                    if (!shouldNotify) {
+                        console.log(`[DiscordNotifier] Cooldown active for ${streamer.user_login} on channel ${config.channelId}; skipping.`);
+                        continue;
+                    }
 
                 if (await this.isRateLimited()) {
                     console.warn(`[DiscordNotifier] Skipping notification for ${config.channelId} due to global rate limit.`);

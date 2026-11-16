@@ -42,7 +42,10 @@ class WashodoWardApp {
     private async executeBroadcast(ann: any, mattermostNotifier: MattermostNotifier, discordNotifier: DiscordNotifier, twitchChatClient: TwitchChatClient) {
         try {
             const assembled = await AnnouncementAssembler.assemble([ann], 0);
-            if (!assembled.discord && !assembled.mattermost && !assembled.twitch) return;
+            if (!assembled.discord && !assembled.mattermost && !assembled.twitch) {
+                console.log(`[Broadcast] Announcement ${ann.id} has no content for any enabled platform; skipping execution.`);
+                return;
+            }
 
             const notifications = [];
             if (assembled.mattermost && ann.mattermost_enabled) {
@@ -74,7 +77,10 @@ class WashodoWardApp {
             for (const ann of announcements) {
                 // Ensure we check both is_active AND that at least one platform is enabled
                 const hasTarget = ann.discord_enabled || ann.mattermost_enabled || ann.twitch_enabled;
-                if (!ann.is_active || !ann.cron_schedule || !hasTarget) continue;
+                if (!ann.is_active || !ann.cron_schedule || !hasTarget) {
+                    console.log(`[Broadcast] Skipping schedule for announcement ${ann.id}: active=${ann.is_active}, hasSchedule=${!!ann.cron_schedule}, hasTarget=${hasTarget}`);
+                    continue;
+                }
 
                     try {
                         const job = cron.schedule(ann.cron_schedule, () => {
@@ -150,6 +156,8 @@ class WashodoWardApp {
 
                     await Promise.allSettled(notifications);
 
+                } else if (currentlyLive && !entity.notify_enabled) {
+                    console.log(`[CHECK] Streamer ${username} is live, but notifications are disabled.`);
                 } else if (!currentlyLive && previouslyLive) {
                     console.log(`Streamer ${username} went offline.`);
                     await stateManager.setLastNotificationTime(username, null);

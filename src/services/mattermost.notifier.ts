@@ -70,7 +70,10 @@ export class MattermostNotifier {
 
     // Process servers sequentially to avoid unbounded concurrency and DB pressure
     for (const server of this.servers) {
-      if (!server.isActive) continue;
+      if (!server.isActive) {
+        console.log(`[MattermostNotifier] Skipping inactive server ${server.label || server.serverUrl}`);
+        continue;
+      }
       try {
         const cooldown = isRecurring 
           ? (parseInt(process.env.RECURRING_NOTIFICATION_MINUTES || '180')) 
@@ -84,7 +87,10 @@ export class MattermostNotifier {
         );
         console.log(`[MattermostNotifier] shouldNotify for ${streamer.user_login} on channel ${server.channelId}: ${shouldNotify}`);
 
-        if (!shouldNotify) continue;
+        if (!shouldNotify) {
+          console.log(`[MattermostNotifier] Cooldown active for ${streamer.user_login} on ${server.label || server.serverUrl}; skipping.`);
+          continue;
+        }
 
         const message = `${envPrefix}${prefix}🔴 **${streamer.user_name}** ${statusText}\n${thumbnail ? `![Stream Thumbnail](${thumbnail})\n` : ''}Title: ${streamer.title || 'No title provided'}\nLink: https://twitch.tv/${streamer.user_login}${scheduleText ? `\n\n${scheduleText}` : ''}`;
 

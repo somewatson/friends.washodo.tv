@@ -95,11 +95,21 @@ export class StreamerStateRepository {
                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
                 type TEXT,
                 message TEXT,
-                level TEXT DEFAULT 'INFO',
-                platform TEXT,
-                target_id TEXT
+                level TEXT DEFAULT 'INFO'
             )
         `);
+
+        const logColumns = this.db.prepare('PRAGMA table_info(application_logs)').all() as any[];
+        const logColumnNames = logColumns.map(col => col.name);
+
+        if (!logColumnNames.includes('platform')) {
+            console.log('[StreamerStateRepository] Migrating: Adding platform column to application_logs...');
+            this.db.exec('ALTER TABLE application_logs ADD COLUMN platform TEXT');
+        }
+        if (!logColumnNames.includes('target_id')) {
+            console.log('[StreamerStateRepository] Migrating: Adding target_id column to application_logs...');
+            this.db.exec('ALTER TABLE application_logs ADD COLUMN target_id TEXT');
+        }
 
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS discord_sessions (

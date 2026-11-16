@@ -394,6 +394,7 @@ export class ApiServer {
             
             const query = q as string;
             if (query.length < 3) {
+                console.log(`[Admin API] Twitch search query too short (${query.length} chars); skipping API call.`);
                 return res.json([]);
             }
 
@@ -590,14 +591,39 @@ export class ApiServer {
             }
         });
 
-        this.app.post('/api/admin/streamers/reset-notifications', async (req, res) => {
+        this.app.post('/api/admin/streamers/force-notify', async (req, res) => {
             try {
                 const { username } = req.body;
                 if (!username) return res.status(400).json({ error: 'Username is required' });
+
+                // 1. Check if the streamer is actually live
+                const liveStreams = await this.twitch.getLiveStreamers([username]);
+                const streamData = liveStreams.find((s: any) => s.user_login.toLowerCase() === username.toLowerCase());
+
+                if (!streamData) {
+                    return res.status(400).json({ error: `Streamer ${username} is not currently live. Cannot force notification.` });
+                }
+
+                // 2. Reset cooldowns for this streamer
                 await this.stateRepo.clearNotificationsForStreamer(username);
-                res.json({ success: true, message: `Cleared notification state for ${username}` });
+
+                // 3. Trigger immediate notifications
+                if (this.mainApp) {
+                    const app = this.mainApp as any;
+                    const notifications = [];
+                    
+                    // Force Mattermost
+                    notifications.push(app.mattermostNotifier.notify(streamData, false));
+                    
+                    // Force Discord
+                    notifications.push(app.discordNotifier.notify(streamData, false));
+                    
+                    await Promise.allSettled(notifications);
+                }
+
+                res.json({ success: true, message: `Force notifications sent for ${username}` });
             } catch (error: any) {
-                res.status(500).json({ error: 'Failed to reset notifications', details: error.message });
+                res.status(500).json({ error: 'Failed to force notification', details: error.message });
             }
         });
 
@@ -802,7 +828,10 @@ export class ApiServer {
                 let authorizedGuild = null;
                 for (const g of guilds) {
                     const hasManageGuild = (g.permissions & 0x20) === 0x20;
-                    if (!hasManageGuild) continue;
+                    if (!hasManageGuild) {
+                        console.log(`[Discord OAuth] User lacks MANAGE_GUILD permission for guild ${g.id}; skipping.`);
+                        continue;
+                    }
                     
                     try {
                         const discordNotifier = (this.mainApp as any).discordNotifier;

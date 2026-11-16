@@ -68,6 +68,7 @@ export class TwitchClient {
   async getUsers(usernames: string[]): Promise<any[]> {
     const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
     if (filteredUsernames.length === 0) {
+      console.log('[TwitchClient] No usernames provided for request; returning empty result.');
       return [];
     }
     try {
@@ -86,6 +87,7 @@ export class TwitchClient {
   async getLiveStreamers(usernames: string[]): Promise<any[]> {
     const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
     if (filteredUsernames.length === 0) {
+      console.log('[TwitchClient] No usernames provided for request; returning empty result.');
       return [];
     }
     try {
@@ -96,10 +98,14 @@ export class TwitchClient {
       });
       
       const streams = streamData.data;
-      if (!streams || streams.length === 0) return [];
+      if (!streams || streams.length === 0) {
+        console.log('[TwitchClient] No live streams found for the requested users.');
+        return [];
+      }
 
       const userIds = streams.map((s: any) => s.user_id).filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
       if (userIds.length === 0) {
+        console.warn('[TwitchClient] Streams found but no valid user IDs could be extracted.');
         return [];
       }
 
@@ -131,7 +137,10 @@ export class TwitchClient {
   }
 
   async searchUsers(query: string): Promise<any[]> {
-    if (!query) return [];
+    if (!query) {
+      console.log('[TwitchClient] No query provided for search; returning empty result.');
+      return [];
+    }
     try {
       const data = await this.request('https://api.twitch.tv/helix/search/channels', {
         params: {
