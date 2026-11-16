@@ -68,7 +68,9 @@ export class TwitchClient {
   async getUsers(usernames: string[]): Promise<any[]> {
     const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
     if (filteredUsernames.length === 0) {
-      console.log('[TwitchClient] No usernames provided for request; returning empty result.');
+      if (process.env.DEBUG === 'true') {
+        console.log('[TwitchClient] No usernames provided for request; returning empty result.');
+      }
       return [];
     }
     try {
@@ -87,7 +89,9 @@ export class TwitchClient {
   async getLiveStreamers(usernames: string[]): Promise<any[]> {
     const filteredUsernames = (usernames || []).filter(u => u && typeof u === 'string' && u.trim() !== '');
     if (filteredUsernames.length === 0) {
-      console.log('[TwitchClient] No usernames provided for request; returning empty result.');
+      if (process.env.DEBUG === 'true') {
+        console.log('[TwitchClient] No usernames provided for request; returning empty result.');
+      }
       return [];
     }
     try {
@@ -99,7 +103,9 @@ export class TwitchClient {
       
       const streams = streamData.data;
       if (!streams || streams.length === 0) {
-        console.log('[TwitchClient] No live streams found for the requested users.');
+        if (process.env.DEBUG === 'true') {
+          console.log('[TwitchClient] No live streams found for the requested users.');
+        }
         return [];
       }
 
@@ -138,7 +144,9 @@ export class TwitchClient {
 
   async searchUsers(query: string): Promise<any[]> {
     if (!query) {
-      console.log('[TwitchClient] No query provided for search; returning empty result.');
+      if (process.env.DEBUG === 'true') {
+        console.log('[TwitchClient] No query provided for search; returning empty result.');
+      }
       return [];
     }
     try {

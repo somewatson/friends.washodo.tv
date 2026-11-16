@@ -198,7 +198,9 @@ export class DiscordNotifier {
 
         for (const config of this.configs) {
             if (!config.isActive) {
-                console.log(`[DiscordNotifier] Skipping inactive config for channel ${config.channelId}`);
+                if (process.env.DEBUG === 'true') {
+                    console.log(`[DiscordNotifier] Skipping inactive config for channel ${config.channelId}`);
+                }
                 continue;
             }
             try {
@@ -214,7 +216,9 @@ export class DiscordNotifier {
                 );
 
                     if (!shouldNotify) {
-                        console.log(`[DiscordNotifier] Cooldown active for ${streamer.user_login} on channel ${config.channelId}; skipping.`);
+                        if (process.env.DEBUG === 'true') {
+                            console.log(`[DiscordNotifier] Cooldown active for ${streamer.user_login} on channel ${config.channelId}; skipping.`);
+                        }
                         continue;
                     }
 

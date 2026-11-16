@@ -43,7 +43,9 @@ class WashodoWardApp {
         try {
             const assembled = await AnnouncementAssembler.assemble([ann], 0);
             if (!assembled.discord && !assembled.mattermost && !assembled.twitch) {
-                console.log(`[Broadcast] Announcement ${ann.id} has no content for any enabled platform; skipping execution.`);
+                if (process.env.DEBUG === 'true') {
+                    console.log(`[Broadcast] Announcement ${ann.id} has no content for any enabled platform; skipping execution.`);
+                }
                 return;
             }
 
@@ -78,7 +80,9 @@ class WashodoWardApp {
                 // Ensure we check both is_active AND that at least one platform is enabled
                 const hasTarget = ann.discord_enabled || ann.mattermost_enabled || ann.twitch_enabled;
                 if (!ann.is_active || !ann.cron_schedule || !hasTarget) {
-                    console.log(`[Broadcast] Skipping schedule for announcement ${ann.id}: active=${ann.is_active}, hasSchedule=${!!ann.cron_schedule}, hasTarget=${hasTarget}`);
+                    if (process.env.DEBUG === 'true') {
+                        console.log(`[Broadcast] Skipping schedule for announcement ${ann.id}: active=${ann.is_active}, hasSchedule=${!!ann.cron_schedule}, hasTarget=${hasTarget}`);
+                    }
                     continue;
                 }
 
@@ -157,7 +161,9 @@ class WashodoWardApp {
                     await Promise.allSettled(notifications);
 
                 } else if (currentlyLive && !entity.notify_enabled) {
-                    console.log(`[CHECK] Streamer ${username} is live, but notifications are disabled.`);
+                    if (process.env.DEBUG === 'true') {
+                        console.log(`[CHECK] Streamer ${username} is live, but notifications are disabled.`);
+                    }
                 } else if (!currentlyLive && previouslyLive) {
                     console.log(`Streamer ${username} went offline.`);
                     await stateManager.setLastNotificationTime(username, null);

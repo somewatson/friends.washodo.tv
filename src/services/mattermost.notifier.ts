@@ -71,7 +71,9 @@ export class MattermostNotifier {
     // Process servers sequentially to avoid unbounded concurrency and DB pressure
     for (const server of this.servers) {
       if (!server.isActive) {
-        console.log(`[MattermostNotifier] Skipping inactive server ${server.label || server.serverUrl}`);
+        if (process.env.DEBUG === 'true') {
+          console.log(`[MattermostNotifier] Skipping inactive server ${server.label || server.serverUrl}`);
+        }
         continue;
       }
       try {
@@ -88,7 +90,9 @@ export class MattermostNotifier {
         console.log(`[MattermostNotifier] shouldNotify for ${streamer.user_login} on channel ${server.channelId}: ${shouldNotify}`);
 
         if (!shouldNotify) {
-          console.log(`[MattermostNotifier] Cooldown active for ${streamer.user_login} on ${server.label || server.serverUrl}; skipping.`);
+          if (process.env.DEBUG === 'true') {
+            console.log(`[MattermostNotifier] Cooldown active for ${streamer.user_login} on ${server.label || server.serverUrl}; skipping.`);
+          }
           continue;
         }
 
