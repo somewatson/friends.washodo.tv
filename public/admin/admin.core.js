@@ -101,3 +101,16 @@ function setTheme(theme) {
     document.documentElement.dataset.theme = theme;
     notify(`Theme switched to ${theme}`);
 }
+
+window.addEventListener('popstate', handlePageLoad);
+window.onload = handlePageLoad;
+
+document.addEventListener('click', e => {
+    // Close streamer search results if clicking outside the search area
+    const searchInput = document.getElementById('streamer-user');
+    const searchResults = document.getElementById('search-results');
+    if (searchInput && searchResults && !searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        searchResults.style.display = 'none';
+    }
+});
+
