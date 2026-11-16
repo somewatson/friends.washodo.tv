@@ -161,20 +161,10 @@ async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
   
   console.log(`🚀 Starting Visual Audit [Mode: ${mode}] [Label: ${label}]...`);
   
-  let ltProcess;
-  try {
-    const ltProcessSpawn = spawn('lt', ['--port', CONFIG.PORT.toString()]);
-    ltProcess = ltProcessSpawn;
-    
-    const appUrl = await new Promise((resolve, reject) => {
-      ltProcessSpawn.stdout.on('data', (data) => {
-        const match = data.toString().match(/https?:\/\/[^\s]+\.loca\.lt/);
-        if (match) resolve(match[0]);
-      });
-      setTimeout(() => reject(new Error('LT Timeout')), CONFIG.TIMEOUTS.TUNNEL);
-    });
-    console.log(`✅ Tunnel Live: ${appUrl}`);
+  const appUrl = `http://localhost:${CONFIG.PORT}`;
+  console.log(`✅ Using Local URL: ${appUrl}`);
 
+  try {
     // 1. Housekeeping
     const baseScreenshotDir = 'visual-loop/screenshots';
     if (!fs.existsSync(baseScreenshotDir)) fs.mkdirSync(baseScreenshotDir, { recursive: true });
@@ -249,7 +239,6 @@ async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
   } catch (error) {
     console.error('\n🛑 Critical Error:', error);
   } finally {
-    if (ltProcess) ltProcess.kill();
     process.exit();
   }
 })();
