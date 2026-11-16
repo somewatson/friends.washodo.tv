@@ -50,9 +50,9 @@ async function renderBroadcasts(container) {
         tbody.innerHTML = data.map(a => `
             <tr>
                 <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.text}</td>
-                <td class="col-toggle text-center" onclick="toggleAnnouncement(${a.id}, !${a.is_active})">
+                <td class="col-toggle text-center">
                     <label class="switch">
-                        <input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
+                        <input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="toggleAnnouncement(${a.id}, this.checked)">
                         <span class="slider"></span>
                     </label>
                 </td>

@@ -62,9 +62,9 @@ async function renderDiscord(container) {
                 <td>${d.channel_id}</td>
                 <td class="text-center">${d.memberCount ? d.memberCount.toLocaleString() : '0'}</td>
                 <td>${d.owner_id || 'System'}</td>
-                <td class="col-toggle text-center" onclick="toggleDiscord('${d.guild_id}', !${d.is_active})">
+                <td class="col-toggle text-center">
                     <label class="switch">
-                        <input type="checkbox" ${d.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
+                        <input type="checkbox" ${d.is_active ? 'checked' : ''} onchange="toggleDiscord('${d.guild_id}', this.checked)">
                         <span class="slider"></span>
                     </label>
                 </td>
@@ -259,9 +259,9 @@ async function renderMattermost(container) {
                 </td>
                 <td>${m.server_url}</td>
                 <td>${m.channel_id}</td>
-                <td class="col-toggle text-center" onclick="toggleMattermost(${m.id}, !${m.is_active})">
+                <td class="col-toggle text-center">
                     <label class="switch">
-                        <input type="checkbox" ${m.is_active ? 'checked' : ''} onchange="event.stopPropagation()">
+                        <input type="checkbox" ${m.is_active ? 'checked' : ''} onchange="toggleMattermost(${m.id}, this.checked)">
                         <span class="slider"></span>
                     </label>
                 </td>

@@ -54,15 +54,15 @@ async function renderStreamers(container) {
                 </a></td>
                 <td><span class="status-pill pill-category" style="--pill-color: var(--vibe-${s.category === 'streamer' ? 'partner' : s.category})">${s.category}</span></td>
                 <td>${s.followerCount.toLocaleString()}</td>
-                <td class="col-toggle text-center" onclick="toggleStreamerNotify('${s.username}', !${s.notify_enabled})">
+                <td class="col-toggle text-center">
                     <label class="switch">
-                        <input type="checkbox" ${s.notify_enabled ? 'checked' : ''} onchange="event.stopPropagation()">
+                        <input type="checkbox" ${s.notify_enabled ? 'checked' : ''} onchange="toggleStreamerNotify('${s.username}', this.checked)">
                         <span class="slider"></span>
                     </label>
                 </td>
-                <td class="col-toggle text-center" onclick="toggleStreamerShow('${s.username}', !${s.show_on_page})">
+                <td class="col-toggle text-center">
                     <label class="switch">
-                        <input type="checkbox" ${s.show_on_page ? 'checked' : ''} onchange="event.stopPropagation()">
+                        <input type="checkbox" ${s.show_on_page ? 'checked' : ''} onchange="toggleStreamerShow('${s.username}', this.checked)">
                         <span class="slider"></span>
                     </label>
                 </td>
