@@ -51,7 +51,7 @@ Compact guide for OpenCode agents to avoid common pitfalls and ramp up quickly i
 
 - **Route Authentication & Browser Access**:
   - **API Routes**: Most `/api/*` routes require the `X-API-KEY` header for authentication.
-  - **Browser Routes**: Routes intended to be accessed directly via a browser (e.g., `/`, `/warden-gate`, `/warden/*`, `/discord-setup`) must be added to the bypass list in the API Key Middleware in `src/server.ts`. Otherwise, the server will return a `401 Unauthorized` error because browsers do not send the required `X-API-KEY` header.
+  - **Browser Routes**: Routes intended to be accessed directly via a browser (e.g., `/`, `/warden-gate`, `/warden/*`, `/discord-setup`) must be added to the bypass list in the API Key Middleware in `src/server.ts`. To maintain readability and avoid errors, use the "Allow-List" pattern: define separate arrays for exact matches (`PUBLIC_ROUTES`) and prefix matches (`PUBLIC_PREFIXES`) rather than a single long boolean expression. Otherwise, the server will return a `401 Unauthorized` error because browsers do not send the required `X-API-KEY` header.
   - **Warden Auth**: The `/warden/*` panel uses a separate cookie-based authentication flow (`warden_auth`) which is checked *after* the API Key bypass.
   - **Catch-all Routes (Express 5)**: Due to breaking changes in `path-to-regexp` v8 (used by Express 5), unnamed wildcards like `*` or `(.*)` in route strings cause `PathError`. For catch-all routes (e.g., the Warden SPA), use a native JavaScript Regular Expression object directly in the route definition: `app.get(/^\/warden\/.*/, ...)` instead of a string.
 

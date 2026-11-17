@@ -54,8 +54,34 @@ export class ApiServer {
         // API Key Authentication Middleware
         this.app.use((req, res, next) => {
             const providedKey = req.header('X-API-KEY');
-            // Bypass auth for the root page and its status API requests
-            if (req.path === '/' || req.path === '/mattermost/webhook' || req.path === '/api/discord/invite' || req.path === '/discord-setup' || req.path.startsWith('/status/') || req.path.startsWith('/api/status/') || req.path.startsWith('/api/streamers') || req.path.startsWith('/api/thumbnail/') || req.path === '/warden-gate' || req.path.startsWith('/warden/') || req.path === '/warden-access' || req.path === '/api/admin/login' || req.path.startsWith('/api/discord/callback') || req.path === '/admin.css' || req.path === '/admin.js' || req.path.startsWith('/admin.') || req.path.startsWith('/admin/') || req.path === '/favicon.ico' || req.path === '/api/visual-loop/routes' || req.path.startsWith('/api/admin')) {
+            
+            const PUBLIC_ROUTES = [
+                '/',
+                '/favicon.ico',
+                '/warden-gate',
+                '/warden-access',
+                '/api/admin/login',
+                '/api/visual-loop/routes',
+                '/discord-setup',
+                '/mattermost/webhook',
+                '/api/discord/invite',
+            ];
+
+            const PUBLIC_PREFIXES = [
+                '/status/',
+                '/api/status/',
+                '/api/streamers',
+                '/api/thumbnail/',
+                '/warden/',
+                '/api/discord/callback',
+                '/admin',
+                '/api/admin',
+            ];
+
+            const isPublic = PUBLIC_ROUTES.includes(req.path) || 
+                             PUBLIC_PREFIXES.some(prefix => req.path.startsWith(prefix));
+
+            if (isPublic) {
                 return next();
             }
             
