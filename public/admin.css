@@ -322,6 +322,26 @@
             border: 2px solid var(--accent-color);
             box-shadow: 0 0 8px rgba(var(--accent-rgb, 169, 112, 255), 0.3);
             object-fit: cover;
+            display: inline-block;
+        }
+
+        .guild-icon-placeholder {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 12px;
+            background: linear-gradient(135deg, #222 0%, #111 100%);
+            border: 2px solid var(--accent-color);
+            box-shadow: 0 0 8px rgba(var(--accent-rgb, 169, 112, 255), 0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            box-sizing: border-box;
         }
         
         /* Responsive Table Wrapper */

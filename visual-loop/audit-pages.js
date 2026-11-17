@@ -3,6 +3,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+require('dotenv').config();
 require('dotenv').config({ path: 'visual-loop/.env' });
 
 const CONFIG = {
@@ -48,6 +49,10 @@ async function cleanupOldSessions(baseDir) {
 
 async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
   const rawUrl = process.env.BROWSERLESS_URL || '';
+  if (!rawUrl) {
+    console.error('❌ BROWSERLESS_URL is not defined in .env');
+    return false;
+  }
   const wsUrlBase = `${rawUrl.replace(/^https?:\/\//, 'wss://')}?token=${process.env.BROWSERLESS_TOKEN}`;
   const launchArgs = Buffer.from(JSON.stringify({ args: ['--window-size=1920,1080'] })).toString('base64');
   const wsUrl = `${wsUrlBase}&launch=${launchArgs}`;
@@ -161,10 +166,20 @@ async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
   
   console.log(`🚀 Starting Visual Audit [Mode: ${mode}] [Label: ${label}]...`);
   
-  const appUrl = `http://localhost:${CONFIG.PORT}`;
-  console.log(`✅ Using Local URL: ${appUrl}`);
-
+  let ltProcess;
   try {
+    const ltProcessSpawn = spawn('lt', ['--port', CONFIG.PORT.toString()]);
+    ltProcess = ltProcessSpawn;
+    
+    const appUrl = await new Promise((resolve, reject) => {
+      ltProcessSpawn.stdout.on('data', (data) => {
+        const match = data.toString().match(/https?:\/\/[^\s]+\.loca\.lt/);
+        if (match) resolve(match[0]);
+      });
+      setTimeout(() => reject(new Error('LT Timeout')), CONFIG.TIMEOUTS.TUNNEL);
+    });
+    console.log(`✅ Tunnel Live: ${appUrl}`);
+
     // 1. Housekeeping
     const baseScreenshotDir = 'visual-loop/screenshots';
     if (!fs.existsSync(baseScreenshotDir)) fs.mkdirSync(baseScreenshotDir, { recursive: true });
@@ -191,7 +206,7 @@ async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
     console.log(`------------------------------------------`);
     console.log(`Route Name           | Path`);
     console.log(`------------------------------------------`);
-    routes.forEach(r => console.log(`${r.name.padEnd(20)} | ${r.path}`));
+    routes.forEach(r => console.log(`${r.name.padEnd(0)} | ${r.path}`));
     console.log(`------------------------------------------`);
 
     // 3. Session Setup
@@ -218,7 +233,6 @@ async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
       const latestDir = path.join(baseScreenshotDir, 'latest');
       if (fs.existsSync(latestDir)) fs.rmSync(latestDir, { recursive: true, force: true });
       
-      // Simple copy instead of symlink for portability
       const copyDir = (src, dest) => {
         fs.mkdirSync(dest, { recursive: true });
         fs.readdirSync(src).forEach(file => {
@@ -239,6 +253,7 @@ async function captureRoute(appUrl, route, sessionDir, mode = 'full') {
   } catch (error) {
     console.error('\n🛑 Critical Error:', error);
   } finally {
+    if (ltProcess) ltProcess.kill();
     process.exit();
   }
 })();

@@ -49,7 +49,7 @@ async function renderStreamers(container) {
         tbody.innerHTML = data.map(s => `
             <tr class="draggable-row" data-username="${s.username}">
                 <td><a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold; display: flex; align-items: center;">
-                    ${s.profileImage ? `<img src="${s.profileImage}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
+                    ${s.profileImage ? `<img src="${s.profileImage}" class="guild-icon" alt="">` : `<div class="guild-icon-placeholder">${s.username?.charAt(0).toUpperCase() || '?'}</div>`}
                     ${s.username} ↗
                 </a></td>
                 <td><span class="status-pill pill-category" style="--pill-color: var(--vibe-${s.category === 'streamer' ? 'partner' : s.category})">${s.category}</span></td>

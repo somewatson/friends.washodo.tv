@@ -56,7 +56,7 @@ async function renderDiscord(container) {
         tbody.innerHTML = data.map(d => `
             <tr>
                 <td>
-                    ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon" style="display:inline-block"></div>`}
+                    ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon-placeholder">${d.name?.charAt(0).toUpperCase() || '?'}</div>`}
                     <strong>${d.serverName || d.guildName || 'Unknown Server'}</strong><br><small style="color: #888">${d.guild_id}</small>
                 </td>
                 <td>${d.channel_id}</td>

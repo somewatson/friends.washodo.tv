@@ -1,0 +1,42 @@
+# Example Docker Compose for Visual Feedback Loop
+# This configuration ensures Browserless and Ngrok work together to allow 
+# remote browser automation of the local application.
+
+version: '3.8'
+
+services:
+  # The Browserless instance providing the Chromium engine
+  browserless:
+    image: ghcr.io/browserless/chromium
+    ports:
+      - "3500:3000"
+    environment:
+      - TOKEN=${BROWSERLESS_TOKEN}
+      - CONCURRENT=10
+      - QUEUED=10
+      - TIMEOUT=30000
+      # EXTERNAL is critical: it tells Browserless its public address 
+      # so it doesn't send 'localhost' or '0.0.0.0' back to Playwright clients.
+      - EXTERNAL=${BROWSERLESS_PUBLIC_URL}
+    shm_size: "2g"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/pressure?token=${BROWSERLESS_TOKEN}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # The Ngrok tunnel that exposes Browserless to the internet
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    # Point ngrok to the browserless service on its internal container port (3000)
+    command: "http browserless:3000 --log=stdout"
+    depends_on:
+      browserless:
+        condition: service_healthy
+
+# Note: The Main Application is assumed to be running on the host machine 
+# (port 4000) and exposed via LocalTunnel (localtunnel --port 4000).

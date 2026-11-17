@@ -4,9 +4,15 @@ This guide outlines the exact sequence of steps required to start the local envi
 
 ## 🏗 Architecture Overview
 The system consists of three primary components:
-1.  **Main Application** (`port 3000`): The API and Frontend.
+1.  **Main Application** (`port 4000`): The API and Frontend.
 2.  **Discord Bot Runner** (`port 3001`): Decoupled process for Discord Gateway connections.
-3.  **Visual Tunnel**: `localtunnel` (LT) exposing port 3000 to a public URL for the Browserless instance.
+3.  **Visual Tunnel**: `localtunnel` (LT) exposing port 4000 to a public URL for the Browserless instance.
+
+**CRITICAL: Browserless Networking**
+The Browserless instance runs in a separate Docker container. Because of this, it cannot access the application via `localhost`. **Always use the public LocalTunnel URL** when instructing Browserless to navigate to the application. Using `localhost` or `127.0.0.1` will result in `net::ERR_CONNECTION_REFUSED` as the browser will look inside its own container rather than the host machine.
+
+**Browserless Identity (The 0.0.0.0 Bug)**
+To prevent Browserless from redirecting Playwright clients to internal container addresses (e.g., `ws://0.0.0.0:3000`), the `WORKSPACE_URL` environment variable must be set to the public ngrok URL of the Browserless instance in the `docker-compose.yml`. This ensures the discovery response points to the public tunnel.
 
 ## ⚠️ Critical Constraints & Limits
 
@@ -20,7 +26,8 @@ The system consists of three primary components:
 
 ### 3. Browserless Connection
 - **CDP Connection**: The agent connects to Browserless via WebSockets using a token.
-- **Viewport**: Set to `1920x1080` for standard desktop, `1280x1440` for half-1440p productivity layout, `768x1024` for tablet, and `375x667` for mobile to ensure layout consistency across all common usage patterns.
+- **Viewport**: Set to `1920x1080` for standard desktop, `1280x1440` for half-1440p productivity layout, `768x1024` for tablet, and `375x667` for mobile.
+- **Window Sizing**: When using remote Browserless instances, `browser.newContext({ viewport })` is often insufficient. Use `page.context().newCDPSession(page)` and send `Emulation.setDeviceMetricsOverride` to force the actual browser window size to match the viewport, preventing clipping or "square" screenshots.
 - **Headers**: Use `ngrok-skip-browser-warning: true` (for ngrok) and `Bypass-Tunnel-Reminder: true` (for LocalTunnel) to avoid interstitial landing pages.
 - **User-Agent**: Use a non-standard User-Agent (e.g., `WashodoWard-VisualLoop-Bot/1.0`) to further ensure bypass of "friendly reminder" pages.
 
@@ -48,9 +55,31 @@ node visual-loop/audit-pages.js
 - **Cause**: LocalTunnel servers are occasionally unstable or the local process on port 3000 has crashed/restarted.
 - **Fix**: Restart the `npm run dev` process and try the audit again.
 
+### 📡 Browserless Operational Modes
+Browserless provides two distinct ways to interact with the browser:
+
+1. **WebSocket / CDP (BaaS)**:
+   - **How it works**: Establishes a persistent connection to a live browser instance.
+   - **Use Case**: Complex multi-step workflows (e.g., logging in $\rightarrow$ navigating $\rightarrow$ clicking $\rightarrow$ capturing).
+   - **Tooling**: Used by Playwright/Puppeteer via `connectOverCDP`.
+   - **Connectivity**: The root URL (`/`) will return a 404 because the service is an API/WebSocket gateway, not a website.
+
+2. **REST APIs**:
+   - **How it works**: Stateless HTTP POST requests for single tasks.
+   - **Use Case**: Simple screenshots, PDF generation, or HTML scraping of a single URL.
+   - **Endpoints**: `/screenshot`, `/content`, `/pdf`, `/scrape`.
+   - **Pros**: No browser infrastructure management; faster for single actions.
+   - **Cons**: No session persistence (cookies/auth are lost between calls).
+
+### "Browserless Connection Failure"
+- **Cause**: The Browserless instance is offline or the ngrok tunnel has expired (e.g. `ERR_NGROK_3200`).
+- **Fix**: Update the `BROWSERLESS_URL` in `visual-loop/.env`. If the agent reports a connection failure, it should stop the current goal and notify the user immediately to avoid wasting API limits on retries.
+
+
 ### "Timeout waiting for selector"
-- **Cause**: The browser is stuck on the LT landing page or a "Bad Gateway" page.
+- **Cause**: The browser is stuck on the LT landing page, a "Bad Gateway" page, or is experiencing an authentication failure (e.g., JS files returning 401).
 - **Fix**: Check `visual-loop/screenshots/debug-gate-content.html` to see the raw HTML the browser is receiving.
+- **Best Practice**: When navigating to specific admin pages, prefer **UI-based navigation** (clicking navigation buttons) over direct `page.goto()` calls to ensure application state and session cookies are correctly handled.
 
 ### "Port 3000 already in use"
 - **Cause**: Orphaned node processes from previous crashes.
