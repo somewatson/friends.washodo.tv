@@ -225,6 +225,11 @@ async function createBrowser(browserlessUrl, token) {
             const htmlPath = path.join(dir, htmlName);
 
             await page.screenshot({ path: filePath, fullPage: true });
+            
+            // Also capture the actual viewport to verify sticky/fixed elements
+            const viewportPath = filePath.replace('.png', '-viewport.png');
+            await page.screenshot({ path: viewportPath, fullPage: false });
+            
             fs.writeFileSync(htmlPath, await page.content());
             
             // Mirror to latest folder
@@ -232,6 +237,7 @@ async function createBrowser(browserlessUrl, token) {
             if (!fs.existsSync(latestDir)) fs.mkdirSync(latestDir, { recursive: true });
             fs.copyFileSync(filePath, path.join(latestDir, fileName));
             fs.copyFileSync(htmlPath, path.join(latestDir, htmlName));
+            fs.copyFileSync(viewportPath, path.join(latestDir, fileName.replace('.png', '-viewport.png')));
 
             console.log(`✅ Saved ${route.name} [${vp.name}].`);
             success = true;

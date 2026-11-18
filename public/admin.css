@@ -49,6 +49,7 @@ body {
     height: 100vh;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 100;
+    box-sizing: border-box;
 }
 
 .sidebar.collapsed {
@@ -155,6 +156,11 @@ body {
     border-top: 1px solid #222;
     text-align: center;
     overflow: hidden;
+    margin-top: auto;
+}
+
+.sidebar.collapsed .sidebar-footer {
+    width: var(--sidebar-collapsed-width);
 }
 
 .btn-home {
@@ -194,20 +200,17 @@ body {
 
 /* Main Content Area */
 .main-content {
-    margin-left: var(--sidebar-width);
     flex: 1;
     padding: 60px 40px;
     display: flex;
     flex-direction: column;
     align-items: center;
     box-sizing: border-box;
-    width: calc(100% - var(--sidebar-width));
     transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .main-content.expanded {
-    margin-left: var(--sidebar-collapsed-width);
-    width: calc(100% - var(--sidebar-collapsed-width));
+    width: 100%;
 }
 
 .container {
@@ -226,6 +229,10 @@ body {
 @media (width <= 768px) {
     .sidebar {
         width: var(--sidebar-collapsed-width);
+    }
+    
+    .sidebar-footer {
+        padding: 16px 8px;
     }
 
     .sidebar:not(.collapsed) {
@@ -252,6 +259,8 @@ body {
         padding: 10px 0;
         justify-content: center;
         min-width: 44px;
+        width: auto;
+        margin: 0 auto;
     }
 
     .sidebar-footer .btn-home::before {
@@ -472,6 +481,13 @@ body {
     text-align: center !important;
 }
 
+.table-responsive th.text-center, 
+.table-responsive td.text-center {
+    text-align: center !important;
+    display: table-cell;
+    vertical-align: middle;
+}
+
 .col-toggle { 
     width: 80px; 
     text-align: center; 
@@ -492,6 +508,8 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr auto;
     align-items: end;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .input-wrapper {
