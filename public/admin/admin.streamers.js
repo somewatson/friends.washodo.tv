@@ -1,40 +1,49 @@
 async function renderStreamers(container) {
     container.innerHTML = `
-        <div class="card">
-            <div class="form-group streamers-form">
-                <div class="input-wrapper">
-                    <input type="text" id="streamer-user" placeholder="Username" oninput="handleUserSearch(this.value)">
-                    <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 200px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; z-index: 1000; display: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></div>
-                </div>
-                <div class="input-wrapper">
-                    <select id="streamer-cat">
-                        <option value="member">Member</option>
-                        <option value="friend">Friend</option>
-                        <option value="streamer">Other Streamer</option>
-                    </select>
-                </div>
-                <button class="btn-primary" onclick="addStreamer()">Add / Update</button>
-            </div>
-            <div class="table-responsive">
-                <table id="streamers-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Category</th>
-                            <th>Followers</th>
-                            <th class="text-center">Notify</th>
-                            <th class="text-center">Show</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="streamers-tbody"></tbody>
-                </table>
-            </div>
-            <div id="streamers-mobile-list" class="mobile-streamers-list" style="display: none;"></div>
+        <div class="card loading-container">
+            <div class="loading-spinner"></div>
+            <p>Fetching streamers...</p>
         </div>
     `;
+
     try {
         const data = await api('/api/admin/streamers');
+        
+        container.innerHTML = `
+            <div class="card">
+                <div class="form-group streamers-form">
+                    <div class="input-wrapper">
+                        <input type="text" id="streamer-user" placeholder="Username" oninput="handleUserSearch(this.value)">
+                        <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 200px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; z-index: 1000; display: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></div>
+                    </div>
+                    <div class="input-wrapper">
+                        <select id="streamer-cat">
+                            <option value="member">Member</option>
+                            <option value="friend">Friend</option>
+                            <option value="streamer">Other Streamer</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="addStreamer()">Add / Update</button>
+                </div>
+                <div class="table-responsive">
+                    <table id="streamers-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Category</th>
+                                <th>Followers</th>
+                                <th class="text-center">Notify</th>
+                                <th class="text-center">Show</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="streamers-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="streamers-mobile-list" class="mobile-streamers-list" style="display: none;"></div>
+            </div>
+        `;
+
         const tbody = document.getElementById('streamers-tbody');
         if (!tbody) return;
         if (data.length === 0) {
