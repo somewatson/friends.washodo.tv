@@ -33,6 +33,7 @@ async function renderDiscord(container) {
                     <tbody id="discord-tbody"></tbody>
                 </table>
             </div>
+            <div id="discord-mobile-list" class="mobile-streamers-list" style="display: none;"></div>
         </div>
     `;
     try {
@@ -75,6 +76,44 @@ async function renderDiscord(container) {
                 </td>
             </tr>
         `).join('');
+
+        // Render mobile cards
+        const mobileList = document.getElementById('discord-mobile-list');
+        if (mobileList) {
+            mobileList.innerHTML = data.map(d => `
+                <div class="streamer-card">
+                    <div class="card-header">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            ${d.serverIcon ? `<img src="${d.serverIcon}" class="guild-icon" alt="">` : `<div class="guild-icon-placeholder">${d.name?.charAt(0).toUpperCase() || '?'}</div>`}
+                            <div style="display: flex; flex-direction: column;">
+                                <strong style="color: white;">${d.serverName || d.guildName || 'Unknown Server'}</strong>
+                                <span style="font-size: 0.8em; color: #888;">${d.guild_id}</span>
+                            </div>
+                        </div>
+                        <span class="status-pill pill-category" style="--pill-color: ${d.is_active ? 'var(--success-color)' : 'var(--danger-color)'}">${d.is_active ? 'Active' : 'Inactive'}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-toggle-row">
+                            <label class="toggle-item">
+                                <span class="toggle-label">Channel ID</span>
+                                <span style="font-size: 0.85em; color: #ccc;">${d.channel_id}</span>
+                            </label>
+                            <label class="toggle-item">
+                                <span class="toggle-label">Status</span>
+                                <label class="switch">
+                                    <input type="checkbox" ${d.is_active ? 'checked' : ''} onchange="toggleDiscord('${d.guild_id}', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-success" onclick="testDiscord('${d.guild_id}')">Test</button>
+                            <button class="btn-danger" onclick="removeDiscord('${d.guild_id}')">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
     } catch (e) {
         notify('Error loading Discord: ' + e.message, 'error');
     }
@@ -230,6 +269,7 @@ async function renderMattermost(container) {
                     <tbody id="mm-tbody"></tbody>
                 </table>
             </div>
+            <div id="mm-mobile-list" class="mobile-streamers-list" style="display: none;"></div>
         </div>
     `;
     try {
@@ -271,6 +311,44 @@ async function renderMattermost(container) {
                 </td>
             </tr>
         `).join('');
+
+        // Render mobile cards
+        const mobileList = document.getElementById('mm-mobile-list');
+        if (mobileList) {
+            mobileList.innerHTML = data.map(m => `
+                <div class="streamer-card">
+                    <div class="card-header">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="guild-icon-placeholder">🏢</div>
+                            <div style="display: flex; flex-direction: column;">
+                                <strong style="color: white;">${m.label}</strong>
+                                <span style="font-size: 0.8em; color: #888;">${m.server_url}</span>
+                            </div>
+                        </div>
+                        <span class="status-pill pill-category" style="--pill-color: ${m.is_active ? 'var(--success-color)' : 'var(--danger-color)'}">${m.is_active ? 'Active' : 'Inactive'}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-toggle-row">
+                            <label class="toggle-item">
+                                <span class="toggle-label">Channel ID</span>
+                                <span style="font-size: 0.85em; color: #ccc;">${m.channel_id}</span>
+                            </label>
+                            <label class="toggle-item">
+                                <span class="toggle-label">Status</span>
+                                <label class="switch">
+                                    <input type="checkbox" ${m.is_active ? 'checked' : ''} onchange="toggleMattermost(${m.id}, this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-success" onclick="testMattermost(${m.id})">Test</button>
+                            <button class="btn-danger" onclick="removeMattermost(${m.id})">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
     } catch (e) {
         notify('Error loading Mattermost: ' + e.message, 'error');
     }

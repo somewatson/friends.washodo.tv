@@ -27,6 +27,7 @@ async function renderBroadcasts(container) {
                     <tbody id="announcements-tbody"></tbody>
                 </table>
             </div>
+            <div id="broadcasts-mobile-list" class="mobile-streamers-list" style="display: none;"></div>
         </div>
     `;
     try {
@@ -75,6 +76,45 @@ async function renderBroadcasts(container) {
                 </td>
             </tr>
         `).join('');
+
+        // Render mobile cards
+        const mobileList = document.getElementById('broadcasts-mobile-list');
+        if (mobileList) {
+            mobileList.innerHTML = data.map(a => `
+                <div class="streamer-card">
+                    <div class="card-header">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="guild-icon-placeholder">📢</div>
+                            <div style="display: flex; flex-direction: column;">
+                                <strong style="color: white;">Announcement</strong>
+                                <span style="font-size: 0.8em; color: #888;">${a.cron_schedule || 'Manual'}</span>
+                            </div>
+                        </div>
+                        <span class="status-pill pill-category" style="--pill-color: ${a.is_active ? 'var(--success-color)' : 'var(--danger-color)'}">${a.is_active ? 'Active' : 'Inactive'}</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="margin-bottom: 12px; font-size: 0.9rem; color: #ccc;">${a.text}</div>
+                        <div class="card-toggle-row">
+                            <label class="toggle-item">
+                                <span class="toggle-label">Status</span>
+                                <label class="switch">
+                                    <input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="toggleAnnouncement(${a.id}, this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                            <label class="toggle-item">
+                                <span class="toggle-label">Next Run</span>
+                                <span style="font-size: 0.85em; color: #ccc;">${a.next_run ? new Date(a.next_run).toLocaleDateString() : '—'}</span>
+                            </label>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-primary" onclick="openAnnouncementModal(${a.id})">Edit</button>
+                            <button class="btn-danger" onclick="deleteAnnouncement(${a.id})">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
     } catch (e) {
         notify('Error loading announcements: ' + e.message, 'error');
     }

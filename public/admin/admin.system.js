@@ -24,9 +24,10 @@ async function renderLogs(container) {
                             <th>Message</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="logs-tbody"></tbody>
                 </table>
             </div>
+            <div id="logs-mobile-list" class="mobile-streamers-list" style="display: none;"></div>
         </div>
     `;
     refreshLogs();
@@ -93,17 +94,19 @@ async function refreshDiscordLogs() {
 async function refreshLogs() {
     const type = document.getElementById('log-type-filter')?.value || '';
     const tbody = document.querySelector('#logs-table tbody');
+    const mobileList = document.getElementById('logs-mobile-list');
     if (!tbody) return;
 
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading logs...</td></tr>';
+    if (mobileList) mobileList.innerHTML = '<div style="text-align:center; padding: 20px;">Loading logs...</div>';
 
     try {
         const logs = await api(`/api/admin/logs${type ? '?type=' + encodeURIComponent(type) : ''}`);
         if (logs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No logs found.</td></tr>';
+            if (mobileList) mobileList.innerHTML = '<div style="text-align:center; padding: 20px;">No logs found.</div>';
             return;
         }
-
         tbody.innerHTML = logs.map(l => `
             <tr>
                 <td style="font-family: monospace; font-size: 0.85em;">${l.timestamp ? new Date(l.timestamp).toLocaleString() : 'Unknown'}</td>
@@ -112,9 +115,30 @@ async function refreshLogs() {
                 <td style="font-family: monospace; white-space: pre-wrap;">${l.message}</td>
             </tr>
         `).join('');
+
+        if (mobileList) {
+            mobileList.innerHTML = logs.map(l => `
+                <div class="streamer-card">
+                    <div class="card-header">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="guild-icon-placeholder">${l.type.charAt(0).toUpperCase()}</div>
+                            <div style="display: flex; flex-direction: column;">
+                                <strong style="color: white;">${l.type}</strong>
+                                <span style="font-size: 0.8em; color: #888;">${l.timestamp ? new Date(l.timestamp).toLocaleString() : 'Unknown'}</span>
+                            </div>
+                        </div>
+                        <span class="status-pill pill-category" style="--pill-color: ${l.level === 'ERROR' ? 'var(--danger-color)' : l.level === 'WARN' ? '#fbbf24' : 'var(--success-color)'}">${l.level}</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="margin-bottom: 8px; font-size: 0.9rem; color: #ddd; font-family: monospace; white-space: pre-wrap;">${l.message}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
     } catch (e) {
         notify('Error loading logs: ' + e.message, 'error');
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: red;">Failed to load logs.</td></tr>';
+        if (mobileList) mobileList.innerHTML = '<div style="text-align:center; padding: 20px; color: red;">Failed to load logs.</div>';
     }
 }
 
@@ -151,19 +175,31 @@ async function importDb() {
 async function renderSystem(container) {
     container.innerHTML = `
         <div class="card">
-            <h3>Database Maintenance</h3>
-            <p style="color: #888; margin-bottom: 20px;">Export or import the application state. Be careful when importing.</p>
-            <div class="form-group">
-                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
-                    <button class="btn-primary" onclick="exportDb()">📤 Export Database</button>
-                    <span style="color: #888; font-size: 0.9em;">Saves all tracked streamers and configs to a JSON file.</span>
+            <h3 style="margin-bottom: 8px;">Database Maintenance</h3>
+            <p style="color: #888; margin-bottom: 24px;">Export or import the application state. Be careful when importing.</p>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <!-- Export Section -->
+                <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 15px;">
+                    <div style="font-size: 2.5em; margin-bottom: 10px;">📤</div>
+                    <h4 style="margin: 0;">Export State</h4>
+                    <p style="color: #aaa; font-size: 0.9em; margin: 0 0 15px 0;">Saves all tracked streamers and configurations to a portable JSON file.</p>
+                    <button class="btn-primary" style="width: 100%;" onclick="exportDb()">Export Database</button>
                 </div>
-                <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="file" id="import-file" accept=".json" style="color: white;">
-                    <button class="btn-danger" onclick="importDb()">📥 Import Database</button>
+
+                <!-- Import Section -->
+                <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 15px;">
+                    <div style="font-size: 2.5em; margin-bottom: 10px;">📥</div>
+                    <h4 style="margin: 0;">Restore State</h4>
+                    <p style="color: #aaa; font-size: 0.9em; margin: 0 0 15px 0;">Restore the application state from a JSON file. <span style="color: var(--danger-color);">This will overwrite current data.</span></p>
+                    <div style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
+                        <label for="import-file" style="cursor: pointer; padding: 8px; background: #333; border: 1px dashed #666; border-radius: 4px; font-size: 0.8em; color: #ccc; text-align: center;">
+                            Choose JSON File
+                            <input type="file" id="import-file" accept=".json" style="display: none;">
+                        </label>
+                        <button class="btn-danger" style="width: 100%;" onclick="importDb()">Import Database</button>
+                    </div>
                 </div>
-                <p style="color: #aaa; font-size: 0.8em; margin-top: 10px;">Warning: Importing will overwrite current state.</p>
             </div>
         </div>
     `;

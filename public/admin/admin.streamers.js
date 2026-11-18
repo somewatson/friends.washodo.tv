@@ -1,14 +1,18 @@
 async function renderStreamers(container) {
     container.innerHTML = `
         <div class="card">
-            <div class="form-group" style="position: relative;">
-                <input type="text" id="streamer-user" placeholder="Username" oninput="handleUserSearch(this.value)">
-                <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 200px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; z-index: 1000; display: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></div>
-                <select id="streamer-cat">
-                    <option value="member">Member</option>
-                    <option value="friend">Friend</option>
-                    <option value="streamer">Other Streamer</option>
-                </select>
+            <div class="form-group streamers-form">
+                <div class="input-wrapper">
+                    <input type="text" id="streamer-user" placeholder="Username" oninput="handleUserSearch(this.value)">
+                    <div id="search-results" style="position: absolute; top: 100%; left: 0; width: 200px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; z-index: 1000; display: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></div>
+                </div>
+                <div class="input-wrapper">
+                    <select id="streamer-cat">
+                        <option value="member">Member</option>
+                        <option value="friend">Friend</option>
+                        <option value="streamer">Other Streamer</option>
+                    </select>
+                </div>
                 <button class="btn-primary" onclick="addStreamer()">Add / Update</button>
             </div>
             <div class="table-responsive">
@@ -18,14 +22,15 @@ async function renderStreamers(container) {
                             <th>Username</th>
                             <th>Category</th>
                             <th>Followers</th>
-                            <th>Notify</th>
-                            <th>Show</th>
+                            <th class="text-center">Notify</th>
+                            <th class="text-center">Show</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="streamers-tbody"></tbody>
                 </table>
             </div>
+            <div id="streamers-mobile-list" class="mobile-streamers-list" style="display: none;"></div>
         </div>
     `;
     try {
@@ -46,10 +51,12 @@ async function renderStreamers(container) {
                 </tr>`;
             return;
         }
-        tbody.innerHTML = data.map(s => `
+        tbody.innerHTML = data.map(s => {
+            const profilePic = s.profileImage || s.profile_image_url;
+            return `
             <tr class="draggable-row" data-username="${s.username}">
-                <td><a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold; display: flex; align-items: center;">
-                    ${s.profileImage ? `<img src="${s.profileImage}" class="guild-icon" alt="">` : `<div class="guild-icon-placeholder">${s.username?.charAt(0).toUpperCase() || '?'}</div>`}
+                <td><a href="${s.profileUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 12px;">
+                    ${profilePic ? `<img src="${profilePic}" class="guild-icon" alt="">` : `<div class="guild-icon-placeholder" style="--pill-color: var(--vibe-${s.category === 'streamer' ? 'partner' : s.category})">${s.username?.charAt(0).toUpperCase() || '?'}</div>`}
                     ${s.username} ↗
                 </a></td>
                 <td><span class="status-pill pill-category" style="--pill-color: var(--vibe-${s.category === 'streamer' ? 'partner' : s.category})">${s.category}</span></td>
@@ -66,12 +73,56 @@ async function renderStreamers(container) {
                         <span class="slider"></span>
                     </label>
                 </td>
-                <td>
+                <td class="text-center">
                     <button class="btn-success" onclick="forceNotify('${s.username}')" title="Force Notify Live">⚡</button>
                     <button class="btn-danger" onclick="removeStreamer('${s.username}')">Remove</button>
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
+
+        // Render mobile cards
+        const mobileList = document.getElementById('streamers-mobile-list');
+        if (mobileList) {
+            mobileList.innerHTML = data.map(s => {
+                const profilePic = s.profileImage || s.profile_image_url;
+                return `
+                <div class="streamer-card">
+                    <div class="card-header">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            ${profilePic ? `<img src="${profilePic}" class="guild-icon" alt="">` : `<div class="guild-icon-placeholder" style="--pill-color: var(--vibe-${s.category === 'streamer' ? 'partner' : s.category})">${s.username?.charAt(0).toUpperCase() || '?'}</div>`}
+                            <div style="display: flex; flex-direction: column;">
+                                <strong style="color: white;">${s.username}</strong>
+                                <span style="font-size: 0.8em; color: #888;">${s.followerCount.toLocaleString()} followers</span>
+                            </div>
+                        </div>
+                        <span class="status-pill pill-category" style="--pill-color: var(--vibe-${s.category === 'streamer' ? 'partner' : s.category})">${s.category}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-toggle-row">
+                            <label class="toggle-item">
+                                <span class="toggle-label">Notifications</span>
+                                <label class="switch">
+                                    <input type="checkbox" ${s.notify_enabled ? 'checked' : ''} onchange="toggleStreamerNotify('${s.username}', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                            <label class="toggle-item">
+                                <span class="toggle-label">Visibility</span>
+                                <label class="switch">
+                                    <input type="checkbox" ${s.show_on_page ? 'checked' : ''} onchange="toggleStreamerShow('${s.username}', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-success" onclick="forceNotify('${s.username}')">⚡ Force Notify</button>
+                            <button class="btn-danger" onclick="removeStreamer('${s.username}')">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        }
         
         new Sortable(tbody, {
             animation: 150,

@@ -264,16 +264,19 @@ export class ApiServer {
         this.app.get('/api/admin/streamers', async (req, res) => {
             try {
                 const streamers = await this.stateRepo.getStreamers();
+                const usernames = streamers.map(s => s.username);
+                
+                // Bulk fetch user data from Twitch
+                const twitchUsers = await this.twitch.getUsers(usernames);
+                const userMap = new Map(twitchUsers.map(u => [u.login.toLowerCase(), u]));
                 
                 const hydratedStreamers = await Promise.all(streamers.map(async (s) => {
                     try {
-                        const users = await this.twitch.getUsers([s.username]);
-                        const user = users[0];
+                        const user = userMap.get(s.username.toLowerCase());
                         
-                        // Get follower count - we need to check if getFollowerCount exists in ApiServer
-                        // Looking at the provided file content it wasn't visible, let me check.
                         let followerCount = 0;
                         if (user) {
+                            // Follower counts must be fetched individually as there is no bulk endpoint
                             const followers = await axios.get('https://api.twitch.tv/helix/channels/followers', {
                                 params: { broadcaster_id: user.id },
                                 headers: {
@@ -283,15 +286,16 @@ export class ApiServer {
                             });
                             followerCount = followers.data.total;
                         }
-
-                            return {
-                                ...s,
-                                followerCount,
-                                profileUrl: user ? `https://twitch.tv/${user.login}` : `https://twitch.tv/${s.username}`
-                            };
+                        
+                        return {
+                            ...s,
+                            followerCount,
+                            profileImage: user?.profile_image_url || null,
+                            profileUrl: user ? `https://twitch.tv/${user.login}` : `https://twitch.tv/${s.username}`
+                        };
                     } catch (e) {
                         console.error(`[Admin API] Failed to hydrate streamer ${s.username}:`, e);
-                        return { ...s, followerCount: 0, profileUrl: `https://twitch.tv/${s.username}` };
+                        return { ...s, followerCount: 0, profileImage: null, profileUrl: `https://twitch.tv/${s.username}` };
                     }
                 }));
                 
