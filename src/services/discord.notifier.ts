@@ -235,7 +235,7 @@ export class DiscordNotifier {
                             embed: {
                                 color: 0xFF0000,
                                 title: `${getEnvPrefix()}${streamer.user_name} ${statusText}`,
-                                description: `**Title:** ${streamer.title || 'No title provided'}\\n**Link:** https://twitch.tv/${streamer.user_login}`,
+                                description: `**Title:** ${streamer.title || 'No title provided'}\n**Link:** https://twitch.tv/${streamer.user_login}`,
                                 thumbnail: thumbnail || null
                             }
                         });
