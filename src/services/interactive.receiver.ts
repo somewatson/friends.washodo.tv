@@ -87,7 +87,8 @@ export class InteractiveReceiver {
       
       // Log the chat event and track in Umami
       await Logger.info('MATTERMOST_CHAT', `Message from ${user_name} on ${serverConfig.serverUrl}: ${text}`);
-      await UmamiAnalytics.trackEvent('Mattermost Chat', { user: user_name, server: serverConfig.serverUrl });
+      UmamiAnalytics.trackEvent('Mattermost Chat', { user: user_name, server: serverConfig.serverUrl })
+        .catch(err => console.error(`[Umami] Tracking failed for ${user_name}: ${err.message}`));
 
       try {
         await this.handleCommand(text, channel_id, serverConfig, root_id);

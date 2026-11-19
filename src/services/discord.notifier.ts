@@ -240,12 +240,14 @@ export class DiscordNotifier {
                             }
                         });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Successfully sent notification for ${streamer.user_name} to channel ${config.channelId}`);
-                        await UmamiAnalytics.trackEvent('Discord Notification Sent', { streamer: streamer.user_name, channelId: config.channelId });
                     },
                     3,
                     1000,
                     (err, attempt) => console.log(`[DiscordNotifier] Retry ${attempt} for ${config.channelId} due to: ${err.message}`)
                 );
+
+                UmamiAnalytics.trackEvent('Discord Notification Sent', { streamer: streamer.user_name, channelId: config.channelId })
+                    .catch(err => console.error(`[Umami] Tracking failed for ${streamer.user_name}: ${err.message}`));
 
                 await this.stateRepo.recordNotification(streamer.user_login, 'discord', config.channelId);
 
@@ -297,12 +299,14 @@ export class DiscordNotifier {
                             }
                         });
                         console.log(`${getEnvPrefix()}[DiscordNotifier] Broadcast successfully sent to channel ${config.channelId}`);
-                        await UmamiAnalytics.trackEvent('Discord Broadcast Sent', { channelId: config.channelId });
                     },
                     3,
                     1000,
                     (err, attempt) => console.log(`[DiscordNotifier] Broadcast retry ${attempt} for ${config.channelId}: ${err.message}`)
                 );
+
+                UmamiAnalytics.trackEvent('Discord Broadcast Sent', { channelId: config.channelId })
+                    .catch(err => console.error(`[Umami] Broadcast tracking failed for ${config.channelId}: ${err.message}`));
             } catch (error: any) {
                 console.error(`[DiscordNotifier] Broadcast failed for ${config.channelId}:`, error);
             }

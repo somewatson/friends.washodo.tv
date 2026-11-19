@@ -14,12 +14,12 @@ export class DiscordCommandHandler {
             if (!text) return;
 
             // Track Discord interaction in Umami
-            await UmamiAnalytics.trackEvent('Discord Chat', {
+            UmamiAnalytics.trackEvent('Discord Chat', {
                 user: message.author.tag,
                 guild: message.guild?.name || 'DM',
                 channel: message.channel?.name || 'DM',
                 content: text.length > 100 ? text.slice(0, 97) + '...' : text
-            });
+            }).catch(err => console.error(`[Umami] Discord chat tracking failed: ${err.message}`));
 
             // Log Discord interaction to Database
             await this.stateRepo.saveDiscordLog({
